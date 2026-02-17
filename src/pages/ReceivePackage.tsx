@@ -59,11 +59,17 @@ export default function ReceivePackage() {
   }, []);
 
   const fetchResidents = useCallback(async (): Promise<Resident[]> => {
-    const { data } = await supabase
+    let query = supabase
       .from('residents')
       .select('*')
       .eq('is_active', true)
       .order('full_name');
+    
+    if (condominium?.id) {
+      query = query.eq('condominium_id', condominium.id);
+    }
+
+    const { data } = await query;
     
     if (data) {
       const residentsData = data as Resident[];
@@ -71,7 +77,7 @@ export default function ReceivePackage() {
       return residentsData;
     }
     return [];
-  }, []);
+  }, [condominium?.id]);
 
   const stopCamera = useCallback(() => {
     if (streamRef.current) {
