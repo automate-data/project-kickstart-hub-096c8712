@@ -21,7 +21,6 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 
-    // Verify caller is admin
     const callerClient = createClient(supabaseUrl, Deno.env.get('SUPABASE_ANON_KEY')!, {
       global: { headers: { Authorization: authHeader } }
     })
@@ -46,15 +45,15 @@ Deno.serve(async (req) => {
       })
     }
 
-    const { role, full_name, rg } = await req.json()
+    const { role, full_name, rg, condominium_id } = await req.json()
 
-    if (!full_name || !role) {
-      return new Response(JSON.stringify({ error: 'Name and role are required' }), {
+    if (!full_name || !role || !condominium_id) {
+      return new Response(JSON.stringify({ error: 'Name, role and condominium are required' }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       })
     }
 
-    // Generate a unique email for the auth user (staff don't need to login)
+    // Generate a unique email for the auth user
     const uniqueId = crypto.randomUUID().substring(0, 8)
     const generatedEmail = `staff-${uniqueId}@internal.local`
 
@@ -76,10 +75,24 @@ Deno.serve(async (req) => {
       .update({ full_name, rg: rg || '' })
       .eq('id', userId)
 
-    // Assign role
+    // Check if role already exists for this condominium
+    const { data: existingRole } = await adminClient
+      .from('user_roles')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('condominium_id', condominium_id)
+      .maybeSingle()
+
+    if (existingRole) {
+      return new Response(JSON.stringify({ error: 'User already has a role in this condominium' }), {
+        status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      })
+    }
+
+    // Assign role scoped to condominium
     const { error: roleError } = await adminClient
       .from('user_roles')
-      .insert({ user_id: userId, role })
+      .insert({ user_id: userId, role, condominium_id })
 
     if (roleError) throw roleError
 

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Profile, AppRole } from '@/types';
+import { useCondominium } from '@/hooks/useCondominium';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -17,6 +18,7 @@ import { Plus, Search, UserCog, Loader2, Trash2, Pencil } from 'lucide-react';
 
 interface StaffMember extends Profile {
   role?: AppRole;
+  role_id?: string;
 }
 
 export default function Staff() {
@@ -28,6 +30,7 @@ export default function Staff() {
   const [editingMember, setEditingMember] = useState<StaffMember | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const { toast } = useToast();
+  const { condominium } = useCondominium();
 
   const [fullName, setFullName] = useState('');
   const [rg, setRg] = useState('');
@@ -37,20 +40,33 @@ export default function Staff() {
   const [editRg, setEditRg] = useState('');
   const [editRole, setEditRole] = useState<AppRole>('doorman');
 
-  useEffect(() => { fetchStaff(); }, []);
+  useEffect(() => { fetchStaff(); }, [condominium?.id]);
 
   const fetchStaff = async () => {
-    const { data: rolesData } = await supabase.from('user_roles').select('*');
+    if (!condominium) {
+      setStaff([]);
+      setIsLoading(false);
+      return;
+    }
+
+    const { data: rolesData } = await supabase
+      .from('user_roles')
+      .select('*')
+      .eq('condominium_id', condominium.id);
 
     if (rolesData && rolesData.length > 0) {
       const userIds = rolesData.map(r => r.user_id);
       const { data: profilesData } = await supabase.from('profiles').select('*').in('id', userIds);
 
       if (profilesData) {
-        const staffWithRoles = profilesData.map(profile => ({
-          ...profile,
-          role: rolesData.find(r => r.user_id === profile.id)?.role as AppRole,
-        }));
+        const staffWithRoles = profilesData.map(profile => {
+          const roleEntry = rolesData.find(r => r.user_id === profile.id);
+          return {
+            ...profile,
+            role: roleEntry?.role as AppRole,
+            role_id: roleEntry?.id,
+          };
+        });
         setStaff(staffWithRoles);
       }
     } else {
@@ -65,7 +81,7 @@ export default function Staff() {
 
     try {
       const { data, error } = await supabase.functions.invoke('invite-staff', {
-        body: { role, full_name: fullName, rg },
+        body: { role, full_name: fullName, rg, condominium_id: condominium?.id },
       });
 
       if (error) throw error;
@@ -94,9 +110,14 @@ export default function Staff() {
     }
   };
 
-  const handleRemoveStaff = async (userId: string) => {
+  const handleRemoveStaff = async (member: StaffMember) => {
     if (!confirm('Deseja realmente remover este membro da equipe?')) return;
-    const { error } = await supabase.from('user_roles').delete().eq('user_id', userId);
+    // Delete only the role for this condominium, not all roles
+    const { error } = await supabase
+      .from('user_roles')
+      .delete()
+      .eq('user_id', member.id)
+      .eq('condominium_id', condominium?.id || '');
     if (error) {
       toast({ title: 'Erro ao remover', description: 'Tente novamente', variant: 'destructive' });
     } else {
@@ -128,7 +149,7 @@ export default function Staff() {
       }
       // Update role if changed
       if (editRole !== editingMember.role) {
-        const { error: roleError } = await supabase.from('user_roles').update({ role: editRole }).eq('user_id', editingMember.id);
+        const { error: roleError } = await supabase.from('user_roles').update({ role: editRole }).eq('user_id', editingMember.id).eq('condominium_id', condominium?.id || '');
         if (roleError) throw roleError;
       }
       toast({ title: 'Membro atualizado!' });
@@ -227,7 +248,7 @@ export default function Staff() {
                     <Button variant="ghost" size="icon" onClick={() => handleEditStaff(member)}>
                       <Pencil className="w-4 h-4" />
                     </Button>
-                    <Button variant="ghost" size="icon" onClick={() => handleRemoveStaff(member.id)} className="text-destructive hover:text-destructive">
+                    <Button variant="ghost" size="icon" onClick={() => handleRemoveStaff(member)} className="text-destructive hover:text-destructive">
                       <Trash2 className="w-4 h-4" />
                     </Button>
                   </div>
