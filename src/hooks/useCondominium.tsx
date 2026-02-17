@@ -102,7 +102,7 @@ export function CondominiumProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
-    if (user && role !== undefined) {
+    if (user && role !== null) {
       fetchCondominiums();
     }
   }, [user, role]);
