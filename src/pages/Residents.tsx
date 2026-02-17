@@ -31,10 +31,14 @@ export default function Residents() {
   const [block, setBlock] = useState('');
   const [apartment, setApartment] = useState('');
 
-  useEffect(() => { fetchResidents(); }, []);
+  useEffect(() => { fetchResidents(); }, [condominium?.id]);
 
   const fetchResidents = async () => {
-    const { data } = await supabase.from('residents').select('*').order('full_name');
+    let query = supabase.from('residents').select('*').order('full_name');
+    if (condominium?.id) {
+      query = query.eq('condominium_id', condominium.id);
+    }
+    const { data } = await query;
     if (data) setResidents(data as Resident[]);
     setIsLoading(false);
   };
@@ -59,7 +63,7 @@ export default function Residents() {
         if (error) throw error;
         toast({ title: 'Morador atualizado!' });
       } else {
-        const { error } = await supabase.from('residents').insert({ full_name: fullName, phone, block, apartment });
+        const { error } = await supabase.from('residents').insert({ full_name: fullName, phone, block, apartment, condominium_id: condominium?.id || null });
         if (error) throw error;
         toast({ title: 'Morador cadastrado!' });
       }
