@@ -60,7 +60,8 @@ export const cobrancasAPI = {
   async create(cobranca: Omit<CobrancaInsert, 'user_id'>) {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session?.user?.id) throw new Error('Usuário não autenticado');
-    const { data, error } = await supabase.from('cobrancas').insert({ ...cobranca, user_id: session.user.id }).select().single();
+    const insertData = { ...cobranca, user_id: session.user.id } as any;
+    const { data, error } = await supabase.from('cobrancas').insert(insertData).select().single();
     if (error) throw error; return data;
   },
   async update(id: string, cobranca: CobrancaUpdate) { const { data, error } = await supabase.from('cobrancas').update(cobranca).eq('id', id).select().single(); if (error) throw error; return data; },
