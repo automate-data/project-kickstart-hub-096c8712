@@ -29,7 +29,13 @@ serve(async (req) => {
       );
     }
 
-    const toNumber = phone.startsWith("whatsapp:") ? phone : `whatsapp:${phone}`;
+    // Normalize phone to E.164: remove spaces, dashes, parens; ensure +55 prefix
+    let cleanPhone = phone.replace(/[\s\-\(\)]/g, "");
+    if (cleanPhone.startsWith("whatsapp:")) cleanPhone = cleanPhone.replace("whatsapp:", "");
+    if (!cleanPhone.startsWith("+")) {
+      cleanPhone = cleanPhone.startsWith("55") ? `+${cleanPhone}` : `+55${cleanPhone}`;
+    }
+    const toNumber = `whatsapp:${cleanPhone}`;
     const fromNumber = TWILIO_WHATSAPP_FROM.startsWith("whatsapp:")
       ? TWILIO_WHATSAPP_FROM
       : `whatsapp:${TWILIO_WHATSAPP_FROM}`;
