@@ -1,20 +1,7 @@
-
-import Header from "@/components/Header";
-import Hero from "@/components/Hero";
-import Features from "@/components/Features";
-import HowItWorks from "@/components/HowItWorks";
-import Footer from "@/components/Footer";
+import { Navigate } from "react-router-dom";
 
 const Index = () => {
-  return (
-    <div className="min-h-screen bg-background">
-      <Header />
-      <Hero />
-      <Features />
-      <HowItWorks />
-      <Footer />
-    </div>
-  );
+  return <Navigate to="/auth" replace />;
 };
 
 export default Index;
