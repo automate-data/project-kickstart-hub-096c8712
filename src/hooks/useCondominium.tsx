@@ -36,7 +36,7 @@ const CondominiumContext = createContext<CondominiumContextType | undefined>(und
 const STORAGE_KEY = 'selected_condominium_id';
 
 export function CondominiumProvider({ children }: { children: ReactNode }) {
-  const { user } = useAuth();
+  const { user, role } = useAuth();
   const [condominiums, setCondominiums] = useState<Condominium[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(() => {
     try { return localStorage.getItem(STORAGE_KEY); } catch { return null; }
@@ -50,10 +50,36 @@ export function CondominiumProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    const { data } = await supabase
-      .from('condominiums')
-      .select('*')
-      .order('name');
+    let data: any[] | null = null;
+
+    if (role === 'admin') {
+      // Admins see all condominiums
+      const res = await supabase
+        .from('condominiums')
+        .select('*')
+        .order('name');
+      data = res.data;
+    } else {
+      // Non-admins only see condominiums they're assigned to
+      const { data: roles } = await supabase
+        .from('user_roles')
+        .select('condominium_id')
+        .eq('user_id', user.id)
+        .not('condominium_id', 'is', null);
+
+      const condIds = roles?.map(r => r.condominium_id).filter(Boolean) || [];
+
+      if (condIds.length > 0) {
+        const res = await supabase
+          .from('condominiums')
+          .select('*')
+          .in('id', condIds)
+          .order('name');
+        data = res.data;
+      } else {
+        data = [];
+      }
+    }
 
     if (data && data.length > 0) {
       const mapped = data.map(d => ({
@@ -62,7 +88,6 @@ export function CondominiumProvider({ children }: { children: ReactNode }) {
       }));
       setCondominiums(mapped);
 
-      // Auto-select if no valid selection
       const validIds = mapped.map(c => c.id);
       if (!selectedId || !validIds.includes(selectedId)) {
         const newId = mapped[0].id;
@@ -77,8 +102,10 @@ export function CondominiumProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
-    fetchCondominiums();
-  }, [user]);
+    if (user && role !== undefined) {
+      fetchCondominiums();
+    }
+  }, [user, role]);
 
   const selectCondominium = (id: string) => {
     setSelectedId(id);
