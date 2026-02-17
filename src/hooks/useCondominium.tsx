@@ -24,21 +24,28 @@ export interface Condominium {
 
 interface CondominiumContextType {
   condominium: Condominium | null;
+  condominiums: Condominium[];
   isLoading: boolean;
   needsSetup: boolean;
+  selectCondominium: (id: string) => void;
   refetch: () => Promise<void>;
 }
 
 const CondominiumContext = createContext<CondominiumContextType | undefined>(undefined);
 
+const STORAGE_KEY = 'selected_condominium_id';
+
 export function CondominiumProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
-  const [condominium, setCondominium] = useState<Condominium | null>(null);
+  const [condominiums, setCondominiums] = useState<Condominium[]>([]);
+  const [selectedId, setSelectedId] = useState<string | null>(() => {
+    try { return localStorage.getItem(STORAGE_KEY); } catch { return null; }
+  });
   const [isLoading, setIsLoading] = useState(true);
 
-  const fetchCondominium = async () => {
+  const fetchCondominiums = async () => {
     if (!user) {
-      setCondominium(null);
+      setCondominiums([]);
       setIsLoading(false);
       return;
     }
@@ -46,28 +53,43 @@ export function CondominiumProvider({ children }: { children: ReactNode }) {
     const { data } = await supabase
       .from('condominiums')
       .select('*')
-      .limit(1)
-      .maybeSingle();
+      .order('name');
 
-    if (data) {
-      setCondominium({
-        ...data,
-        groups: Array.isArray(data.groups) ? data.groups as string[] : [],
-      });
+    if (data && data.length > 0) {
+      const mapped = data.map(d => ({
+        ...d,
+        groups: Array.isArray(d.groups) ? d.groups as string[] : [],
+      }));
+      setCondominiums(mapped);
+
+      // Auto-select if no valid selection
+      const validIds = mapped.map(c => c.id);
+      if (!selectedId || !validIds.includes(selectedId)) {
+        const newId = mapped[0].id;
+        setSelectedId(newId);
+        try { localStorage.setItem(STORAGE_KEY, newId); } catch {}
+      }
     } else {
-      setCondominium(null);
+      setCondominiums([]);
+      setSelectedId(null);
     }
     setIsLoading(false);
   };
 
   useEffect(() => {
-    fetchCondominium();
+    fetchCondominiums();
   }, [user]);
 
-  const needsSetup = !isLoading && (!condominium || !condominium.setup_completed);
+  const selectCondominium = (id: string) => {
+    setSelectedId(id);
+    try { localStorage.setItem(STORAGE_KEY, id); } catch {}
+  };
+
+  const condominium = condominiums.find(c => c.id === selectedId) || null;
+  const needsSetup = !isLoading && condominiums.length === 0;
 
   return (
-    <CondominiumContext.Provider value={{ condominium, isLoading, needsSetup, refetch: fetchCondominium }}>
+    <CondominiumContext.Provider value={{ condominium, condominiums, isLoading, needsSetup, selectCondominium, refetch: fetchCondominiums }}>
       {children}
     </CondominiumContext.Provider>
   );
