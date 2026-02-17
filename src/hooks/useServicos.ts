@@ -1,0 +1,7 @@
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { servicosAPI, type ServicoInsert, type ServicoUpdate } from '@/lib/supabase-client';
+import { useToast } from '@/hooks/use-toast';
+export const useServicos = () => useQuery({ queryKey: ['servicos'], queryFn: servicosAPI.getAll });
+export const useCreateServico = () => { const qc = useQueryClient(); const { toast } = useToast(); return useMutation({ mutationFn: (s: Omit<ServicoInsert, 'user_id'>) => servicosAPI.create(s), onSuccess: () => { qc.invalidateQueries({ queryKey: ['servicos'] }); toast({ title: "Serviço cadastrado!" }); }, onError: (e: Error) => { toast({ title: "Erro", description: e.message, variant: "destructive" }); } }); };
+export const useUpdateServico = () => { const qc = useQueryClient(); const { toast } = useToast(); return useMutation({ mutationFn: ({ id, data }: { id: string; data: ServicoUpdate }) => servicosAPI.update(id, data), onSuccess: () => { qc.invalidateQueries({ queryKey: ['servicos'] }); toast({ title: "Serviço atualizado!" }); }, onError: (e: Error) => { toast({ title: "Erro", description: e.message, variant: "destructive" }); } }); };
+export const useDeleteServico = () => { const qc = useQueryClient(); const { toast } = useToast(); return useMutation({ mutationFn: servicosAPI.delete, onSuccess: () => { qc.invalidateQueries({ queryKey: ['servicos'] }); toast({ title: "Serviço removido!" }); }, onError: (e: Error) => { toast({ title: "Erro", description: e.message, variant: "destructive" }); } }); };

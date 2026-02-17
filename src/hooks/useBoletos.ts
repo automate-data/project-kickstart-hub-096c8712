@@ -1,0 +1,6 @@
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { boletosAPI } from '@/lib/supabase-client';
+import { useToast } from '@/hooks/use-toast';
+export const useBoletos = () => useQuery({ queryKey: ['boletos'], queryFn: boletosAPI.getAll });
+export const useUploadBoleto = () => { const qc = useQueryClient(); const { toast } = useToast(); return useMutation({ mutationFn: ({ file, clienteId, valor, dataVencimento }: { file: File; clienteId: string; valor: number; dataVencimento: string }) => boletosAPI.upload(file, clienteId, valor, dataVencimento), onSuccess: () => { qc.invalidateQueries({ queryKey: ['boletos'] }); toast({ title: "Boleto enviado!" }); }, onError: (e: Error) => { toast({ title: "Erro", description: e.message, variant: "destructive" }); } }); };
+export const useDeleteBoleto = () => { const qc = useQueryClient(); const { toast } = useToast(); return useMutation({ mutationFn: boletosAPI.delete, onSuccess: () => { qc.invalidateQueries({ queryKey: ['boletos'] }); toast({ title: "Boleto removido!" }); }, onError: (e: Error) => { toast({ title: "Erro", description: e.message, variant: "destructive" }); } }); };
