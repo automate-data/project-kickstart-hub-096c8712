@@ -37,9 +37,9 @@ Deno.serve(async (req) => {
       .select('role')
       .eq('user_id', caller.id)
       .eq('role', 'admin')
-      .maybeSingle()
+      .limit(1)
 
-    if (!roleData) {
+    if (!roleData || roleData.length === 0) {
       return new Response(JSON.stringify({ error: 'Not authorized' }), {
         status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       })
