@@ -59,17 +59,17 @@ export default function ReceivePackage() {
   }, []);
 
   const fetchResidents = useCallback(async (): Promise<Resident[]> => {
-    let query = supabase
+    if (!condominium?.id) {
+      setResidents([]);
+      return [];
+    }
+
+    const { data } = await supabase
       .from('residents')
       .select('*')
       .eq('is_active', true)
+      .eq('condominium_id', condominium.id)
       .order('full_name');
-    
-    if (condominium?.id) {
-      query = query.eq('condominium_id', condominium.id);
-    }
-
-    const { data } = await query;
     
     if (data) {
       const residentsData = data as Resident[];
