@@ -11,7 +11,6 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // Verify the caller is authenticated and is an admin
     const authHeader = req.headers.get('Authorization')
     if (!authHeader) {
       return new Response(JSON.stringify({ error: 'Not authenticated' }), {
@@ -22,7 +21,7 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 
-    // Verify caller is admin using their token
+    // Verify caller is admin
     const callerClient = createClient(supabaseUrl, Deno.env.get('SUPABASE_ANON_KEY')!, {
       global: { headers: { Authorization: authHeader } }
     })
@@ -33,7 +32,6 @@ Deno.serve(async (req) => {
       })
     }
 
-    // Check admin role
     const adminClient = createClient(supabaseUrl, serviceRoleKey)
     const { data: roleData } = await adminClient
       .from('user_roles')
@@ -48,60 +46,35 @@ Deno.serve(async (req) => {
       })
     }
 
-    const { email, role, full_name } = await req.json()
+    const { role, full_name, rg } = await req.json()
 
-    if (!email || !role) {
-      return new Response(JSON.stringify({ error: 'Email and role are required' }), {
+    if (!full_name || !role) {
+      return new Response(JSON.stringify({ error: 'Name and role are required' }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       })
     }
 
-    // Check if user already exists in profiles
-    const { data: existingProfile } = await adminClient
+    // Generate a unique email for the auth user (staff don't need to login)
+    const uniqueId = crypto.randomUUID().substring(0, 8)
+    const generatedEmail = `staff-${uniqueId}@internal.local`
+
+    // Create user via admin API
+    const { data: newUser, error: createError } = await adminClient.auth.admin.createUser({
+      email: generatedEmail,
+      email_confirm: true,
+      user_metadata: { full_name: full_name || '' },
+      password: crypto.randomUUID(),
+    })
+
+    if (createError) throw createError
+
+    const userId = newUser.user.id
+
+    // Update profile with RG
+    await adminClient
       .from('profiles')
-      .select('id')
-      .eq('email', email)
-      .maybeSingle()
-
-    let userId: string
-
-    if (existingProfile) {
-      userId = existingProfile.id
-    } else {
-      // Create user via admin API (auto-confirms)
-      const { data: newUser, error: createError } = await adminClient.auth.admin.createUser({
-        email,
-        email_confirm: true,
-        user_metadata: { full_name: full_name || email.split('@')[0] },
-        password: crypto.randomUUID(), // temporary password, user should reset
-      })
-
-      if (createError) {
-        // Check if user exists in auth but not in profiles
-        const { data: { users } } = await adminClient.auth.admin.listUsers()
-        const existingUser = users?.find(u => u.email === email)
-        if (existingUser) {
-          userId = existingUser.id
-        } else {
-          throw createError
-        }
-      } else {
-        userId = newUser.user.id
-      }
-    }
-
-    // Check if role already exists
-    const { data: existingRole } = await adminClient
-      .from('user_roles')
-      .select('id')
-      .eq('user_id', userId)
-      .maybeSingle()
-
-    if (existingRole) {
-      return new Response(JSON.stringify({ error: 'User already has a role' }), {
-        status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      })
-    }
+      .update({ full_name, rg: rg || '' })
+      .eq('id', userId)
 
     // Assign role
     const { error: roleError } = await adminClient
