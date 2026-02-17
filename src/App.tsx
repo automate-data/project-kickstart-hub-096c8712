@@ -14,6 +14,7 @@ import Packages from "./pages/Packages";
 import Residents from "./pages/Residents";
 import Staff from "./pages/Staff";
 import Setup from "./pages/Setup";
+import SelectCondominium from "./pages/SelectCondominium";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -37,6 +38,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute requiredRole="admin">
             <Setup />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/select-condominium"
+        element={
+          <ProtectedRoute>
+            <SelectCondominium />
           </ProtectedRoute>
         }
       />

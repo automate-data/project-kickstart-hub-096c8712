@@ -1,9 +1,9 @@
 import { ReactNode } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useCondominium } from '@/hooks/useCondominium';
 import { Button } from '@/components/ui/button';
-import { Package, Users, UserCog, ClipboardList, LogOut, Menu, X } from 'lucide-react';
+import { Package, Users, UserCog, ClipboardList, LogOut, Menu, X, Building2 } from 'lucide-react';
 import { useState } from 'react';
 
 interface AppLayoutProps {
@@ -12,9 +12,11 @@ interface AppLayoutProps {
 
 export default function AppLayout({ children }: AppLayoutProps) {
   const { role, signOut } = useAuth();
-  const { condominium } = useCondominium();
+  const { condominium, condominiums } = useCondominium();
   const location = useLocation();
+  const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const hasMultiple = condominiums.length > 1;
 
   const isAdmin = role === 'admin';
 
@@ -35,7 +37,14 @@ export default function AppLayout({ children }: AppLayoutProps) {
             <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center">
               <Package className="w-5 h-5 text-primary" />
             </div>
-            <span className="font-semibold hidden sm:block">{condominium?.name || 'Chegueii'}</span>
+            {hasMultiple ? (
+              <Button variant="ghost" size="sm" className="gap-2 hidden sm:flex" onClick={() => navigate('/select-condominium')}>
+                <span className="font-semibold">{condominium?.name || 'Chegueii'}</span>
+                <Building2 className="w-4 h-4 text-muted-foreground" />
+              </Button>
+            ) : (
+              <span className="font-semibold hidden sm:block">{condominium?.name || 'Chegueii'}</span>
+            )}
           </div>
 
           <nav className="hidden md:flex items-center gap-1">
@@ -74,6 +83,14 @@ export default function AppLayout({ children }: AppLayoutProps) {
                   </Button>
                 </Link>
               ))}
+              {hasMultiple && (
+                <Link to="/select-condominium" onClick={() => setMobileMenuOpen(false)}>
+                  <Button variant="ghost" className="w-full justify-start gap-3">
+                    <Building2 className="w-5 h-5" />
+                    Trocar Condomínio
+                  </Button>
+                </Link>
+              )}
               <Button variant="ghost" className="w-full justify-start gap-3 text-destructive" onClick={() => signOut()}>
                 <LogOut className="w-5 h-5" />
                 Sair
