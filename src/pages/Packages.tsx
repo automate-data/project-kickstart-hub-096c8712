@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useCondominium } from '@/hooks/useCondominium';
 import { Package } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -13,6 +14,7 @@ import { toast } from 'sonner';
 import { PackagePhoto } from '@/components/PackagePhoto';
 
 export default function Packages() {
+  const { condominium } = useCondominium();
   const [packages, setPackages] = useState<Package[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [filter, setFilter] = useState<'pending' | 'picked_up'>('pending');
@@ -21,14 +23,21 @@ export default function Packages() {
 
   useEffect(() => {
     fetchPackages();
-  }, [filter]);
+  }, [filter, condominium?.id]);
 
   const fetchPackages = async () => {
+    if (!condominium?.id) {
+      setPackages([]);
+      setIsLoading(false);
+      return;
+    }
+
     setIsLoading(true);
     const { data } = await supabase
       .from('packages')
       .select(`*, resident:residents(*)`)
       .eq('status', filter)
+      .eq('condominium_id', condominium.id)
       .order('received_at', { ascending: false });
 
     if (data) {

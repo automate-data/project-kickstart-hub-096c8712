@@ -254,6 +254,7 @@ export default function ReceivePackage() {
           ai_suggestion: aiSuggestion as any,
           notes: notes || null,
           received_by: user.id,
+          condominium_id: condominium?.id || null,
         }]);
 
       if (insertError) throw insertError;

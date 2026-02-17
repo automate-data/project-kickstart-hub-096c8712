@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { useCondominium } from '@/hooks/useCondominium';
 import { Package as PackageType } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -11,16 +12,24 @@ import { ptBR } from 'date-fns/locale';
 import { PackagePhoto } from '@/components/PackagePhoto';
 
 export default function Dashboard() {
+  const { condominium } = useCondominium();
   const [pendingPackages, setPendingPackages] = useState<PackageType[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => { fetchPendingPackages(); }, []);
+  useEffect(() => { fetchPendingPackages(); }, [condominium?.id]);
 
   const fetchPendingPackages = async () => {
+    if (!condominium?.id) {
+      setPendingPackages([]);
+      setIsLoading(false);
+      return;
+    }
+
     const { data } = await supabase
       .from('packages')
       .select(`*, resident:residents(*)`)
       .eq('status', 'pending')
+      .eq('condominium_id', condominium.id)
       .order('received_at', { ascending: false })
       .limit(10);
     if (data) setPendingPackages(data as unknown as PackageType[]);

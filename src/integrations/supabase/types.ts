@@ -351,6 +351,7 @@ export type Database = {
         Row: {
           ai_suggestion: Json | null
           carrier: string | null
+          condominium_id: string | null
           created_at: string
           id: string
           notes: string | null
@@ -369,6 +370,7 @@ export type Database = {
         Insert: {
           ai_suggestion?: Json | null
           carrier?: string | null
+          condominium_id?: string | null
           created_at?: string
           id?: string
           notes?: string | null
@@ -387,6 +389,7 @@ export type Database = {
         Update: {
           ai_suggestion?: Json | null
           carrier?: string | null
+          condominium_id?: string | null
           created_at?: string
           id?: string
           notes?: string | null
@@ -403,6 +406,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "packages_condominium_id_fkey"
+            columns: ["condominium_id"]
+            isOneToOne: false
+            referencedRelation: "condominiums"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "packages_resident_id_fkey"
             columns: ["resident_id"]
