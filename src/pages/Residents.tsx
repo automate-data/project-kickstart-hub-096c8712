@@ -34,11 +34,18 @@ export default function Residents() {
   useEffect(() => { fetchResidents(); }, [condominium?.id]);
 
   const fetchResidents = async () => {
-    let query = supabase.from('residents').select('*').order('full_name');
-    if (condominium?.id) {
-      query = query.eq('condominium_id', condominium.id);
+    if (!condominium?.id) {
+      setResidents([]);
+      setIsLoading(false);
+      return;
     }
-    const { data } = await query;
+
+    const { data } = await supabase
+      .from('residents')
+      .select('*')
+      .eq('condominium_id', condominium.id)
+      .order('full_name');
+
     if (data) setResidents(data as Resident[]);
     setIsLoading(false);
   };
