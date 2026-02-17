@@ -28,6 +28,7 @@ export default function Staff() {
   const { toast } = useToast();
 
   const [email, setEmail] = useState('');
+  const [fullName, setFullName] = useState('');
   const [role, setRole] = useState<AppRole>('doorman');
 
   useEffect(() => { fetchStaff(); }, []);
@@ -58,7 +59,7 @@ export default function Staff() {
 
     try {
       const { data, error } = await supabase.functions.invoke('invite-staff', {
-        body: { email, role },
+        body: { email, role, full_name: fullName },
       });
 
       if (error) throw error;
@@ -76,6 +77,7 @@ export default function Staff() {
       toast({ title: 'Membro adicionado!', description: 'O usuário foi convidado e adicionado à equipe.' });
       setDialogOpen(false);
       setEmail('');
+      setFullName('');
       setRole('doorman');
       fetchStaff();
     } catch (error) {
@@ -123,6 +125,10 @@ export default function Staff() {
               <DialogDescription>Informe o email do usuário. Se não existir, será criado automaticamente.</DialogDescription>
             </DialogHeader>
             <form onSubmit={handleAddStaff} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="fullName">Nome completo</Label>
+                <Input id="fullName" type="text" value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Nome do usuário" required />
+              </div>
               <div className="space-y-2">
                 <Label htmlFor="email">Email do usuário</Label>
                 <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="usuario@email.com" required />
