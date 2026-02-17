@@ -2,6 +2,7 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useCondominium } from '@/hooks/useCondominium';
 import { Resident, AISuggestion } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -26,6 +27,9 @@ type Step = 'capture' | 'processing' | 'confirm';
 export default function ReceivePackage() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { condominium } = useCondominium();
+  const groupLabel = condominium?.group_label || 'Bloco';
+  const unitLabel = condominium?.unit_label || 'Apartamento';
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -402,7 +406,7 @@ export default function ReceivePackage() {
               <PopoverTrigger asChild>
                 <Button variant="outline" role="combobox" className="w-full justify-between h-12 text-left font-normal">
                   {selectedResident ? (
-                    <span>{selectedResident.full_name} - {selectedResident.block}/{selectedResident.apartment}</span>
+                    <span>{selectedResident.full_name} - {groupLabel} {selectedResident.block}/{unitLabel} {selectedResident.apartment}</span>
                   ) : (
                     <span className="text-muted-foreground">Selecionar morador...</span>
                   )}
@@ -426,7 +430,7 @@ export default function ReceivePackage() {
                           <div className="flex flex-col">
                             <span>{resident.full_name}</span>
                             <span className="text-sm text-muted-foreground">
-                              {resident.block}/{resident.apartment}
+                              {groupLabel} {resident.block} / {unitLabel} {resident.apartment}
                             </span>
                           </div>
                           {selectedResident?.id === resident.id && (

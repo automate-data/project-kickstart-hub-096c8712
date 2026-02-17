@@ -245,6 +245,66 @@ export type Database = {
           },
         ]
       }
+      condominiums: {
+        Row: {
+          address: string | null
+          admin_user_id: string
+          city: string | null
+          cnpj: string | null
+          created_at: string
+          email: string | null
+          group_label: string
+          groups: Json
+          id: string
+          name: string
+          phone: string | null
+          setup_completed: boolean
+          state: string | null
+          unit_label: string
+          unit_type: string
+          updated_at: string
+          zip_code: string | null
+        }
+        Insert: {
+          address?: string | null
+          admin_user_id: string
+          city?: string | null
+          cnpj?: string | null
+          created_at?: string
+          email?: string | null
+          group_label?: string
+          groups?: Json
+          id?: string
+          name: string
+          phone?: string | null
+          setup_completed?: boolean
+          state?: string | null
+          unit_label?: string
+          unit_type?: string
+          updated_at?: string
+          zip_code?: string | null
+        }
+        Update: {
+          address?: string | null
+          admin_user_id?: string
+          city?: string | null
+          cnpj?: string | null
+          created_at?: string
+          email?: string | null
+          group_label?: string
+          groups?: Json
+          id?: string
+          name?: string
+          phone?: string | null
+          setup_completed?: boolean
+          state?: string | null
+          unit_label?: string
+          unit_type?: string
+          updated_at?: string
+          zip_code?: string | null
+        }
+        Relationships: []
+      }
       configuracoes_empresa: {
         Row: {
           atualizado_em: string
@@ -413,6 +473,7 @@ export type Database = {
         Row: {
           apartment: string
           block: string
+          condominium_id: string | null
           created_at: string
           full_name: string
           id: string
@@ -423,6 +484,7 @@ export type Database = {
         Insert: {
           apartment: string
           block: string
+          condominium_id?: string | null
           created_at?: string
           full_name: string
           id?: string
@@ -433,6 +495,7 @@ export type Database = {
         Update: {
           apartment?: string
           block?: string
+          condominium_id?: string | null
           created_at?: string
           full_name?: string
           id?: string
@@ -440,7 +503,15 @@ export type Database = {
           phone?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "residents_condominium_id_fkey"
+            columns: ["condominium_id"]
+            isOneToOne: false
+            referencedRelation: "condominiums"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       servicos: {
         Row: {

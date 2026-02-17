@@ -1,6 +1,7 @@
 import { ReactNode } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import { useCondominium } from '@/hooks/useCondominium';
 import { Button } from '@/components/ui/button';
 import { Package, Users, UserCog, ClipboardList, LogOut, Menu, X } from 'lucide-react';
 import { useState } from 'react';
@@ -11,6 +12,7 @@ interface AppLayoutProps {
 
 export default function AppLayout({ children }: AppLayoutProps) {
   const { role, signOut } = useAuth();
+  const { condominium } = useCondominium();
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -33,7 +35,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
             <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center">
               <Package className="w-5 h-5 text-primary" />
             </div>
-            <span className="font-semibold hidden sm:block">Chegueii</span>
+            <span className="font-semibold hidden sm:block">{condominium?.name || 'Chegueii'}</span>
           </div>
 
           <nav className="hidden md:flex items-center gap-1">
