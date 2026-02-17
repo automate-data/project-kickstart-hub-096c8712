@@ -45,35 +45,40 @@ Deno.serve(async (req) => {
       })
     }
 
-    const { role, full_name, rg, condominium_id } = await req.json()
+    const { role, full_name, rg, email, condominium_id } = await req.json()
 
-    if (!full_name || !role || !condominium_id) {
-      return new Response(JSON.stringify({ error: 'Name, role and condominium are required' }), {
+    if (!full_name || !role || !condominium_id || !email) {
+      return new Response(JSON.stringify({ error: 'Name, email, role and condominium are required' }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       })
     }
 
-    // Generate a unique email for the auth user
-    const uniqueId = crypto.randomUUID().substring(0, 8)
-    const generatedEmail = `staff-${uniqueId}@internal.local`
+    // Check if a user with this email already exists
+    const { data: existingUsers } = await adminClient.auth.admin.listUsers()
+    const existingUser = existingUsers?.users?.find(u => u.email === email)
 
-    // Create user via admin API
-    const { data: newUser, error: createError } = await adminClient.auth.admin.createUser({
-      email: generatedEmail,
-      email_confirm: true,
-      user_metadata: { full_name: full_name || '' },
-      password: crypto.randomUUID(),
-    })
+    let userId: string
 
-    if (createError) throw createError
+    if (existingUser) {
+      userId = existingUser.id
+    } else {
+      const tempPassword = 'Mudar@123'
+      const { data: newUser, error: createError } = await adminClient.auth.admin.createUser({
+        email,
+        email_confirm: true,
+        user_metadata: { full_name: full_name || '' },
+        password: tempPassword,
+      })
 
-    const userId = newUser.user.id
+      if (createError) throw createError
+      userId = newUser.user.id
 
-    // Update profile with RG
-    await adminClient
-      .from('profiles')
-      .update({ full_name, rg: rg || '' })
-      .eq('id', userId)
+      // Update profile
+      await adminClient
+        .from('profiles')
+        .update({ full_name, rg: rg || '' })
+        .eq('id', userId)
+    }
 
     // Check if role already exists for this condominium
     const { data: existingRole } = await adminClient
@@ -96,7 +101,8 @@ Deno.serve(async (req) => {
 
     if (roleError) throw roleError
 
-    return new Response(JSON.stringify({ success: true, user_id: userId }), {
+    const isNew = !existingUser
+    return new Response(JSON.stringify({ success: true, user_id: userId, is_new: isNew, temp_password: isNew ? 'Mudar@123' : undefined }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     })
   } catch (error) {

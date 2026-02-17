@@ -33,10 +33,13 @@ export default function Staff() {
   const { condominium } = useCondominium();
 
   const [fullName, setFullName] = useState('');
+  const [email, setEmail] = useState('');
   const [rg, setRg] = useState('');
   const [role, setRole] = useState<AppRole>('doorman');
+  const [tempPassword, setTempPassword] = useState('');
 
   const [editFullName, setEditFullName] = useState('');
+  const [editEmail, setEditEmail] = useState('');
   const [editRg, setEditRg] = useState('');
   const [editRole, setEditRole] = useState<AppRole>('doorman');
 
@@ -81,7 +84,7 @@ export default function Staff() {
 
     try {
       const { data, error } = await supabase.functions.invoke('invite-staff', {
-        body: { role, full_name: fullName, rg, condominium_id: condominium?.id },
+        body: { role, full_name: fullName, email, rg, condominium_id: condominium?.id },
       });
 
       if (error) throw error;
@@ -96,9 +99,15 @@ export default function Staff() {
         return;
       }
 
-      toast({ title: 'Membro adicionado!', description: 'O usuário foi adicionado à equipe.' });
+      if (data?.temp_password) {
+        setTempPassword(data.temp_password);
+        toast({ title: 'Membro adicionado!', description: `Senha temporária: ${data.temp_password}` });
+      } else {
+        toast({ title: 'Membro adicionado!', description: 'Usuário já existente foi vinculado ao condomínio.' });
+      }
       setDialogOpen(false);
       setFullName('');
+      setEmail('');
       setRg('');
       setRole('doorman');
       fetchStaff();
@@ -129,6 +138,7 @@ export default function Staff() {
   const handleEditStaff = (member: StaffMember) => {
     setEditingMember(member);
     setEditFullName(member.full_name || '');
+    setEditEmail(member.email || '');
     setEditRg(member.rg || '');
     setEditRole(member.role || 'doorman');
     setEditDialogOpen(true);
@@ -165,6 +175,7 @@ export default function Staff() {
 
   const filteredStaff = staff.filter((s) =>
     s.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (s.email || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
     (s.rg || '').toLowerCase().includes(searchQuery.toLowerCase())
   );
 
@@ -192,6 +203,10 @@ export default function Staff() {
               <div className="space-y-2">
                 <Label htmlFor="fullName">Nome completo</Label>
                 <Input id="fullName" type="text" value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Nome do usuário" required />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="email@exemplo.com" required />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="rg">RG</Label>
@@ -242,6 +257,7 @@ export default function Staff() {
                       <p className="font-medium truncate">{member.full_name}</p>
                       {member.role && getRoleBadge(member.role)}
                     </div>
+                    <p className="text-sm text-muted-foreground truncate">{member.email}</p>
                     <p className="text-sm text-muted-foreground truncate">RG: {member.rg || '—'}</p>
                   </div>
                   <div className="flex gap-1">
@@ -272,6 +288,10 @@ export default function Staff() {
             <div className="space-y-2">
               <Label htmlFor="editFullName">Nome completo</Label>
               <Input id="editFullName" type="text" value={editFullName} onChange={(e) => setEditFullName(e.target.value)} required />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="editEmail">Email</Label>
+              <Input id="editEmail" type="email" value={editEmail} onChange={(e) => setEditEmail(e.target.value)} disabled />
             </div>
             <div className="space-y-2">
               <Label htmlFor="editRg">RG</Label>
