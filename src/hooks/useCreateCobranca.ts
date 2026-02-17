@@ -1,0 +1,4 @@
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { cobrancasAPI } from "@/lib/supabase-client";
+import { useToast } from "@/hooks/use-toast";
+export const useCreateCobranca = () => { const qc = useQueryClient(); const { toast } = useToast(); return useMutation({ mutationFn: ({ cobrancaData, servicos, numeroParcelas }: { cobrancaData: any; servicos: any[]; numeroParcelas: number }) => cobrancasAPI.createWithServicos(cobrancaData, servicos, numeroParcelas), onSuccess: () => { qc.invalidateQueries({ queryKey: ['cobrancas'] }); toast({ title: "Cobrança criada!" }); }, onError: (e: Error) => { toast({ title: "Erro", description: e.message, variant: "destructive" }); } }); };
