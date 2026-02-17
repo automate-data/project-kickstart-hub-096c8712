@@ -1,5 +1,25 @@
 export type AppRole = 'admin' | 'doorman';
 
+export interface Condominium {
+  id: string;
+  name: string;
+  cnpj: string | null;
+  address: string | null;
+  city: string | null;
+  state: string | null;
+  zip_code: string | null;
+  phone: string | null;
+  email: string | null;
+  unit_type: string;
+  group_label: string;
+  unit_label: string;
+  groups: string[];
+  setup_completed: boolean;
+  admin_user_id: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Profile {
   id: string;
   full_name: string;

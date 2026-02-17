@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
+import { CondominiumProvider, useCondominium } from "@/hooks/useCondominium";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import AppLayout from "@/components/layout/AppLayout";
 import Auth from "./pages/Auth";
@@ -12,27 +13,40 @@ import ReceivePackage from "./pages/ReceivePackage";
 import Packages from "./pages/Packages";
 import Residents from "./pages/Residents";
 import Staff from "./pages/Staff";
+import Setup from "./pages/Setup";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
 function AppRoutes() {
-  const { user, isLoading } = useAuth();
+  const { user, isLoading: authLoading, role } = useAuth();
+  const { needsSetup, isLoading: condLoading } = useCondominium();
 
-  if (isLoading) {
+  if (authLoading || (user && condLoading)) {
     return null;
   }
+
+  // If admin and needs setup, redirect to /setup
+  const shouldRedirectToSetup = user && role === 'admin' && needsSetup;
 
   return (
     <Routes>
       <Route path="/auth" element={user ? <Navigate to="/" replace /> : <Auth />} />
       <Route
+        path="/setup"
+        element={
+          <ProtectedRoute requiredRole="admin">
+            <Setup />
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/"
         element={
           <ProtectedRoute>
-            <AppLayout>
-              <Dashboard />
-            </AppLayout>
+            {shouldRedirectToSetup ? <Navigate to="/setup" replace /> : (
+              <AppLayout><Dashboard /></AppLayout>
+            )}
           </ProtectedRoute>
         }
       />
@@ -40,9 +54,9 @@ function AppRoutes() {
         path="/receive"
         element={
           <ProtectedRoute>
-            <AppLayout>
-              <ReceivePackage />
-            </AppLayout>
+            {shouldRedirectToSetup ? <Navigate to="/setup" replace /> : (
+              <AppLayout><ReceivePackage /></AppLayout>
+            )}
           </ProtectedRoute>
         }
       />
@@ -50,9 +64,9 @@ function AppRoutes() {
         path="/packages"
         element={
           <ProtectedRoute>
-            <AppLayout>
-              <Packages />
-            </AppLayout>
+            {shouldRedirectToSetup ? <Navigate to="/setup" replace /> : (
+              <AppLayout><Packages /></AppLayout>
+            )}
           </ProtectedRoute>
         }
       />
@@ -60,9 +74,9 @@ function AppRoutes() {
         path="/residents"
         element={
           <ProtectedRoute requiredRole="admin">
-            <AppLayout>
-              <Residents />
-            </AppLayout>
+            {shouldRedirectToSetup ? <Navigate to="/setup" replace /> : (
+              <AppLayout><Residents /></AppLayout>
+            )}
           </ProtectedRoute>
         }
       />
@@ -70,9 +84,9 @@ function AppRoutes() {
         path="/staff"
         element={
           <ProtectedRoute requiredRole="admin">
-            <AppLayout>
-              <Staff />
-            </AppLayout>
+            {shouldRedirectToSetup ? <Navigate to="/setup" replace /> : (
+              <AppLayout><Staff /></AppLayout>
+            )}
           </ProtectedRoute>
         }
       />
@@ -88,7 +102,9 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <AuthProvider>
-          <AppRoutes />
+          <CondominiumProvider>
+            <AppRoutes />
+          </CondominiumProvider>
         </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>

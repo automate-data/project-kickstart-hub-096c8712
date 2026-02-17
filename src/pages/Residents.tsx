@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useCondominium } from '@/hooks/useCondominium';
 import { Resident } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,6 +14,10 @@ import { useToast } from '@/hooks/use-toast';
 import { Plus, Search, User, Phone, Home, Loader2, Trash2, Pencil } from 'lucide-react';
 
 export default function Residents() {
+  const { condominium } = useCondominium();
+  const groupLabel = condominium?.group_label || 'Bloco';
+  const unitLabel = condominium?.unit_label || 'Apartamento';
+
   const [residents, setResidents] = useState<Resident[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -110,11 +115,11 @@ export default function Residents() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="block">Bloco</Label>
+                  <Label htmlFor="block">{groupLabel}</Label>
                   <Input id="block" value={block} onChange={(e) => setBlock(e.target.value)} placeholder="A" required />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="apartment">Apartamento</Label>
+                  <Label htmlFor="apartment">{unitLabel}</Label>
                   <Input id="apartment" value={apartment} onChange={(e) => setApartment(e.target.value)} placeholder="101" required />
                 </div>
               </div>
