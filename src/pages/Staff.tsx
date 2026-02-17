@@ -29,11 +29,12 @@ export default function Staff() {
   const [isSaving, setIsSaving] = useState(false);
   const { toast } = useToast();
 
-  const [email, setEmail] = useState('');
   const [fullName, setFullName] = useState('');
+  const [rg, setRg] = useState('');
   const [role, setRole] = useState<AppRole>('doorman');
 
   const [editFullName, setEditFullName] = useState('');
+  const [editRg, setEditRg] = useState('');
   const [editRole, setEditRole] = useState<AppRole>('doorman');
 
   useEffect(() => { fetchStaff(); }, []);
@@ -64,7 +65,7 @@ export default function Staff() {
 
     try {
       const { data, error } = await supabase.functions.invoke('invite-staff', {
-        body: { email, role, full_name: fullName },
+        body: { role, full_name: fullName, rg },
       });
 
       if (error) throw error;
@@ -79,10 +80,10 @@ export default function Staff() {
         return;
       }
 
-      toast({ title: 'Membro adicionado!', description: 'O usuário foi convidado e adicionado à equipe.' });
+      toast({ title: 'Membro adicionado!', description: 'O usuário foi adicionado à equipe.' });
       setDialogOpen(false);
-      setEmail('');
       setFullName('');
+      setRg('');
       setRole('doorman');
       fetchStaff();
     } catch (error) {
@@ -107,6 +108,7 @@ export default function Staff() {
   const handleEditStaff = (member: StaffMember) => {
     setEditingMember(member);
     setEditFullName(member.full_name || '');
+    setEditRg(member.rg || '');
     setEditRole(member.role || 'doorman');
     setEditDialogOpen(true);
   };
@@ -116,18 +118,17 @@ export default function Staff() {
     if (!editingMember) return;
     setIsSaving(true);
     try {
-      // Update profile name
-      if (editFullName !== editingMember.full_name) {
-        console.log('Updating profile name for', editingMember.id, 'to', editFullName);
-        const { error: profileError, status, statusText } = await supabase.from('profiles').update({ full_name: editFullName }).eq('id', editingMember.id);
-        console.log('Profile update result:', { profileError, status, statusText });
+      // Update profile name and rg
+      if (editFullName !== editingMember.full_name || editRg !== (editingMember.rg || '')) {
+        const updateData: any = {};
+        if (editFullName !== editingMember.full_name) updateData.full_name = editFullName;
+        if (editRg !== (editingMember.rg || '')) updateData.rg = editRg;
+        const { error: profileError } = await supabase.from('profiles').update(updateData).eq('id', editingMember.id);
         if (profileError) throw profileError;
       }
       // Update role if changed
       if (editRole !== editingMember.role) {
-        console.log('Updating role for', editingMember.id, 'to', editRole);
-        const { error: roleError, status, statusText } = await supabase.from('user_roles').update({ role: editRole }).eq('user_id', editingMember.id);
-        console.log('Role update result:', { roleError, status, statusText });
+        const { error: roleError } = await supabase.from('user_roles').update({ role: editRole }).eq('user_id', editingMember.id);
         if (roleError) throw roleError;
       }
       toast({ title: 'Membro atualizado!' });
@@ -143,7 +144,7 @@ export default function Staff() {
 
   const filteredStaff = staff.filter((s) =>
     s.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    s.email.toLowerCase().includes(searchQuery.toLowerCase())
+    (s.rg || '').toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const getRoleBadge = (role: AppRole) => {
@@ -164,7 +165,7 @@ export default function Staff() {
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Adicionar membro</DialogTitle>
-              <DialogDescription>Informe o email do usuário. Se não existir, será criado automaticamente.</DialogDescription>
+              <DialogDescription>Informe os dados do novo membro da equipe.</DialogDescription>
             </DialogHeader>
             <form onSubmit={handleAddStaff} className="space-y-4">
               <div className="space-y-2">
@@ -172,8 +173,8 @@ export default function Staff() {
                 <Input id="fullName" type="text" value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Nome do usuário" required />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="email">Email do usuário</Label>
-                <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="usuario@email.com" required />
+                <Label htmlFor="rg">RG</Label>
+                <Input id="rg" type="text" value={rg} onChange={(e) => setRg(e.target.value)} placeholder="Número do RG" required />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="role">Papel</Label>
@@ -217,10 +218,10 @@ export default function Staff() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <p className="font-medium truncate">{member.full_name || member.email.split('@')[0]}</p>
+                      <p className="font-medium truncate">{member.full_name}</p>
                       {member.role && getRoleBadge(member.role)}
                     </div>
-                    <p className="text-sm text-muted-foreground truncate">{member.email}</p>
+                    <p className="text-sm text-muted-foreground truncate">RG: {member.rg || '—'}</p>
                   </div>
                   <div className="flex gap-1">
                     <Button variant="ghost" size="icon" onClick={() => handleEditStaff(member)}>
@@ -250,6 +251,10 @@ export default function Staff() {
             <div className="space-y-2">
               <Label htmlFor="editFullName">Nome completo</Label>
               <Input id="editFullName" type="text" value={editFullName} onChange={(e) => setEditFullName(e.target.value)} required />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="editRg">RG</Label>
+              <Input id="editRg" type="text" value={editRg} onChange={(e) => setEditRg(e.target.value)} required />
             </div>
             <div className="space-y-2">
               <Label htmlFor="editRole">Papel</Label>
