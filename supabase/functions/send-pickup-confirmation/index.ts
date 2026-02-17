@@ -29,7 +29,9 @@ serve(async (req) => {
       );
     }
 
-    const toNumber = phone.startsWith("whatsapp:") ? phone : `whatsapp:${phone}`;
+    // Normalize phone to E.164 (remove spaces, dashes, parentheses)
+    const normalizedPhone = phone.replace(/[\s\-\(\)]/g, '');
+    const toNumber = normalizedPhone.startsWith("whatsapp:") ? normalizedPhone : `whatsapp:${normalizedPhone}`;
     const fromNumber = TWILIO_WHATSAPP_FROM.startsWith("whatsapp:")
       ? TWILIO_WHATSAPP_FROM
       : `whatsapp:${TWILIO_WHATSAPP_FROM}`;
