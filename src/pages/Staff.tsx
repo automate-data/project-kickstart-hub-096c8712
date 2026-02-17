@@ -118,20 +118,24 @@ export default function Staff() {
     try {
       // Update profile name
       if (editFullName !== editingMember.full_name) {
-        const { error: profileError } = await supabase.from('profiles').update({ full_name: editFullName }).eq('id', editingMember.id);
+        console.log('Updating profile name for', editingMember.id, 'to', editFullName);
+        const { error: profileError, status, statusText } = await supabase.from('profiles').update({ full_name: editFullName }).eq('id', editingMember.id);
+        console.log('Profile update result:', { profileError, status, statusText });
         if (profileError) throw profileError;
       }
       // Update role if changed
       if (editRole !== editingMember.role) {
-        const { error: roleError } = await supabase.from('user_roles').update({ role: editRole }).eq('user_id', editingMember.id);
+        console.log('Updating role for', editingMember.id, 'to', editRole);
+        const { error: roleError, status, statusText } = await supabase.from('user_roles').update({ role: editRole }).eq('user_id', editingMember.id);
+        console.log('Role update result:', { roleError, status, statusText });
         if (roleError) throw roleError;
       }
       toast({ title: 'Membro atualizado!' });
       setEditDialogOpen(false);
       fetchStaff();
-    } catch (error) {
-      console.error(error);
-      toast({ title: 'Erro ao atualizar', description: 'Tente novamente', variant: 'destructive' });
+    } catch (error: any) {
+      console.error('Edit staff error:', error, JSON.stringify(error));
+      toast({ title: 'Erro ao atualizar', description: error?.message || 'Tente novamente', variant: 'destructive' });
     } finally {
       setIsSaving(false);
     }
