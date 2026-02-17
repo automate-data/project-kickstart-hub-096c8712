@@ -20,7 +20,7 @@ serve(async (req) => {
       throw new Error("Twilio credentials not configured");
     }
 
-    const { phone, residentName, registeredBy, photoFilename } = await req.json();
+    const { phone, resident_name, picked_up_at } = await req.json();
 
     if (!phone) {
       return new Response(
@@ -34,9 +34,9 @@ serve(async (req) => {
       ? TWILIO_WHATSAPP_FROM
       : `whatsapp:${TWILIO_WHATSAPP_FROM}`;
 
-    // Format current date/time in Brazilian format
-    const now = new Date();
-    const dateTimeBR = now.toLocaleString("pt-BR", {
+    // Format pickup date/time in Brazilian format
+    const pickupDate = picked_up_at ? new Date(picked_up_at) : new Date();
+    const dateTimeBR = pickupDate.toLocaleString("pt-BR", {
       timeZone: "America/Sao_Paulo",
       day: "2-digit",
       month: "2-digit",
@@ -46,10 +46,8 @@ serve(async (req) => {
     });
 
     const contentVariables = JSON.stringify({
-      "1": residentName || "Morador",
-      "2": registeredBy || "Portaria",
-      "3": dateTimeBR,
-      "4": photoFilename || "",
+      "1": resident_name || "Morador",
+      "2": dateTimeBR,
     });
 
     const url = `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Messages.json`;
@@ -57,7 +55,7 @@ serve(async (req) => {
     const body = new URLSearchParams({
       To: toNumber,
       From: fromNumber,
-      ContentSid: "HXdc5f26078f32727eaa02ffc3c848f82e",
+      ContentSid: "HXfd32c526e2f3c8209d014dd2c2f27120",
       ContentVariables: contentVariables,
     });
 
@@ -80,14 +78,14 @@ serve(async (req) => {
       );
     }
 
-    console.log("WhatsApp sent successfully, SID:", data.sid);
+    console.log("Pickup confirmation sent, SID:", data.sid);
 
     return new Response(
       JSON.stringify({ success: true, sid: data.sid }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
-    console.error("send-whatsapp error:", error);
+    console.error("send-pickup-confirmation error:", error);
     const msg = error instanceof Error ? error.message : "Unknown error";
     return new Response(
       JSON.stringify({ error: msg }),

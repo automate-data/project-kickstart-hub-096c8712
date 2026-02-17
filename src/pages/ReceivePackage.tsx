@@ -254,9 +254,9 @@ export default function ReceivePackage() {
           await supabase.functions.invoke('send-whatsapp', {
             body: {
               phone: selectedResident.phone,
-              resident_name: selectedResident.full_name,
-              registered_by: registeredBy,
-              photo_filename: processedImage.fileName,
+              residentName: selectedResident.full_name,
+              registeredBy: registeredBy,
+              photoFilename: processedImage.fileName,
             },
           });
         } catch (notifError) {
