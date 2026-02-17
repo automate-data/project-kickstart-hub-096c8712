@@ -287,6 +287,71 @@ export type Database = {
         }
         Relationships: []
       }
+      packages: {
+        Row: {
+          ai_suggestion: Json | null
+          carrier: string | null
+          created_at: string
+          id: string
+          notes: string | null
+          ocr_raw_text: string | null
+          photo_url: string
+          picked_up_at: string | null
+          picked_up_by: string | null
+          pickup_confirmation_sent: boolean | null
+          received_at: string
+          received_by: string | null
+          resident_id: string | null
+          signature_data: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          ai_suggestion?: Json | null
+          carrier?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          ocr_raw_text?: string | null
+          photo_url: string
+          picked_up_at?: string | null
+          picked_up_by?: string | null
+          pickup_confirmation_sent?: boolean | null
+          received_at?: string
+          received_by?: string | null
+          resident_id?: string | null
+          signature_data?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          ai_suggestion?: Json | null
+          carrier?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          ocr_raw_text?: string | null
+          photo_url?: string
+          picked_up_at?: string | null
+          picked_up_by?: string | null
+          pickup_confirmation_sent?: boolean | null
+          received_at?: string
+          received_by?: string | null
+          resident_id?: string | null
+          signature_data?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "packages_resident_id_fkey"
+            columns: ["resident_id"]
+            isOneToOne: false
+            referencedRelation: "residents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       perfis: {
         Row: {
           atualizado_em: string
@@ -317,6 +382,63 @@ export type Database = {
           id?: string
           nome?: string | null
           telefone?: string | null
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          email: string
+          full_name: string
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          email?: string
+          full_name?: string
+          id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          full_name?: string
+          id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      residents: {
+        Row: {
+          apartment: string
+          block: string
+          created_at: string
+          full_name: string
+          id: string
+          is_active: boolean
+          phone: string
+          updated_at: string
+        }
+        Insert: {
+          apartment: string
+          block: string
+          created_at?: string
+          full_name: string
+          id?: string
+          is_active?: boolean
+          phone: string
+          updated_at?: string
+        }
+        Update: {
+          apartment?: string
+          block?: string
+          created_at?: string
+          full_name?: string
+          id?: string
+          is_active?: boolean
+          phone?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -356,15 +478,40 @@ export type Database = {
         }
         Relationships: []
       }
+      user_roles: {
+        Row: {
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
       get_cobranca_user_id: { Args: { cobranca_uuid: string }; Returns: string }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "doorman"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -491,6 +638,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "doorman"],
+    },
   },
 } as const
