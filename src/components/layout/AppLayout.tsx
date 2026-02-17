@@ -11,7 +11,7 @@ interface AppLayoutProps {
 }
 
 export default function AppLayout({ children }: AppLayoutProps) {
-  const { role, signOut } = useAuth();
+  const { user, role, signOut } = useAuth();
   const { condominium, condominiums } = useCondominium();
   const location = useLocation();
   const navigate = useNavigate();
@@ -63,6 +63,9 @@ export default function AppLayout({ children }: AppLayoutProps) {
           </nav>
 
           <div className="flex items-center gap-2">
+            <div className="hidden md:flex items-center gap-2 text-sm text-muted-foreground mr-1">
+              <span className="max-w-[160px] truncate">{user?.user_metadata?.full_name || user?.email}</span>
+            </div>
             <Button variant="ghost" size="icon" onClick={() => signOut()} className="hidden md:flex">
               <LogOut className="w-4 h-4" />
             </Button>
