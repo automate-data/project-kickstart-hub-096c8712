@@ -13,7 +13,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Search, UserCog, Loader2, Trash2 } from 'lucide-react';
+import { Plus, Search, UserCog, Loader2, Trash2, Pencil } from 'lucide-react';
 
 interface StaffMember extends Profile {
   role?: AppRole;
@@ -24,12 +24,17 @@ export default function Staff() {
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editingMember, setEditingMember] = useState<StaffMember | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const { toast } = useToast();
 
   const [email, setEmail] = useState('');
   const [fullName, setFullName] = useState('');
   const [role, setRole] = useState<AppRole>('doorman');
+
+  const [editFullName, setEditFullName] = useState('');
+  const [editRole, setEditRole] = useState<AppRole>('doorman');
 
   useEffect(() => { fetchStaff(); }, []);
 
@@ -96,6 +101,39 @@ export default function Staff() {
     } else {
       toast({ title: 'Membro removido!' });
       fetchStaff();
+    }
+  };
+
+  const handleEditStaff = (member: StaffMember) => {
+    setEditingMember(member);
+    setEditFullName(member.full_name || '');
+    setEditRole(member.role || 'doorman');
+    setEditDialogOpen(true);
+  };
+
+  const handleSaveEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingMember) return;
+    setIsSaving(true);
+    try {
+      // Update profile name
+      if (editFullName !== editingMember.full_name) {
+        const { error: profileError } = await supabase.from('profiles').update({ full_name: editFullName }).eq('id', editingMember.id);
+        if (profileError) throw profileError;
+      }
+      // Update role if changed
+      if (editRole !== editingMember.role) {
+        const { error: roleError } = await supabase.from('user_roles').update({ role: editRole }).eq('user_id', editingMember.id);
+        if (roleError) throw roleError;
+      }
+      toast({ title: 'Membro atualizado!' });
+      setEditDialogOpen(false);
+      fetchStaff();
+    } catch (error) {
+      console.error(error);
+      toast({ title: 'Erro ao atualizar', description: 'Tente novamente', variant: 'destructive' });
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -175,14 +213,19 @@ export default function Staff() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <p className="font-medium truncate">{member.full_name}</p>
+                      <p className="font-medium truncate">{member.full_name || member.email.split('@')[0]}</p>
                       {member.role && getRoleBadge(member.role)}
                     </div>
                     <p className="text-sm text-muted-foreground truncate">{member.email}</p>
                   </div>
-                  <Button variant="ghost" size="icon" onClick={() => handleRemoveStaff(member.id)} className="text-destructive hover:text-destructive">
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
+                  <div className="flex gap-1">
+                    <Button variant="ghost" size="icon" onClick={() => handleEditStaff(member)}>
+                      <Pencil className="w-4 h-4" />
+                    </Button>
+                    <Button variant="ghost" size="icon" onClick={() => handleRemoveStaff(member.id)} className="text-destructive hover:text-destructive">
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -193,6 +236,33 @@ export default function Staff() {
       <p className="text-sm text-muted-foreground text-center">
         {staff.length} membro{staff.length !== 1 ? 's' : ''} na equipe
       </p>
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar membro</DialogTitle>
+            <DialogDescription>Altere o nome ou papel do membro</DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleSaveEdit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="editFullName">Nome completo</Label>
+              <Input id="editFullName" type="text" value={editFullName} onChange={(e) => setEditFullName(e.target.value)} required />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="editRole">Papel</Label>
+              <Select value={editRole} onValueChange={(v) => setEditRole(v as AppRole)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="doorman">Porteiro</SelectItem>
+                  <SelectItem value="admin">Administrador</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <Button type="submit" className="w-full" disabled={isSaving}>
+              {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Salvar alterações'}
+            </Button>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
