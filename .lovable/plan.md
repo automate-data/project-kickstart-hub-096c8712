@@ -1,117 +1,54 @@
 
 
-# Modulo de Setup do Condominio
+# Plano: Reintroduzir Email no Cadastro de Membros e Corrigir Acesso ao Login
 
-## Visao Geral
+## Problema Atual
 
-Criar um fluxo de configuracao inicial (onboarding/setup) que o administrador completa antes de qualquer funcionario usar o sistema. Este modulo define a estrutura do condominio, suas nomenclaturas de unidades, e permite o cadastro previo de moradores e equipe.
+1. **Membros sem email real**: O cadastro atual gera emails internos fictícios (ex: `staff-xxxxx@internal.local`), impossibilitando que porteiros e outros membros façam login no sistema.
 
-## Estrutura do Banco de Dados
+2. **Pagina de login inacessivel**: Quando voce ja esta logado e tenta acessar `/auth`, o sistema redireciona para `/` que, por sua vez, carrega a rota protegida. Se outra pessoa tentar criar conta (signup), ela vera "Acesso pendente" porque nao tera um papel atribuido ainda -- isso e esperado, mas o fluxo precisa ser mais claro.
 
-### Nova tabela: `condominiums`
+## Solucao Proposta
 
-Armazena os dados juridicos e estruturais do condominio.
+### 1. Reintroduzir campo Email no cadastro de membros
 
-| Coluna | Tipo | Descricao |
-|--------|------|-----------|
-| id | uuid (PK) | Identificador |
-| name | text | Nome do condominio (ex: "Residencial Park") |
-| cnpj | text | CNPJ do condominio |
-| address | text | Endereco completo |
-| city | text | Cidade |
-| state | text | Estado (UF) |
-| zip_code | text | CEP |
-| phone | text | Telefone da administracao |
-| email | text | Email da administracao |
-| unit_type | text | Tipo: 'apartment', 'house', 'mixed' |
-| group_label | text | Rotulo do agrupamento: "Bloco", "Torre", "Rua", "Quadra", etc. |
-| unit_label | text | Rotulo da unidade: "Apartamento", "Casa", "Sala", etc. |
-| groups | jsonb | Lista dos agrupamentos (ex: ["A","B","C"] ou ["1","2","3"]) |
-| setup_completed | boolean | Se o setup inicial foi finalizado |
-| admin_user_id | uuid | Usuario que criou o condominio |
-| created_at | timestamptz | Data de criacao |
-| updated_at | timestamptz | Data de atualizacao |
+**Arquivo: `src/pages/Staff.tsx`**
+- Adicionar campo de email no formulario de adicao de membro (nome, email, RG, papel)
+- Adicionar campo de email no formulario de edicao
+- Exibir email do membro na listagem
+- Incluir email no filtro de busca
 
-O campo `unit_type` determina o comportamento da interface:
-- `apartment`: mostra campo de bloco/torre + apartamento
-- `house`: mostra campo de rua/quadra + casa
-- `mixed`: permite ambos
+### 2. Atualizar a edge function `invite-staff`
 
-Os campos `group_label` e `unit_label` permitem nomenclaturas customizadas que serao usadas em toda a interface (formularios, listagens, matching da IA).
+**Arquivo: `supabase/functions/invite-staff/index.ts`**
+- Aceitar o campo `email` enviado pelo admin
+- Usar o email real fornecido (em vez de gerar `staff-xxx@internal.local`)
+- Gerar uma senha padrao temporaria (ex: `Mudar@123`) para o novo usuario
+- Retornar a senha temporaria para que o admin informe ao membro
+- Manter a vinculacao com `condominium_id`
 
-### Alteracao na tabela `residents`
+### 3. Sobre a pagina de login
 
-Adicionar coluna `condominium_id` (uuid, FK para condominiums) para vincular moradores ao condominio. Os moradores existentes receberao o ID do primeiro condominio criado.
-
-## Fluxo de Telas
-
-### 1. Tela de Setup (Wizard em 3 etapas) - `/setup`
-
-Rota acessivel apenas quando `setup_completed = false` ou nenhum condominio existe.
-
-**Etapa 1 - Dados do Condominio**
-- Nome, CNPJ, endereco, cidade, estado, CEP
-- Telefone e email da administracao
-
-**Etapa 2 - Estrutura e Nomenclaturas**
-- Tipo de condominio (Apartamentos / Casas / Misto)
-- Rotulo do agrupamento (Bloco, Torre, Rua, Quadra - com opcao customizada)
-- Rotulo da unidade (Apartamento, Casa, Sala - com opcao customizada)
-- Lista de agrupamentos (ex: digitar "A, B, C, D" ou "1, 2, 3")
-
-**Etapa 3 - Cadastro Inicial**
-- Cadastro rapido de moradores (tabela editavel)
-- Cadastro de membros da equipe (porteiros)
-- Botao "Concluir Setup"
-
-### 2. Redirecionamento Automatico
-
-- Se nao existe condominio ou `setup_completed = false`, redirecionar para `/setup`
-- Apos concluir, redirecionar para o Dashboard normal
-- O setup pode ser revisitado em uma pagina de Configuracoes (futura)
-
-## Alteracoes nos Componentes Existentes
-
-### Labels Dinamicos
-
-Os formularios de moradores (`Residents.tsx`) e o matching da IA (`ReceivePackage.tsx`) passarao a usar `group_label` e `unit_label` do condominio em vez de "Bloco" e "Apartamento" fixos. Por exemplo, se o condominio for de casas, o label dira "Rua" e "Casa".
-
-### Roteamento (`App.tsx`)
-
-- Nova rota `/setup` protegida para admins
-- Logica de redirecionamento: se nao existe condominio configurado, redirecionar para `/setup`
-
-### Hook `useCondominium`
-
-Novo hook que carrega os dados do condominio e disponibiliza `group_label`, `unit_label`, `unit_type` e `groups` para toda a aplicacao via Context.
+A pagina `/auth` funciona normalmente para usuarios nao logados. O comportamento "Acesso pendente" aparece quando um usuario cria conta via "Criar conta" mas ainda nao tem papel atribuido -- isso e o fluxo correto. Os membros devem ser cadastrados pelo admin (na tela Equipe) e depois fazer login com o email e senha informados.
 
 ## Detalhes Tecnicos
 
-### Migracao SQL
+### Alteracoes em `src/pages/Staff.tsx`
+- Novo estado `email` e `editEmail` para os formularios
+- Campo `<Input type="email">` nos dialogs de adicao e edicao
+- Exibir email na listagem ao lado do RG
+- Passar `email` no body da chamada `invoke('invite-staff', ...)`
 
-```text
-1. CREATE TABLE condominiums (...)
-2. ALTER TABLE residents ADD COLUMN condominium_id uuid REFERENCES condominiums(id)
-3. RLS: admin pode CRUD, authenticated pode SELECT
-4. Trigger para updated_at
-```
+### Alteracoes em `supabase/functions/invite-staff/index.ts`
+- Receber `email` do request body
+- Usar `adminClient.auth.admin.createUser({ email, password: 'Mudar@123', ... })`
+- Verificar se email ja existe antes de criar
+- Retornar senha temporaria na resposta para o admin compartilhar
 
-### Arquivos a Criar
-
-- `src/pages/Setup.tsx` - Wizard de 3 etapas
-- `src/hooks/useCondominium.tsx` - Context + hook para dados do condominio
-
-### Arquivos a Modificar
-
-- `src/App.tsx` - Nova rota + logica de redirecionamento
-- `src/types/index.ts` - Interface `Condominium`
-- `src/pages/Residents.tsx` - Labels dinamicos
-- `src/pages/ReceivePackage.tsx` - Labels dinamicos no matching
-- `src/components/layout/AppLayout.tsx` - Exibir nome do condominio no header
-
-### Seguranca (RLS)
-
-- Apenas admins podem criar/editar condominios
-- Todos os usuarios autenticados podem visualizar o condominio (necessario para labels dinamicos)
-- Moradores continuam com as politicas atuais
+### Fluxo de uso
+1. Admin cadastra membro com nome, email, RG e papel
+2. Sistema cria usuario com email real e senha temporaria
+3. Admin informa email e senha ao membro
+4. Membro faz login com email e senha
+5. Membro acessa apenas o condominio ao qual foi vinculado
 
