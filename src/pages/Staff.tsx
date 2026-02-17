@@ -57,27 +57,23 @@ export default function Staff() {
     setIsSaving(true);
 
     try {
-      const { data: profileData } = await supabase.from('profiles').select('id').eq('email', email).maybeSingle();
-
-      if (!profileData) {
-        toast({ title: 'Usuário não encontrado', description: 'O email informado não está cadastrado no sistema', variant: 'destructive' });
-        setIsSaving(false);
-        return;
-      }
-
-      const { data: existingRole } = await supabase.from('user_roles').select('id').eq('user_id', profileData.id).maybeSingle();
-
-      if (existingRole) {
-        toast({ title: 'Usuário já é membro da equipe', description: 'Este usuário já tem um papel atribuído', variant: 'destructive' });
-        setIsSaving(false);
-        return;
-      }
-
-      const { error } = await supabase.from('user_roles').insert({ user_id: profileData.id, role });
+      const { data, error } = await supabase.functions.invoke('invite-staff', {
+        body: { email, role },
+      });
 
       if (error) throw error;
 
-      toast({ title: 'Membro adicionado!' });
+      if (data?.error) {
+        if (data.error === 'User already has a role') {
+          toast({ title: 'Usuário já é membro da equipe', description: 'Este usuário já tem um papel atribuído', variant: 'destructive' });
+        } else {
+          toast({ title: 'Erro', description: data.error, variant: 'destructive' });
+        }
+        setIsSaving(false);
+        return;
+      }
+
+      toast({ title: 'Membro adicionado!', description: 'O usuário foi convidado e adicionado à equipe.' });
       setDialogOpen(false);
       setEmail('');
       setRole('doorman');
@@ -124,7 +120,7 @@ export default function Staff() {
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Adicionar membro</DialogTitle>
-              <DialogDescription>Informe o email de um usuário já cadastrado</DialogDescription>
+              <DialogDescription>Informe o email do usuário. Se não existir, será criado automaticamente.</DialogDescription>
             </DialogHeader>
             <form onSubmit={handleAddStaff} className="space-y-4">
               <div className="space-y-2">
