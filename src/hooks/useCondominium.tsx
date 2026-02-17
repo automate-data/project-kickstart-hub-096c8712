@@ -52,33 +52,24 @@ export function CondominiumProvider({ children }: { children: ReactNode }) {
 
     let data: any[] | null = null;
 
-    if (role === 'admin') {
-      // Admins see all condominiums
+    // All users (including admins) only see condominiums they're assigned to
+    const { data: roles } = await supabase
+      .from('user_roles')
+      .select('condominium_id')
+      .eq('user_id', user.id)
+      .not('condominium_id', 'is', null);
+
+    const condIds = roles?.map(r => r.condominium_id).filter(Boolean) || [];
+
+    if (condIds.length > 0) {
       const res = await supabase
         .from('condominiums')
         .select('*')
+        .in('id', condIds)
         .order('name');
       data = res.data;
     } else {
-      // Non-admins only see condominiums they're assigned to
-      const { data: roles } = await supabase
-        .from('user_roles')
-        .select('condominium_id')
-        .eq('user_id', user.id)
-        .not('condominium_id', 'is', null);
-
-      const condIds = roles?.map(r => r.condominium_id).filter(Boolean) || [];
-
-      if (condIds.length > 0) {
-        const res = await supabase
-          .from('condominiums')
-          .select('*')
-          .in('id', condIds)
-          .order('name');
-        data = res.data;
-      } else {
-        data = [];
-      }
+      data = [];
     }
 
     if (data && data.length > 0) {
