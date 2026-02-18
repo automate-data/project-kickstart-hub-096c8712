@@ -1,47 +1,37 @@
 
-## Correção: Filtro de moradores por condomínio
+## Adicionar botao "Selecionar arquivo" na tela de recebimento (desktop)
 
-### Problema
-A página de Moradores (`/residents`) exibe moradores de todos os condomínios porque o filtro por `condominium_id` é opcional — se o condomínio ainda não carregou, a query retorna tudo.
+### O que muda
 
-### Solução
-Aplicar a mesma correção já feita em `ReceivePackage.tsx`: retornar lista vazia se `condominium_id` não estiver disponível, e sempre filtrar com `.eq('condominium_id', condominium.id)`.
+Na tela `/receive`, no passo `capture`, alem do botao de camera, adicionar um segundo botao para selecionar uma foto do computador. No mobile, o botao de camera ja abre a galeria como fallback, entao o novo botao sera mais util no desktop.
 
-### Detalhes técnicos
+### Implementacao
 
-**Arquivo: `src/pages/Residents.tsx`**
+**Arquivo:** `src/pages/ReceivePackage.tsx`
 
-Alterar a função `fetchResidents` de:
-```typescript
-const fetchResidents = async () => {
-  let query = supabase.from('residents').select('*').order('full_name');
-  if (condominium?.id) {
-    query = query.eq('condominium_id', condominium.id);
-  }
-  const { data } = await query;
-  if (data) setResidents(data as Resident[]);
-  setIsLoading(false);
-};
+Na secao `step === 'capture'` (linhas ~300-325), o layout atual tem apenas o bloco clicavel da camera. A mudanca:
+
+1. Manter o bloco da camera como esta (clique abre a camera)
+2. Adicionar abaixo um divisor "ou" e um botao secundario "Selecionar arquivo" que aciona o `fileInputRef.current?.click()` para abrir o seletor de arquivos do sistema operacional
+3. O `<input type="file">` ja existe no codigo (linha ~298), entao basta reutiliza-lo
+
+Layout visual:
+
+```text
++---------------------------+
+|                           |
+|    [icone camera]         |
+|    Toque para fotografar  |
+|                           |
++---------------------------+
+
+         — ou —
+
+  [ Selecionar do computador ]
 ```
 
-Para:
-```typescript
-const fetchResidents = async () => {
-  if (!condominium?.id) {
-    setResidents([]);
-    setIsLoading(false);
-    return;
-  }
+### Detalhes tecnicos
 
-  const { data } = await supabase
-    .from('residents')
-    .select('*')
-    .eq('condominium_id', condominium.id)
-    .order('full_name');
-
-  if (data) setResidents(data as Resident[]);
-  setIsLoading(false);
-};
-```
-
-Isso garante que moradores de outros condomínios nunca sejam exibidos.
+- O botao usara `variant="outline"` com icone `Upload` (ou `ImagePlus`) do lucide-react
+- O input file ja chama `handleFileChange` que processa a imagem normalmente
+- Nenhuma mudanca de logica, apenas UI adicional
