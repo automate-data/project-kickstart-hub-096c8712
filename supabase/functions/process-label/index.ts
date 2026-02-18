@@ -24,9 +24,16 @@ INSTRUÇÕES PARA NOME DO DESTINATÁRIO:
 - Ignore títulos como "Sr.", "Sra.", "Dr."
 - Se houver "A/C" ou "Aos cuidados de", pegue o nome após isso
 
+INSTRUÇÕES PARA TRANSPORTADORA E MARKETPLACE:
+- PRIORIDADE MÁXIMA: Procure logos e textos de marketplaces/transportadoras em TODA a etiqueta
+- Logos de marketplaces: Mercado Livre (logo de aperto de mãos amarelo/azul), Amazon, Shopee, Shein, AliExpress, Magazine Luiza, TikTok Shop
+- Se encontrar "ENVIO MERCADO LIVRE", "MERCADO LIVRE", ou o logo do Mercado Livre → carrier="Mercado Livre" E marketplace="Mercado Livre"
+- Se encontrar "ENVIO SHOPEE", "ENVIO AMAZON", etc → o marketplace É a transportadora
+- Logos de transportadoras dedicadas: Jadlog, Correios, Total Express, Loggi, Azul Cargo, FedEx, DHL, Sequoia
+- Quando o envio é feito por um marketplace (ex: "ENVIO MERCADO LIVRE"), o carrier DEVE ser o nome do marketplace
+- NUNCA deixe carrier vazio se houver qualquer logo ou texto identificável na etiqueta
+
 OUTRAS INFORMAÇÕES:
-- Procure por logos de transportadoras: Jadlog, Correios, Total Express, Loggi, Azul Cargo, FedEx, DHL
-- Procure por logos de marketplaces: TikTok Shop, Mercado Livre, Amazon, Shopee, Shein, AliExpress, Magazine Luiza
 - O peso geralmente aparece como "Weight" ou "Peso" seguido de valor em KG
 - O código de rastreio é um número longo (geralmente 13+ caracteres)
 - Procure por "CD" (Centro de Distribuição) que indica origem logística
