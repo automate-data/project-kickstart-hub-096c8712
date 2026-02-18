@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { Camera, Loader2, ArrowLeft, Check, Sparkles, Search, X } from 'lucide-react';
+import { Camera, Loader2, ArrowLeft, Check, Sparkles, Search, X, Upload } from 'lucide-react';
 import { processImageForWhatsApp } from '@/lib/imageProcessor';
 import {
   Command,
@@ -355,9 +355,20 @@ export default function ReceivePackage() {
             </span>
           </div>
 
-          <p className="text-sm text-muted-foreground text-center max-w-xs">
-            Posicione a câmera para capturar a etiqueta da encomenda
-          </p>
+          <div className="flex items-center gap-3 w-64">
+            <div className="flex-1 h-px bg-border" />
+            <span className="text-sm text-muted-foreground">ou</span>
+            <div className="flex-1 h-px bg-border" />
+          </div>
+
+          <Button
+            variant="outline"
+            onClick={() => fileInputRef.current?.click()}
+            className="h-12"
+          >
+            <Upload className="w-5 h-5 mr-2" />
+            Selecionar do computador
+          </Button>
         </div>
       )}
 
