@@ -63,7 +63,7 @@ serve(async (req) => {
     const body = new URLSearchParams({
       To: toNumber,
       From: fromNumber,
-      ContentSid: "HXdc5f26078f32727eaa02ffc3c848f82e",
+      ContentSid: "HX484f3a72c0e53e0570a0b521baabb147",
       ContentVariables: contentVariables,
     });
 
