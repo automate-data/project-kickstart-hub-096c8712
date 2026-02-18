@@ -62,7 +62,7 @@ export default function Setup() {
     setIsSaving(true);
 
     try {
-      const { error } = await supabase.from('condominiums').insert({
+      const { data: newCondo, error } = await supabase.from('condominiums').insert({
         name,
         cnpj: cnpj || null,
         address: address || null,
@@ -77,9 +77,18 @@ export default function Setup() {
         groups: groups,
         setup_completed: true,
         admin_user_id: user.id,
-      } as any);
+      } as any).select('id').single();
 
       if (error) throw error;
+
+      // Link admin to the new condominium
+      const { error: roleError } = await supabase.from('user_roles').insert({
+        user_id: user.id,
+        role: 'admin' as any,
+        condominium_id: newCondo.id,
+      });
+
+      if (roleError) console.error('Error creating role link:', roleError);
 
       await refetch();
       toast({ title: 'Condomínio configurado com sucesso!' });
