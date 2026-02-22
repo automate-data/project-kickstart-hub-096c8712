@@ -1,37 +1,26 @@
 
-## Adicionar botao "Selecionar arquivo" na tela de recebimento (desktop)
 
-### O que muda
+## Busca de Encomendas na página /packages
 
-Na tela `/receive`, no passo `capture`, alem do botao de camera, adicionar um segundo botao para selecionar uma foto do computador. No mobile, o botao de camera ja abre a galeria como fallback, entao o novo botao sera mais util no desktop.
+Adicionar um campo de busca na lista de encomendas para facilitar a localização em condomínios com muitas entregas.
 
-### Implementacao
+### O que será feito
 
-**Arquivo:** `src/pages/ReceivePackage.tsx`
+- Adicionar um campo de busca logo abaixo do título "Encomendas" e acima das abas (Aguardando / Retiradas)
+- A busca filtrará pelo nome do morador, bloco/apartamento e transportadora
+- O filtro será aplicado localmente (client-side) sobre os pacotes já carregados, sem necessidade de novas queries
 
-Na secao `step === 'capture'` (linhas ~300-325), o layout atual tem apenas o bloco clicavel da camera. A mudanca:
+### Detalhes técnicos
 
-1. Manter o bloco da camera como esta (clique abre a camera)
-2. Adicionar abaixo um divisor "ou" e um botao secundario "Selecionar arquivo" que aciona o `fileInputRef.current?.click()` para abrir o seletor de arquivos do sistema operacional
-3. O `<input type="file">` ja existe no codigo (linha ~298), entao basta reutiliza-lo
+**Arquivo modificado:** `src/pages/Packages.tsx`
 
-Layout visual:
+1. Adicionar estado `searchTerm` com `useState`
+2. Inserir um `Input` com icone de busca (Search do lucide-react) e placeholder "Buscar por morador, unidade ou transportadora..."
+3. Criar uma lista `filteredPackages` que filtra `packages` pelo `searchTerm`, comparando contra:
+   - `resident.full_name`
+   - `resident.block` + `resident.apartment`
+   - `carrier`
+4. Renderizar `filteredPackages` ao invés de `packages` na listagem
 
-```text
-+---------------------------+
-|                           |
-|    [icone camera]         |
-|    Toque para fotografar  |
-|                           |
-+---------------------------+
+Nenhuma alteração de banco de dados é necessária.
 
-         — ou —
-
-  [ Selecionar do computador ]
-```
-
-### Detalhes tecnicos
-
-- O botao usara `variant="outline"` com icone `Upload` (ou `ImagePlus`) do lucide-react
-- O input file ja chama `handleFileChange` que processa a imagem normalmente
-- Nenhuma mudanca de logica, apenas UI adicional
