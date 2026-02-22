@@ -6,12 +6,13 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Package as PackageIcon, Clock, CheckCircle2 } from 'lucide-react';
+import { Package as PackageIcon, Clock, CheckCircle2, Search } from 'lucide-react';
 import { formatDistanceToNow, format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { PickupDialog } from '@/components/PickupDialog';
 import { toast } from 'sonner';
 import { PackagePhoto } from '@/components/PackagePhoto';
+import { Input } from '@/components/ui/input';
 
 export default function Packages() {
   const { condominium } = useCondominium();
@@ -20,6 +21,7 @@ export default function Packages() {
   const [filter, setFilter] = useState<'pending' | 'picked_up'>('pending');
   const [selectedPackage, setSelectedPackage] = useState<Package | null>(null);
   const [pickupDialogOpen, setPickupDialogOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
     fetchPackages();
@@ -94,6 +96,15 @@ export default function Packages() {
     setSelectedPackage(null);
   };
 
+  const filteredPackages = packages.filter((pkg) => {
+    if (!searchTerm.trim()) return true;
+    const term = searchTerm.toLowerCase();
+    const name = pkg.resident?.full_name?.toLowerCase() || '';
+    const unit = `${pkg.resident?.block || ''} ${pkg.resident?.apartment || ''}`.toLowerCase();
+    const carrier = pkg.carrier?.toLowerCase() || '';
+    return name.includes(term) || unit.includes(term) || carrier.includes(term);
+  });
+
   const PackageCard = ({ pkg }: { pkg: Package }) => (
     <Card className="overflow-hidden">
       <CardContent className="p-0">
@@ -147,6 +158,16 @@ export default function Packages() {
         <h1 className="text-2xl font-bold">Encomendas</h1>
       </div>
 
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input
+          placeholder="Buscar por morador, unidade ou transportadora..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="pl-9"
+        />
+      </div>
+
       <Tabs value={filter} onValueChange={(v) => setFilter(v as 'pending' | 'picked_up')}>
         <TabsList className="w-full">
           <TabsTrigger value="pending" className="flex-1 gap-2">
@@ -187,7 +208,7 @@ export default function Packages() {
             </Card>
           ) : (
             <div className="space-y-3">
-              {packages.map((pkg) => (
+              {filteredPackages.map((pkg) => (
                 <PackageCard key={pkg.id} pkg={pkg} />
               ))}
             </div>
