@@ -1,38 +1,68 @@
 
-## Anonimizacao de Fotos de Etiquetas para WhatsApp (LGPD)
+## Tarja em informacoes sensiveis (substituindo blur)
 
-### Problema
-As etiquetas de encomendas contem dados pessoais sensiveis (CPF, endereco, telefone). Quando o morador recebe a notificacao via WhatsApp com o botao para ver a foto, ele ve a etiqueta completa e legivel. Pela LGPD, esses dados devem ser minimizados -- o morador so precisa reconhecer visualmente que e sua encomenda.
+### Abordagem
 
-### Abordagem: Blur client-side no momento do registro
+Substituir o blur atual por tarjas pretas sobre areas sensiveis da etiqueta. Para isso, a IA que ja le a etiqueta (`process-label`) tambem retornara as coordenadas (bounding boxes) das areas com dados sensiveis (CPF, endereco completo, telefone, CEP). No client-side, essas coordenadas serao usadas para desenhar retangulos pretos sobre a imagem antes de enviar via WhatsApp.
 
-Ao registrar a encomenda, o sistema criara automaticamente duas versoes da foto:
-- **Original** -- armazenada normalmente para porteiros e admins (usada no dashboard)
-- **Versao borrada** -- com blur sutil aplicado, usada exclusivamente no link enviado via WhatsApp
+O nome do destinatario e a transportadora ficam visiveis -- o morador precisa reconhecer que a encomenda e dele.
 
-O blur sera aplicado no navegador usando o filtro nativo do Canvas (`ctx.filter = 'blur(6px)'`), sem necessidade de bibliotecas externas ou processamento server-side.
+### O que muda
 
-### O que muda para o morador
-O morador continua recebendo a mensagem com o botao para ver a foto. Ao clicar, vera a imagem com um blur suave -- suficiente para reconhecer cores, formas e o formato da encomenda, mas que dificulta a leitura de textos como CPF e endereco.
+1. **Edge function `process-label`** -- Adicionar ao prompt da IA uma instrucao para retornar tambem um campo `sensitive_regions` com bounding boxes normalizadas (0-1000) das areas que contem CPF, endereco, telefone e CEP. O Gemini Vision suporta retorno de coordenadas espaciais.
 
-### O que NAO muda
-- Porteiros e admins continuam vendo a foto original nitida no sistema
-- O fluxo de registro permanece identico (sem passos extras)
-- Os templates do Twilio nao precisam ser alterados
+2. **`src/lib/imageProcessor.ts`** -- Substituir `processImageBlurred` por `processImageRedacted(file, regions)` que recebe a lista de bounding boxes e desenha retangulos pretos semitransparentes (com cantos arredondados para visual mais suave) sobre essas areas.
+
+3. **`src/pages/ReceivePackage.tsx`** -- Passar as `sensitive_regions` retornadas pela IA para a nova funcao de redacao. O fluxo de dual upload (original + redacted) permanece igual.
+
+4. **`src/types/index.ts`** -- Adicionar tipo `SensitiveRegion` para as bounding boxes.
 
 ### Detalhes tecnicos
 
-**Arquivo modificado:** `src/lib/imageProcessor.ts`
-- Nova funcao `processImageBlurred(file: File)` que aplica `ctx.filter = 'blur(6px)'` antes de desenhar na canvas
-- Retorna um `ProcessedImage` com filename prefixado `blurred_` (ex: `blurred_encomenda_1234.jpg`)
+**Arquivo modificado: `supabase/functions/process-label/index.ts`**
+- Adicionar ao SYSTEM_PROMPT instrucoes para retornar `sensitive_regions`:
+```
+"sensitive_regions": [
+  { "label": "cpf", "x": 100, "y": 200, "width": 300, "height": 50 },
+  { "label": "address", "x": 50, "y": 400, "width": 500, "height": 120 }
+]
+```
+- As coordenadas sao normalizadas em escala 0-1000 (relativas ao tamanho da imagem)
+- Labels possiveis: "cpf", "address", "phone", "zipcode", "rg"
+- Instrucao explicita: NAO incluir o nome do destinatario nas regioes sensiveis
 
-**Arquivo modificado:** `src/pages/ReceivePackage.tsx`
-- No `handleSubmit`, apos fazer upload da imagem original, tambem processa e faz upload da versao borrada
-- Passa o filename borrado (`blurred_encomenda_xxx.jpg`) para a funcao `send-whatsapp` no campo `photoFilename`
-- A foto original continua sendo salva no campo `photo_url` do banco para uso no dashboard
+**Arquivo modificado: `src/types/index.ts`**
+- Novo tipo:
+```typescript
+interface SensitiveRegion {
+  label: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+```
 
-**Nenhuma alteracao em:**
-- Edge functions (send-whatsapp, send-pickup-confirmation, process-label)
-- Componentes de exibicao (PackagePhoto, PickupDialog, Packages)
-- Banco de dados
-- Templates do Twilio
+**Arquivo modificado: `src/lib/imageProcessor.ts`**
+- Remover `processImageBlurred`
+- Nova funcao `processImageRedacted(file: File, regions: SensitiveRegion[])`:
+  - Carrega a imagem e redimensiona (mesma logica do processForWhatsApp)
+  - Converte coordenadas normalizadas (0-1000) para pixels reais
+  - Desenha retangulos pretos com `ctx.fillRect` sobre cada regiao, com pequena margem de seguranca
+  - Para visual suave: usa `roundRect` com cantos arredondados de 4px e opacidade de ~0.92 (quase opaco, mas sutilmente suave)
+  - Fallback: se nao receber regioes, aplica blur simples como antes (seguranca)
+  - Prefixo do filename: `redacted_encomenda_xxx.jpg`
+
+**Arquivo modificado: `src/pages/ReceivePackage.tsx`**
+- Armazenar `sensitiveRegions` no state (vindas da resposta da IA)
+- No `handleSubmit`, chamar `processImageRedacted(photoFile, sensitiveRegions)` ao inves de `processImageBlurred(photoFile)`
+- Passar filename redacted para `send-whatsapp`
+
+### Fallback de seguranca
+Se a IA nao retornar bounding boxes (por qualquer motivo), o sistema aplica o blur como fallback, garantindo que dados nunca sejam enviados sem protecao.
+
+### O que NAO muda
+- Porteiros e admins continuam vendo a foto original no sistema
+- O fluxo de registro nao tem passos extras
+- Templates do Twilio permanecem iguais
+- Banco de dados sem alteracoes
