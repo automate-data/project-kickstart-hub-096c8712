@@ -38,6 +38,14 @@ OUTRAS INFORMAÇÕES:
 - O código de rastreio é um número longo (geralmente 13+ caracteres)
 - Procure por "CD" (Centro de Distribuição) que indica origem logística
 
+DETECÇÃO DE ÁREAS SENSÍVEIS (LGPD):
+- Identifique TODAS as áreas da etiqueta que contêm dados pessoais sensíveis: CPF, RG, endereço completo, telefone, CEP
+- Para cada área sensível, retorne as coordenadas do bounding box normalizado em escala 0-1000 (relativo ao tamanho total da imagem)
+- NÃO inclua o nome do destinatário nas regiões sensíveis (o morador precisa reconhecer a encomenda)
+- NÃO inclua logos ou nomes de transportadoras nas regiões sensíveis
+- Seja generoso nas dimensões dos bounding boxes para garantir cobertura total do texto sensível
+- Labels possíveis: "cpf", "address", "phone", "zipcode", "rg"
+
 FORMATO DE RESPOSTA - Retorne APENAS JSON válido:
 {
   "resident_name": "nome completo do destinatário",
@@ -49,10 +57,14 @@ FORMATO DE RESPOSTA - Retorne APENAS JSON válido:
   "tracking_code": "código de rastreio",
   "weight_kg": 0.0,
   "logistics_origin": "origem logística se visível",
-  "confidence": 0.0
+  "confidence": 0.0,
+  "sensitive_regions": [
+    { "label": "cpf", "x": 100, "y": 200, "width": 300, "height": 50 },
+    { "label": "address", "x": 50, "y": 400, "width": 500, "height": 120 }
+  ]
 }`;
 
-const USER_PROMPT = `Analise esta etiqueta de encomenda brasileira de condomínio. IMPORTANTE: Separe BLOCO e APARTAMENTO em campos distintos. Se a etiqueta mostrar "B01", extraia bloco="B" e apartment="01". Preste atenção especial ao nome completo do destinatário.`;
+const USER_PROMPT = `Analise esta etiqueta de encomenda brasileira de condomínio. IMPORTANTE: Separe BLOCO e APARTAMENTO em campos distintos. Se a etiqueta mostrar "B01", extraia bloco="B" e apartment="01". Preste atenção especial ao nome completo do destinatário. Identifique também as regiões sensíveis (CPF, endereço, telefone, CEP) com bounding boxes normalizados (0-1000).`;
 
 function postProcess(suggestion: any): any {
   if (!suggestion) return suggestion;

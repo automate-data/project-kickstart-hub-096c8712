@@ -1,5 +1,13 @@
 export type AppRole = 'admin' | 'doorman';
 
+export interface SensitiveRegion {
+  label: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
 export interface Condominium {
   id: string;
   name: string;

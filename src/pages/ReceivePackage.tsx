@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useCondominium } from '@/hooks/useCondominium';
-import { Resident, AISuggestion } from '@/types';
+import { Resident, AISuggestion, SensitiveRegion } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -11,7 +11,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { Camera, Loader2, ArrowLeft, Check, Sparkles, Search, X, Upload } from 'lucide-react';
-import { processImageForWhatsApp, processImageBlurred } from '@/lib/imageProcessor';
+import { processImageForWhatsApp, processImageRedacted } from '@/lib/imageProcessor';
 import {
   Command,
   CommandEmpty,
@@ -49,6 +49,7 @@ export default function ReceivePackage() {
   const [aiSuggestion, setAiSuggestion] = useState<AISuggestion | null>(null);
   const [ocrRawText, setOcrRawText] = useState<string | null>(null);
   const [residentSearchOpen, setResidentSearchOpen] = useState(false);
+  const [sensitiveRegions, setSensitiveRegions] = useState<SensitiveRegion[]>([]);
 
   useEffect(() => {
     return () => {
@@ -160,6 +161,7 @@ export default function ReceivePackage() {
         const suggestion = data.suggestion;
         setAiSuggestion(suggestion);
         setOcrRawText(data.raw_text || null);
+        setSensitiveRegions(suggestion.sensitive_regions || []);
 
         // Auto-select resident matching logic
         const normalizeText = (str: string) => 
@@ -230,18 +232,18 @@ export default function ReceivePackage() {
     setIsSaving(true);
 
     try {
-      const [processedImage, blurredImage] = await Promise.all([
+      const [processedImage, redactedImage] = await Promise.all([
         processImageForWhatsApp(photoFile),
-        processImageBlurred(photoFile),
+        processImageRedacted(photoFile, sensitiveRegions),
       ]);
 
-      const [uploadOriginal, uploadBlurred] = await Promise.all([
+      const [uploadOriginal, uploadRedacted] = await Promise.all([
         supabase.storage.from('package-photos').upload(processedImage.fileName, processedImage.blob, {
           contentType: 'image/jpeg',
           cacheControl: '3600',
           upsert: false,
         }),
-        supabase.storage.from('package-photos').upload(blurredImage.fileName, blurredImage.blob, {
+        supabase.storage.from('package-photos').upload(redactedImage.fileName, redactedImage.blob, {
           contentType: 'image/jpeg',
           cacheControl: '3600',
           upsert: false,
@@ -249,12 +251,12 @@ export default function ReceivePackage() {
       ]);
 
       if (uploadOriginal.error) throw uploadOriginal.error;
-      if (uploadBlurred.error) {
-        console.error('Blurred upload failed, will use original for WhatsApp:', uploadBlurred.error);
+      if (uploadRedacted.error) {
+        console.error('Redacted upload failed, will use original for WhatsApp:', uploadRedacted.error);
       }
 
       const photoPath = processedImage.fileName;
-      const whatsappPhotoFilename = uploadBlurred.error ? processedImage.fileName : blurredImage.fileName;
+      const whatsappPhotoFilename = uploadRedacted.error ? processedImage.fileName : redactedImage.fileName;
 
       const { error: insertError } = await supabase
         .from('packages')
