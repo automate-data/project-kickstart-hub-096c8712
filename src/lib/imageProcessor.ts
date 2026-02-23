@@ -92,3 +92,47 @@ export async function processImageForWhatsApp(file: File): Promise<ProcessedImag
 
   return { blob, fileName, width, height, sizeKB: Math.round(blob.size / 1024) };
 }
+
+export async function processImageBlurred(file: File): Promise<ProcessedImage> {
+  const img = await createImageFromFile(file);
+
+  let width = img.naturalWidth;
+  let height = img.naturalHeight;
+
+  if (width > MAX_DIMENSION || height > MAX_DIMENSION) {
+    if (width > height) {
+      height = Math.round((height * MAX_DIMENSION) / width);
+      width = MAX_DIMENSION;
+    } else {
+      width = Math.round((width * MAX_DIMENSION) / height);
+      height = MAX_DIMENSION;
+    }
+  }
+
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d');
+
+  if (!ctx) throw new Error('Could not get canvas context');
+
+  ctx.fillStyle = '#FFFFFF';
+  ctx.fillRect(0, 0, width, height);
+  ctx.filter = 'blur(6px)';
+  ctx.drawImage(img, 0, 0, width, height);
+  ctx.filter = 'none';
+
+  let quality = INITIAL_QUALITY;
+  let blob: Blob;
+
+  do {
+    blob = await canvasToJpegBlob(canvas, quality);
+    if (blob.size <= MAX_SIZE_KB * 1024) break;
+    quality -= 0.05;
+  } while (quality >= MIN_QUALITY);
+
+  const timestamp = Date.now();
+  const fileName = `blurred_encomenda_${timestamp}.jpg`;
+
+  return { blob, fileName, width, height, sizeKB: Math.round(blob.size / 1024) };
+}

@@ -11,7 +11,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { Camera, Loader2, ArrowLeft, Check, Sparkles, Search, X, Upload } from 'lucide-react';
-import { processImageForWhatsApp } from '@/lib/imageProcessor';
+import { processImageForWhatsApp, processImageBlurred } from '@/lib/imageProcessor';
 import {
   Command,
   CommandEmpty,
@@ -230,19 +230,31 @@ export default function ReceivePackage() {
     setIsSaving(true);
 
     try {
-      const processedImage = await processImageForWhatsApp(photoFile);
+      const [processedImage, blurredImage] = await Promise.all([
+        processImageForWhatsApp(photoFile),
+        processImageBlurred(photoFile),
+      ]);
 
-      const { error: uploadError } = await supabase.storage
-        .from('package-photos')
-        .upload(processedImage.fileName, processedImage.blob, {
+      const [uploadOriginal, uploadBlurred] = await Promise.all([
+        supabase.storage.from('package-photos').upload(processedImage.fileName, processedImage.blob, {
           contentType: 'image/jpeg',
           cacheControl: '3600',
-          upsert: false
-        });
+          upsert: false,
+        }),
+        supabase.storage.from('package-photos').upload(blurredImage.fileName, blurredImage.blob, {
+          contentType: 'image/jpeg',
+          cacheControl: '3600',
+          upsert: false,
+        }),
+      ]);
 
-      if (uploadError) throw uploadError;
+      if (uploadOriginal.error) throw uploadOriginal.error;
+      if (uploadBlurred.error) {
+        console.error('Blurred upload failed, will use original for WhatsApp:', uploadBlurred.error);
+      }
 
       const photoPath = processedImage.fileName;
+      const whatsappPhotoFilename = uploadBlurred.error ? processedImage.fileName : blurredImage.fileName;
 
       const { error: insertError } = await supabase
         .from('packages')
@@ -267,14 +279,13 @@ export default function ReceivePackage() {
               phone: selectedResident.phone,
               residentName: selectedResident.full_name,
               registeredBy: registeredBy,
-              photoFilename: processedImage.fileName,
+              photoFilename: whatsappPhotoFilename,
             },
           });
         } catch (notifError) {
           console.error('WhatsApp notification error:', notifError);
         }
       }
-
       toast({
         title: 'Encomenda registrada!',
         description: selectedResident?.phone 
