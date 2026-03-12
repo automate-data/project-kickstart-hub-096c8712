@@ -33,6 +33,8 @@ export default function Packages() {
   const [filter, setFilter] = useState<'pending' | 'picked_up'>('pending');
   const [selectedPackage, setSelectedPackage] = useState<Package | null>(null);
   const [pickupDialogOpen, setPickupDialogOpen] = useState(false);
+  const [detailsPackage, setDetailsPackage] = useState<Package | null>(null);
+  const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [pendingCount, setPendingCount] = useState(0);
   const [pickedUpTodayCount, setPickedUpTodayCount] = useState(0);
