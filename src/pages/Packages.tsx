@@ -10,6 +10,7 @@ import { Package as PackageIcon, Clock, CheckCircle2, Search, Timer } from 'luci
 import { formatDistanceToNow, format, differenceInMinutes, differenceInHours, differenceInDays, startOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { PickupDialog } from '@/components/PickupDialog';
+import { PackageDetailsDialog } from '@/components/PackageDetailsDialog';
 import { toast } from 'sonner';
 import { PackagePhoto } from '@/components/PackagePhoto';
 import { Input } from '@/components/ui/input';
