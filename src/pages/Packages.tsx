@@ -287,6 +287,12 @@ export default function Packages() {
         pkg={selectedPackage}
         onConfirm={handleConfirmPickup}
       />
+
+      <PackageDetailsDialog
+        open={detailsDialogOpen}
+        onOpenChange={setDetailsDialogOpen}
+        pkg={detailsPackage}
+      />
     </div>
   );
 }
