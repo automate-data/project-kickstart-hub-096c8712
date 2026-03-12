@@ -493,6 +493,7 @@ export type Database = {
           is_active: boolean
           phone: string
           updated_at: string
+          whatsapp_enabled: boolean
         }
         Insert: {
           apartment: string
@@ -504,6 +505,7 @@ export type Database = {
           is_active?: boolean
           phone: string
           updated_at?: string
+          whatsapp_enabled?: boolean
         }
         Update: {
           apartment?: string
@@ -515,6 +517,7 @@ export type Database = {
           is_active?: boolean
           phone?: string
           updated_at?: string
+          whatsapp_enabled?: boolean
         }
         Relationships: [
           {

@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { Camera, Loader2, ArrowLeft, Check, Sparkles, Search, X, Upload } from 'lucide-react';
+import { Camera, Loader2, ArrowLeft, Check, Sparkles, Search, X, Upload, MessageSquare } from 'lucide-react';
 import { processImageForWhatsApp, processImageRedacted } from '@/lib/imageProcessor';
 import {
   Command,
@@ -273,7 +273,8 @@ export default function ReceivePackage() {
 
       if (insertError) throw insertError;
 
-      if (selectedResident?.phone) {
+      let notificationSent = false;
+      if (selectedResident?.phone && selectedResident?.whatsapp_enabled !== false) {
         try {
           const registeredBy = user?.user_metadata?.full_name || 'Portaria';
           await supabase.functions.invoke('send-whatsapp', {
@@ -284,15 +285,21 @@ export default function ReceivePackage() {
               photoFilename: whatsappPhotoFilename,
             },
           });
+          notificationSent = true;
         } catch (notifError) {
           console.error('WhatsApp notification error:', notifError);
         }
       }
+
+      const getDescription = () => {
+        if (!selectedResident?.phone) return 'Morador não tem telefone cadastrado';
+        if (selectedResident?.whatsapp_enabled === false) return 'Notificação desativada para este morador';
+        return notificationSent ? 'Morador notificado via WhatsApp' : 'Falha ao notificar morador';
+      };
+
       toast({
         title: 'Encomenda registrada!',
-        description: selectedResident?.phone 
-          ? 'Morador notificado via WhatsApp' 
-          : 'Morador não tem telefone cadastrado',
+        description: getDescription(),
       });
 
       navigate('/');
@@ -475,6 +482,16 @@ export default function ReceivePackage() {
               </PopoverContent>
             </Popover>
           </div>
+
+          {selectedResident && selectedResident.whatsapp_enabled === false && (
+            <div className="flex items-start gap-3 p-4 rounded-lg border border-destructive/50 bg-destructive/10 text-destructive">
+              <MessageSquare className="w-5 h-5 mt-0.5 flex-shrink-0" />
+              <div>
+                <p className="font-medium text-sm">Notificação desligada para este morador</p>
+                <p className="text-xs mt-1 text-destructive/80">Comunique a chegada da encomenda pessoalmente ou por interfone.</p>
+              </div>
+            </div>
+          )}
 
           <div className="space-y-2">
             <Label htmlFor="carrier">Transportadora (opcional)</Label>
