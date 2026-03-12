@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Package as PackageIcon, Clock, CheckCircle2, Search, Timer } from 'lucide-react';
+import { Package as PackageIcon, Clock, CheckCircle2, Search, Timer, BellOff } from 'lucide-react';
 import { formatDistanceToNow, format, differenceInMinutes, differenceInHours, differenceInDays, startOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { PickupDialog } from '@/components/PickupDialog';
