@@ -13,7 +13,7 @@ import {
   Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger,
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Search, User, Phone, Home, Loader2, Trash2, Pencil, MessageSquare } from 'lucide-react';
+import { Plus, Search, User, Phone, Home, Loader2, Trash2, Pencil } from 'lucide-react';
 
 export default function Residents() {
   const { condominium } = useCondominium();
