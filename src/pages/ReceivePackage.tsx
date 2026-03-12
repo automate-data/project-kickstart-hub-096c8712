@@ -273,7 +273,8 @@ export default function ReceivePackage() {
 
       if (insertError) throw insertError;
 
-      if (selectedResident?.phone) {
+      let notificationSent = false;
+      if (selectedResident?.phone && selectedResident?.whatsapp_enabled !== false) {
         try {
           const registeredBy = user?.user_metadata?.full_name || 'Portaria';
           await supabase.functions.invoke('send-whatsapp', {
@@ -284,15 +285,21 @@ export default function ReceivePackage() {
               photoFilename: whatsappPhotoFilename,
             },
           });
+          notificationSent = true;
         } catch (notifError) {
           console.error('WhatsApp notification error:', notifError);
         }
       }
+
+      const getDescription = () => {
+        if (!selectedResident?.phone) return 'Morador não tem telefone cadastrado';
+        if (selectedResident?.whatsapp_enabled === false) return 'Notificação desativada para este morador';
+        return notificationSent ? 'Morador notificado via WhatsApp' : 'Falha ao notificar morador';
+      };
+
       toast({
         title: 'Encomenda registrada!',
-        description: selectedResident?.phone 
-          ? 'Morador notificado via WhatsApp' 
-          : 'Morador não tem telefone cadastrado',
+        description: getDescription(),
       });
 
       navigate('/');
