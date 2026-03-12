@@ -1,0 +1,1 @@
+ALTER TABLE public.residents ADD COLUMN whatsapp_enabled boolean NOT NULL DEFAULT true;
