@@ -13,7 +13,7 @@ import {
   Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger,
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Search, User, Phone, Home, Loader2, Trash2, Pencil, MessageSquare } from 'lucide-react';
+import { Plus, Search, User, Phone, Home, Loader2, Trash2, Pencil } from 'lucide-react';
 
 export default function Residents() {
   const { condominium } = useCondominium();
@@ -180,38 +180,32 @@ export default function Residents() {
       ) : (
         <div className="space-y-3">
           {filteredResidents.map((resident) => (
-            <Card key={resident.id} className={!resident.is_active ? 'opacity-60' : ''}>
+             <Card key={resident.id} className={!resident.is_active ? 'opacity-60' : ''}>
               <CardContent className="p-4">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center flex-shrink-0">
-                    <User className="w-6 h-6 text-primary" />
+                <div className="flex items-center gap-3 sm:gap-4">
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 bg-primary/10 rounded-full flex items-center justify-center flex-shrink-0">
+                    <User className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <p className="font-medium truncate">{resident.full_name}</p>
-                      {!resident.is_active && <Badge variant="secondary">Inativo</Badge>}
-                      {!resident.whatsapp_enabled && (
-                        <Badge variant="destructive" className="text-xs gap-1">
-                          <MessageSquare className="w-3 h-3" />
-                          Sem notif.
-                        </Badge>
-                      )}
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="font-medium truncate max-w-[150px] sm:max-w-none">{resident.full_name}</p>
+                      {!resident.is_active && <Badge variant="secondary" className="text-xs">Inativo</Badge>}
                     </div>
-                    <div className="flex items-center gap-4 text-sm text-muted-foreground mt-1">
+                    <div className="flex items-center gap-3 text-xs sm:text-sm text-muted-foreground mt-1 flex-wrap">
                       <span className="flex items-center gap-1"><Home className="w-3 h-3" />{resident.block}/{resident.apartment}</span>
-                      <span className="flex items-center gap-1"><Phone className="w-3 h-3" />{resident.phone}</span>
+                      <span className="flex items-center gap-1 truncate"><Phone className="w-3 h-3" />{resident.phone}</span>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
                     {isAdmin && (
                       <Switch
                         checked={resident.whatsapp_enabled}
                         onCheckedChange={() => handleToggleWhatsApp(resident)}
-                        title="Notificações WhatsApp"
+                        aria-label="Notificações WhatsApp"
                       />
                     )}
-                    <Button variant="ghost" size="icon" onClick={() => openEditDialog(resident)}><Pencil className="w-4 h-4" /></Button>
-                    <Button variant="ghost" size="icon" onClick={() => handleDelete(resident.id)} className="text-destructive hover:text-destructive"><Trash2 className="w-4 h-4" /></Button>
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEditDialog(resident)}><Pencil className="w-4 h-4" /></Button>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => handleDelete(resident.id)}><Trash2 className="w-4 h-4" /></Button>
                   </div>
                 </div>
               </CardContent>
