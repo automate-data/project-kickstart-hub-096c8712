@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { Camera, Loader2, ArrowLeft, Check, Sparkles, Search, X, Upload } from 'lucide-react';
+import { Camera, Loader2, ArrowLeft, Check, Sparkles, Search, X, Upload, MessageSquare } from 'lucide-react';
 import { processImageForWhatsApp, processImageRedacted } from '@/lib/imageProcessor';
 import {
   Command,

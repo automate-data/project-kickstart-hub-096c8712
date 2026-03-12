@@ -6,13 +6,24 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Package as PackageIcon, Clock, CheckCircle2, Search } from 'lucide-react';
-import { formatDistanceToNow, format } from 'date-fns';
+import { Package as PackageIcon, Clock, CheckCircle2, Search, Timer } from 'lucide-react';
+import { formatDistanceToNow, format, differenceInMinutes, differenceInHours, differenceInDays, startOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { PickupDialog } from '@/components/PickupDialog';
 import { toast } from 'sonner';
 import { PackagePhoto } from '@/components/PackagePhoto';
 import { Input } from '@/components/ui/input';
+
+function formatStayDuration(receivedAt: string, pickedUpAt?: string | null): string {
+  const start = new Date(receivedAt);
+  const end = pickedUpAt ? new Date(pickedUpAt) : new Date();
+  const mins = differenceInMinutes(end, start);
+  if (mins < 60) return `${mins}min`;
+  const hrs = differenceInHours(end, start);
+  if (hrs < 24) return `${hrs}h`;
+  const days = differenceInDays(end, start);
+  return `${days}d`;
+}
 
 export default function Packages() {
   const { condominium } = useCondominium();
@@ -22,10 +33,38 @@ export default function Packages() {
   const [selectedPackage, setSelectedPackage] = useState<Package | null>(null);
   const [pickupDialogOpen, setPickupDialogOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [pendingCount, setPendingCount] = useState(0);
+  const [pickedUpTodayCount, setPickedUpTodayCount] = useState(0);
 
   useEffect(() => {
     fetchPackages();
+    fetchCounts();
   }, [filter, condominium?.id]);
+
+  const fetchCounts = async () => {
+    if (!condominium?.id) {
+      setPendingCount(0);
+      setPickedUpTodayCount(0);
+      return;
+    }
+
+    const [pendingRes, pickedUpRes] = await Promise.all([
+      supabase
+        .from('packages')
+        .select('id', { count: 'exact', head: true })
+        .eq('status', 'pending')
+        .eq('condominium_id', condominium.id),
+      supabase
+        .from('packages')
+        .select('id', { count: 'exact', head: true })
+        .eq('status', 'picked_up')
+        .eq('condominium_id', condominium.id)
+        .gte('picked_up_at', startOfDay(new Date()).toISOString()),
+    ]);
+
+    setPendingCount(pendingRes.count ?? 0);
+    setPickedUpTodayCount(pickedUpRes.count ?? 0);
+  };
 
   const fetchPackages = async () => {
     if (!condominium?.id) {
@@ -93,6 +132,7 @@ export default function Packages() {
     }
 
     fetchPackages();
+    fetchCounts();
     setSelectedPackage(null);
   };
 
@@ -127,11 +167,17 @@ export default function Packages() {
               )}
             </div>
             <div className="flex items-center justify-between mt-2">
-              <p className="text-xs text-muted-foreground">
-                {pkg.status === 'picked_up' && pkg.picked_up_at
-                  ? format(new Date(pkg.picked_up_at), "dd/MM 'às' HH:mm", { locale: ptBR })
-                  : formatDistanceToNow(new Date(pkg.received_at), { addSuffix: true, locale: ptBR })}
-              </p>
+              <div className="flex items-center gap-2">
+                <Badge variant="outline" className="text-xs gap-1">
+                  <Timer className="w-3 h-3" />
+                  {formatStayDuration(pkg.received_at, pkg.picked_up_at)}
+                </Badge>
+                <span className="text-xs text-muted-foreground">
+                  {pkg.status === 'picked_up' && pkg.picked_up_at
+                    ? format(new Date(pkg.picked_up_at), "dd/MM 'às' HH:mm", { locale: ptBR })
+                    : formatDistanceToNow(new Date(pkg.received_at), { addSuffix: true, locale: ptBR })}
+                </span>
+              </div>
               {pkg.status === 'pending' && (
                 <Button
                   size="sm"
@@ -156,6 +202,22 @@ export default function Packages() {
     <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Encomendas</h1>
+      </div>
+
+      {/* Big number cards */}
+      <div className="grid grid-cols-2 gap-4">
+        <Card>
+          <CardContent className="p-4 text-center">
+            <p className="text-4xl font-bold text-primary">{pendingCount}</p>
+            <p className="text-sm text-muted-foreground mt-1">Aguardando retirada</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4 text-center">
+            <p className="text-4xl font-bold text-primary">{pickedUpTodayCount}</p>
+            <p className="text-sm text-muted-foreground mt-1">Retiradas hoje</p>
+          </CardContent>
+        </Card>
       </div>
 
       <div className="relative">

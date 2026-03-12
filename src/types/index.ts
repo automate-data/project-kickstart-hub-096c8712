@@ -50,6 +50,7 @@ export interface Resident {
   block: string;
   apartment: string;
   is_active: boolean;
+  whatsapp_enabled: boolean;
   created_at: string;
   updated_at: string;
 }

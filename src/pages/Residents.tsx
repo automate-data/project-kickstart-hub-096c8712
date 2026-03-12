@@ -1,20 +1,24 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useCondominium } from '@/hooks/useCondominium';
+import { useAuth } from '@/hooks/useAuth';
 import { Resident } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
 import {
   Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger,
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Search, User, Phone, Home, Loader2, Trash2, Pencil } from 'lucide-react';
+import { Plus, Search, User, Phone, Home, Loader2, Trash2, Pencil, MessageSquare } from 'lucide-react';
 
 export default function Residents() {
   const { condominium } = useCondominium();
+  const { role } = useAuth();
+  const isAdmin = role === 'admin';
   const groupLabel = condominium?.group_label || 'Bloco';
   const unitLabel = condominium?.unit_label || 'Apartamento';
 
@@ -96,6 +100,24 @@ export default function Residents() {
     }
   };
 
+  const handleToggleWhatsApp = async (resident: Resident) => {
+    const newValue = !resident.whatsapp_enabled;
+    const { error } = await supabase
+      .from('residents')
+      .update({ whatsapp_enabled: newValue })
+      .eq('id', resident.id);
+
+    if (error) {
+      toast({ title: 'Erro ao atualizar', variant: 'destructive' });
+      return;
+    }
+
+    setResidents((prev) =>
+      prev.map((r) => r.id === resident.id ? { ...r, whatsapp_enabled: newValue } : r)
+    );
+    toast({ title: newValue ? 'Notificações ativadas' : 'Notificações desativadas' });
+  };
+
   const filteredResidents = residents.filter((r) =>
     r.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     r.block.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -168,13 +190,26 @@ export default function Residents() {
                     <div className="flex items-center gap-2">
                       <p className="font-medium truncate">{resident.full_name}</p>
                       {!resident.is_active && <Badge variant="secondary">Inativo</Badge>}
+                      {!resident.whatsapp_enabled && (
+                        <Badge variant="destructive" className="text-xs gap-1">
+                          <MessageSquare className="w-3 h-3" />
+                          Sem notif.
+                        </Badge>
+                      )}
                     </div>
                     <div className="flex items-center gap-4 text-sm text-muted-foreground mt-1">
                       <span className="flex items-center gap-1"><Home className="w-3 h-3" />{resident.block}/{resident.apartment}</span>
                       <span className="flex items-center gap-1"><Phone className="w-3 h-3" />{resident.phone}</span>
                     </div>
                   </div>
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-2">
+                    {isAdmin && (
+                      <Switch
+                        checked={resident.whatsapp_enabled}
+                        onCheckedChange={() => handleToggleWhatsApp(resident)}
+                        title="Notificações WhatsApp"
+                      />
+                    )}
                     <Button variant="ghost" size="icon" onClick={() => openEditDialog(resident)}><Pencil className="w-4 h-4" /></Button>
                     <Button variant="ghost" size="icon" onClick={() => handleDelete(resident.id)} className="text-destructive hover:text-destructive"><Trash2 className="w-4 h-4" /></Button>
                   </div>
