@@ -6,7 +6,7 @@ import { Package as PackageType } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Package as PackageIcon, Camera, Clock, CheckCircle2 } from 'lucide-react';
+import { Package as PackageIcon, Camera, Clock, CheckCircle2, BellOff } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { PackagePhoto } from '@/components/PackagePhoto';
