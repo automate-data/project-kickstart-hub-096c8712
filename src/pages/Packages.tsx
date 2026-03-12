@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Package as PackageIcon, Clock, CheckCircle2, Search, Timer } from 'lucide-react';
+import { Package as PackageIcon, Clock, CheckCircle2, Search, Timer, BellOff } from 'lucide-react';
 import { formatDistanceToNow, format, differenceInMinutes, differenceInHours, differenceInDays, startOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { PickupDialog } from '@/components/PickupDialog';
@@ -163,8 +163,13 @@ export default function Packages() {
             <div className="flex-1 p-4 min-w-0">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <p className="font-medium truncate">
+                  <p className="font-medium truncate flex items-center gap-1.5">
                     {pkg.resident?.full_name || 'Não identificado'}
+                    {!isPickedUp && pkg.resident?.whatsapp_enabled === false && (
+                      <span title="Morador não notificado">
+                        <BellOff className="w-4 h-4 text-amber-500 flex-shrink-0" />
+                      </span>
+                    )}
                   </p>
                   <p className="text-sm text-muted-foreground">
                     {pkg.resident ? `${pkg.resident.block}/${pkg.resident.apartment}` : '—'}
