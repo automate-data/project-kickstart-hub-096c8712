@@ -167,17 +167,10 @@ export default function Packages() {
               )}
             </div>
             <div className="flex items-center justify-between mt-2">
-              <div className="flex items-center gap-2">
-                <Badge variant="outline" className="text-xs gap-1">
-                  <Timer className="w-3 h-3" />
-                  {formatStayDuration(pkg.received_at, pkg.picked_up_at)}
-                </Badge>
-                <span className="text-xs text-muted-foreground">
-                  {pkg.status === 'picked_up' && pkg.picked_up_at
-                    ? format(new Date(pkg.picked_up_at), "dd/MM 'às' HH:mm", { locale: ptBR })
-                    : formatDistanceToNow(new Date(pkg.received_at), { addSuffix: true, locale: ptBR })}
-                </span>
-              </div>
+              <Badge variant="outline" className="text-xs gap-1">
+                <Timer className="w-3 h-3" />
+                {formatStayDuration(pkg.received_at, pkg.picked_up_at)}
+              </Badge>
               {pkg.status === 'pending' && (
                 <Button
                   size="sm"
