@@ -10,6 +10,7 @@ import { Package as PackageIcon, Clock, CheckCircle2, Search, Timer } from 'luci
 import { formatDistanceToNow, format, differenceInMinutes, differenceInHours, differenceInDays, startOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { PickupDialog } from '@/components/PickupDialog';
+import { PackageDetailsDialog } from '@/components/PackageDetailsDialog';
 import { toast } from 'sonner';
 import { PackagePhoto } from '@/components/PackagePhoto';
 import { Input } from '@/components/ui/input';
@@ -32,6 +33,8 @@ export default function Packages() {
   const [filter, setFilter] = useState<'pending' | 'picked_up'>('pending');
   const [selectedPackage, setSelectedPackage] = useState<Package | null>(null);
   const [pickupDialogOpen, setPickupDialogOpen] = useState(false);
+  const [detailsPackage, setDetailsPackage] = useState<Package | null>(null);
+  const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [pendingCount, setPendingCount] = useState(0);
   const [pickedUpTodayCount, setPickedUpTodayCount] = useState(0);
@@ -145,51 +148,58 @@ export default function Packages() {
     return name.includes(term) || unit.includes(term) || carrier.includes(term);
   });
 
-  const PackageCard = ({ pkg }: { pkg: Package }) => (
-    <Card className="overflow-hidden">
-      <CardContent className="p-0">
-        <div className="flex">
-          <div className="w-24 h-24 flex-shrink-0">
-            <PackagePhoto photoUrl={pkg.photo_url} className="w-full h-full object-cover" />
-          </div>
-          <div className="flex-1 p-4 min-w-0">
-            <div className="flex items-start justify-between gap-2">
-              <div className="min-w-0">
-                <p className="font-medium truncate">
-                  {pkg.resident?.full_name || 'Não identificado'}
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  {pkg.resident ? `${pkg.resident.block}/${pkg.resident.apartment}` : '—'}
-                </p>
+  const PackageCard = ({ pkg }: { pkg: Package }) => {
+    const isPickedUp = pkg.status === 'picked_up';
+    return (
+      <Card
+        className={`overflow-hidden ${isPickedUp ? 'cursor-pointer hover:bg-accent/50 transition-colors' : ''}`}
+        onClick={isPickedUp ? () => { setDetailsPackage(pkg); setDetailsDialogOpen(true); } : undefined}
+      >
+        <CardContent className="p-0">
+          <div className="flex">
+            <div className="w-24 h-24 flex-shrink-0">
+              <PackagePhoto photoUrl={pkg.photo_url} className="w-full h-full object-cover" />
+            </div>
+            <div className="flex-1 p-4 min-w-0">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="font-medium truncate">
+                    {pkg.resident?.full_name || 'Não identificado'}
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    {pkg.resident ? `${pkg.resident.block}/${pkg.resident.apartment}` : '—'}
+                  </p>
+                </div>
+                {pkg.carrier && (
+                  <Badge variant="secondary" className="flex-shrink-0">{pkg.carrier}</Badge>
+                )}
               </div>
-              {pkg.carrier && (
-                <Badge variant="secondary" className="flex-shrink-0">{pkg.carrier}</Badge>
-              )}
-            </div>
-            <div className="flex items-center justify-between mt-2">
-              <Badge variant="outline" className="text-xs gap-1">
-                <Timer className="w-3 h-3" />
-                {formatStayDuration(pkg.received_at, pkg.picked_up_at)}
-              </Badge>
-              {pkg.status === 'pending' && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    handlePickUpClick(pkg);
-                  }}
-                >
-                  <CheckCircle2 className="w-4 h-4 mr-1" />
-                  Retirar
-                </Button>
-              )}
+              <div className="flex items-center justify-between mt-2">
+                <Badge variant="outline" className="text-xs gap-1">
+                  <Timer className="w-3 h-3" />
+                  {formatStayDuration(pkg.received_at, pkg.picked_up_at)}
+                </Badge>
+                {pkg.status === 'pending' && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handlePickUpClick(pkg);
+                    }}
+                  >
+                    <CheckCircle2 className="w-4 h-4 mr-1" />
+                    Retirar
+                  </Button>
+                )}
+              </div>
             </div>
           </div>
-        </div>
-      </CardContent>
-    </Card>
-  );
+        </CardContent>
+      </Card>
+    );
+  };
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -276,6 +286,12 @@ export default function Packages() {
         onOpenChange={setPickupDialogOpen}
         pkg={selectedPackage}
         onConfirm={handleConfirmPickup}
+      />
+
+      <PackageDetailsDialog
+        open={detailsDialogOpen}
+        onOpenChange={setDetailsDialogOpen}
+        pkg={detailsPackage}
       />
     </div>
   );

@@ -67,6 +67,7 @@ export interface Package {
   received_by: string | null;
   received_at: string;
   picked_up_at: string | null;
+  signature_data: string | null;
   picked_up_by: string | null;
   created_at: string;
   updated_at: string;
