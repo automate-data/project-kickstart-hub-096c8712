@@ -74,8 +74,15 @@ export default function Dashboard() {
                       <div className="w-16 h-16 rounded-lg overflow-hidden bg-muted flex-shrink-0">
                         <PackagePhoto photoUrl={pkg.photo_url} className="w-full h-full object-cover" />
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium truncate">{pkg.resident?.full_name || 'Morador não identificado'}</p>
+                        <div className="flex-1 min-w-0">
+                        <div className="flex items-start gap-1.5">
+                          <p className="font-medium truncate">{pkg.resident?.full_name || 'Morador não identificado'}</p>
+                          {pkg.resident?.whatsapp_enabled === false && (
+                            <span title="Morador não notificado" className="mt-0.5 flex-shrink-0">
+                              <BellOff className="w-4 h-4 text-amber-500" />
+                            </span>
+                          )}
+                        </div>
                         <p className="text-sm text-muted-foreground">{pkg.resident ? `${pkg.resident.block} - ${pkg.resident.apartment}` : '—'}</p>
                         <p className="text-xs text-muted-foreground mt-1">{formatDistanceToNow(new Date(pkg.received_at), { addSuffix: true, locale: ptBR })}</p>
                       </div>
