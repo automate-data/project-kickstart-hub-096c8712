@@ -94,15 +94,15 @@ export default function Residents() {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Deseja realmente excluir este morador?')) return;
-    const { error } = await supabase.from('residents').delete().eq('id', id);
+  const handleDelete = async (resident: Resident) => {
+    const { error } = await supabase.from('residents').update({ deleted_at: new Date().toISOString() } as any).eq('id', resident.id);
     if (error) {
       toast({ title: 'Erro ao excluir', description: 'Tente novamente', variant: 'destructive' });
     } else {
-      toast({ title: 'Morador excluído!' });
+      toast({ title: 'Morador removido!' });
       fetchResidents();
     }
+    setDeleteTarget(null);
   };
 
   const handleToggleWhatsApp = async (resident: Resident) => {
