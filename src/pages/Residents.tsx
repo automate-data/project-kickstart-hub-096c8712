@@ -53,6 +53,7 @@ export default function Residents() {
       .from('residents')
       .select('*')
       .eq('condominium_id', condominium.id)
+      .is('deleted_at', null)
       .order('full_name');
 
     if (data) setResidents(data as Resident[]);
