@@ -101,6 +101,54 @@ export default function Auth() {
     }
   };
 
+  if (isForgotPassword) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4 bg-background">
+        <Card className="w-full max-w-md animate-fade-in">
+          <CardHeader className="text-center space-y-4">
+            <div className="mx-auto w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center">
+              <Package className="w-8 h-8 text-primary" />
+            </div>
+            <div>
+              <CardTitle className="text-2xl font-bold">Recuperar senha</CardTitle>
+              <CardDescription className="mt-2">
+                Informe seu email para receber o link de redefinição
+              </CardDescription>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleForgotPassword} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="resetEmail">Email</Label>
+                <Input
+                  id="resetEmail"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="seu@email.com"
+                  required
+                  className="h-12"
+                />
+              </div>
+              <Button type="submit" className="w-full h-12 text-base" disabled={isLoading}>
+                {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Enviar link'}
+              </Button>
+            </form>
+            <div className="mt-6 text-center">
+              <button
+                type="button"
+                onClick={() => setIsForgotPassword(false)}
+                className="text-sm text-muted-foreground hover:text-primary transition-colors"
+              >
+                Voltar para o login
+              </button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-background">
       <Card className="w-full max-w-md animate-fade-in">
@@ -168,7 +216,18 @@ export default function Auth() {
               )}
             </Button>
           </form>
-          <div className="mt-6 text-center">
+          {isLogin && (
+            <div className="mt-4 text-center">
+              <button
+                type="button"
+                onClick={() => setIsForgotPassword(true)}
+                className="text-sm text-muted-foreground hover:text-primary transition-colors"
+              >
+                Esqueci minha senha
+              </button>
+            </div>
+          )}
+          <div className="mt-4 text-center">
             <button
               type="button"
               onClick={() => setIsLogin(!isLogin)}
