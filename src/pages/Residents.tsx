@@ -32,6 +32,7 @@ export default function Residents() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingResident, setEditingResident] = useState<Resident | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<Resident | null>(null);
   const { toast } = useToast();
 
   const [fullName, setFullName] = useState('');
