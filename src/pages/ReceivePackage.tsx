@@ -267,6 +267,7 @@ export default function ReceivePackage() {
           resident_id: selectedResident?.id || null,
           photo_url: photoPath,
           carrier: carrier || null,
+          tracking_code: trackingCode || null,
           ocr_raw_text: ocrRawText,
           ai_suggestion: aiSuggestion as any,
           notes: notes || null,
