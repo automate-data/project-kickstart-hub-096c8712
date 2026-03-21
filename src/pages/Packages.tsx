@@ -222,8 +222,8 @@ export default function Packages() {
                   <Badge variant="secondary" className="flex-shrink-0">{pkg.carrier}</Badge>
                 )}
               </div>
-              {(pkg as any).tracking_code && (
-                <p className="text-xs text-muted-foreground mt-0.5 truncate">{(pkg as any).tracking_code}</p>
+              {pkg.tracking_code && (
+                <p className="text-xs text-muted-foreground mt-0.5 truncate">{pkg.tracking_code}</p>
               )}
               <div className="flex items-center justify-between mt-2">
                 <Badge variant="outline" className="text-xs gap-1">
