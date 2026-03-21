@@ -9,6 +9,8 @@ interface AuthContextType {
   role: AppRole | null;
   isLoading: boolean;
   mustChangePassword: boolean;
+  isPasswordRecovery: boolean;
+  clearPasswordRecovery: () => void;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signUp: (email: string, password: string, fullName: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
@@ -23,6 +25,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [role, setRole] = useState<AppRole | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [mustChangePassword, setMustChangePassword] = useState(false);
+  const [isPasswordRecovery, setIsPasswordRecovery] = useState(false);
 
   const fetchUserRole = async (userId: string) => {
     const { data } = await supabase
@@ -43,6 +46,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(session);
       setUser(session?.user ?? null);
       setMustChangePassword(session?.user?.user_metadata?.must_change_password === true);
+      
+      if (event === 'PASSWORD_RECOVERY') {
+        setIsPasswordRecovery(true);
+      }
       
       if (session?.user) {
         setTimeout(() => {
@@ -87,6 +94,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await supabase.auth.signOut();
     setRole(null);
     setMustChangePassword(false);
+    setIsPasswordRecovery(false);
   };
 
   const refreshUser = async () => {
@@ -97,8 +105,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const clearPasswordRecovery = () => setIsPasswordRecovery(false);
+
   return (
-    <AuthContext.Provider value={{ user, session, role, isLoading, mustChangePassword, signIn, signUp, signOut, refreshUser }}>
+    <AuthContext.Provider value={{ user, session, role, isLoading, mustChangePassword, isPasswordRecovery, clearPasswordRecovery, signIn, signUp, signOut, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );

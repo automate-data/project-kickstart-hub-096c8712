@@ -22,10 +22,10 @@ import NotFound from "./pages/NotFound";
 const queryClient = new QueryClient();
 
 function AppRoutes() {
-  const { user, isLoading: authLoading, role } = useAuth();
+  const { user, isLoading: authLoading, role, isPasswordRecovery } = useAuth();
   const { needsSetup, isLoading: condLoading } = useCondominium();
 
-  if (authLoading || (user && condLoading)) {
+  if (authLoading || (user && !isPasswordRecovery && condLoading)) {
     return null;
   }
 
@@ -34,7 +34,7 @@ function AppRoutes() {
 
   return (
     <Routes>
-      <Route path="/auth" element={user ? <Navigate to="/" replace /> : <Auth />} />
+      <Route path="/auth" element={user && !isPasswordRecovery ? <Navigate to="/" replace /> : <Auth />} />
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/change-password" element={user ? <ChangePassword /> : <Navigate to="/auth" replace />} />
       <Route

@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -12,60 +13,9 @@ export default function ResetPassword() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [isRecovery, setIsRecovery] = useState(false);
-  const [isExpired, setIsExpired] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
-
-  useEffect(() => {
-    let resolved = false;
-
-    const markRecovery = () => {
-      if (!resolved) {
-        resolved = true;
-        setIsRecovery(true);
-      }
-    };
-
-    // 1. Listen for the auth event
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      if (event === 'PASSWORD_RECOVERY') {
-        markRecovery();
-      }
-    });
-
-    // 2. Parse hash fragment manually as fallback
-    const hash = window.location.hash;
-    if (hash && hash.includes('type=recovery')) {
-      const params = new URLSearchParams(hash.substring(1));
-      const accessToken = params.get('access_token');
-      const refreshToken = params.get('refresh_token');
-
-      if (accessToken && refreshToken) {
-        supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken })
-          .then(({ error }) => {
-            if (!error) {
-              markRecovery();
-            }
-          });
-      }
-
-      // 3. Clean hash from URL
-      window.history.replaceState(null, '', window.location.pathname);
-    }
-
-    // 4. Timeout after 5 seconds
-    const timeout = setTimeout(() => {
-      if (!resolved) {
-        setIsExpired(true);
-      }
-    }, 5000);
-
-    return () => {
-      subscription.unsubscribe();
-      clearTimeout(timeout);
-    };
-  }, []);
+  const { user, isPasswordRecovery, clearPasswordRecovery } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -98,6 +48,7 @@ export default function ResetPassword() {
           variant: 'destructive',
         });
       } else {
+        clearPasswordRecovery();
         toast({
           title: 'Senha redefinida!',
           description: 'Sua senha foi alterada com sucesso.',
@@ -109,33 +60,26 @@ export default function ResetPassword() {
     }
   };
 
-  if (!isRecovery) {
+  // If not in recovery mode, show error
+  if (!isPasswordRecovery || !user) {
     return (
       <div className="min-h-screen flex items-center justify-center p-4 bg-background">
         <Card className="w-full max-w-md animate-fade-in">
           <CardHeader className="text-center space-y-4">
-            <div className={`mx-auto w-16 h-16 rounded-2xl flex items-center justify-center ${isExpired ? 'bg-destructive/10' : 'bg-primary/10'}`}>
-              {isExpired ? <AlertTriangle className="w-8 h-8 text-destructive" /> : <KeyRound className="w-8 h-8 text-primary" />}
+            <div className="mx-auto w-16 h-16 rounded-2xl flex items-center justify-center bg-destructive/10">
+              <AlertTriangle className="w-8 h-8 text-destructive" />
             </div>
             <div>
-              <CardTitle className="text-2xl font-bold">
-                {isExpired ? 'Link inválido' : 'Redefinir senha'}
-              </CardTitle>
+              <CardTitle className="text-2xl font-bold">Link inválido</CardTitle>
               <CardDescription className="mt-2">
-                {isExpired
-                  ? 'Link expirado ou inválido. Solicite um novo link de recuperação.'
-                  : 'Verificando seu link de recuperação...'}
+                Link expirado ou inválido. Solicite um novo link de recuperação.
               </CardDescription>
             </div>
           </CardHeader>
           <CardContent className="flex justify-center">
-            {isExpired ? (
-              <Button onClick={() => navigate('/auth', { replace: true })} className="w-full h-12">
-                Voltar para login
-              </Button>
-            ) : (
-              <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-            )}
+            <Button onClick={() => navigate('/auth', { replace: true })} className="w-full h-12">
+              Voltar para login
+            </Button>
           </CardContent>
         </Card>
       </div>
