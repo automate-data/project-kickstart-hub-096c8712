@@ -17,6 +17,7 @@ import Setup from "./pages/Setup";
 import SelectCondominium from "./pages/SelectCondominium";
 import ResetPassword from "./pages/ResetPassword";
 import ChangePassword from "./pages/ChangePassword";
+import Reports from "./pages/Reports";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -99,6 +100,16 @@ function AppRoutes() {
           <ProtectedRoute requiredRole="admin">
             {shouldRedirectToSetup ? <Navigate to="/setup" replace /> : (
               <AppLayout><Staff /></AppLayout>
+            )}
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/reports"
+        element={
+          <ProtectedRoute requiredRole="admin">
+            {shouldRedirectToSetup ? <Navigate to="/setup" replace /> : (
+              <AppLayout><Reports /></AppLayout>
             )}
           </ProtectedRoute>
         }
