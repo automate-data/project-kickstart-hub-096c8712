@@ -60,7 +60,8 @@ export default function Staff() {
     const { data: rolesData } = await supabase
       .from('user_roles')
       .select('*')
-      .eq('condominium_id', condominium.id);
+      .eq('condominium_id', condominium.id)
+      .is('deleted_at', null);
 
     if (rolesData && rolesData.length > 0) {
       const userIds = rolesData.map(r => r.user_id);
