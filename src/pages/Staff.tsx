@@ -125,11 +125,9 @@ export default function Staff() {
   };
 
   const handleRemoveStaff = async (member: StaffMember) => {
-    if (!confirm('Deseja realmente remover este membro da equipe?')) return;
-    // Delete only the role for this condominium, not all roles
     const { error } = await supabase
       .from('user_roles')
-      .delete()
+      .update({ deleted_at: new Date().toISOString() } as any)
       .eq('user_id', member.id)
       .eq('condominium_id', condominium?.id || '');
     if (error) {
@@ -138,6 +136,7 @@ export default function Staff() {
       toast({ title: 'Membro removido!' });
       fetchStaff();
     }
+    setDeleteTarget(null);
   };
 
   const handleEditStaff = (member: StaffMember) => {
