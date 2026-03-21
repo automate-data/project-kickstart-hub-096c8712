@@ -57,6 +57,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
+      setMustChangePassword(session?.user?.user_metadata?.must_change_password === true);
       
       if (session?.user) {
         fetchUserRole(session.user.id);
