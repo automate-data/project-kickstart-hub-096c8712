@@ -268,7 +268,7 @@ export default function Staff() {
                     <Button variant="ghost" size="icon" onClick={() => handleEditStaff(member)}>
                       <Pencil className="w-4 h-4" />
                     </Button>
-                    <Button variant="ghost" size="icon" onClick={() => handleRemoveStaff(member)} className="text-destructive hover:text-destructive">
+                    <Button variant="ghost" size="icon" onClick={() => setDeleteTarget(member)} className="text-destructive hover:text-destructive">
                       <Trash2 className="w-4 h-4" />
                     </Button>
                   </div>
