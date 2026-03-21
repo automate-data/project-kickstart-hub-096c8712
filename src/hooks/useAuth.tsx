@@ -86,10 +86,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = async () => {
     await supabase.auth.signOut();
     setRole(null);
+    setMustChangePassword(false);
+  };
+
+  const refreshUser = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      setUser(user);
+      setMustChangePassword(user.user_metadata?.must_change_password === true);
+    }
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, role, isLoading, signIn, signUp, signOut }}>
+    <AuthContext.Provider value={{ user, session, role, isLoading, mustChangePassword, signIn, signUp, signOut, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );
