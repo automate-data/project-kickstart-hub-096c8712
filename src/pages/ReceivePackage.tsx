@@ -215,6 +215,7 @@ export default function ReceivePackage() {
         
         if (bestScore >= 35 && bestMatch) setSelectedResident(bestMatch);
         if (suggestion.carrier) setCarrier(suggestion.carrier);
+        if (suggestion.tracking_code) setTrackingCode(suggestion.tracking_code);
       }
     } catch (error) {
       console.error('AI processing error:', error);
