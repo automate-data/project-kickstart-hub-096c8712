@@ -114,18 +114,28 @@ export default function ResetPassword() {
       <div className="min-h-screen flex items-center justify-center p-4 bg-background">
         <Card className="w-full max-w-md animate-fade-in">
           <CardHeader className="text-center space-y-4">
-            <div className="mx-auto w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center">
-              <KeyRound className="w-8 h-8 text-primary" />
+            <div className={`mx-auto w-16 h-16 rounded-2xl flex items-center justify-center ${isExpired ? 'bg-destructive/10' : 'bg-primary/10'}`}>
+              {isExpired ? <AlertTriangle className="w-8 h-8 text-destructive" /> : <KeyRound className="w-8 h-8 text-primary" />}
             </div>
             <div>
-              <CardTitle className="text-2xl font-bold">Redefinir senha</CardTitle>
+              <CardTitle className="text-2xl font-bold">
+                {isExpired ? 'Link inválido' : 'Redefinir senha'}
+              </CardTitle>
               <CardDescription className="mt-2">
-                Verificando seu link de recuperação...
+                {isExpired
+                  ? 'Link expirado ou inválido. Solicite um novo link de recuperação.'
+                  : 'Verificando seu link de recuperação...'}
               </CardDescription>
             </div>
           </CardHeader>
           <CardContent className="flex justify-center">
-            <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+            {isExpired ? (
+              <Button onClick={() => navigate('/auth', { replace: true })} className="w-full h-12">
+                Voltar para login
+              </Button>
+            ) : (
+              <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+            )}
           </CardContent>
         </Card>
       </div>
