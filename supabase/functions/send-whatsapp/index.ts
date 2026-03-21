@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -29,7 +30,7 @@ serve(async (req) => {
       );
     }
 
-    // Normalize phone to E.164: remove spaces, dashes, parens; ensure +55 prefix
+    // Normalize phone to E.164
     let cleanPhone = phone.replace(/[\s\-\(\)]/g, "");
     if (cleanPhone.startsWith("whatsapp:")) cleanPhone = cleanPhone.replace("whatsapp:", "");
     if (!cleanPhone.startsWith("+")) {
@@ -51,12 +52,41 @@ serve(async (req) => {
       minute: "2-digit",
     });
 
+    // Generate signed URL for the photo (bucket is private)
+    let photoUrl = "";
+    if (photoFilename) {
+      try {
+        const supabaseAdmin = createClient(
+          Deno.env.get("SUPABASE_URL")!,
+          Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+        );
+        // Extract just the base filename, stripping any path or URL prefix
+        const fileName = String(photoFilename).split("/").pop() || photoFilename;
+        console.log("Generating signed URL for file:", fileName);
+
+        const { data: signedData, error: signedError } = await supabaseAdmin.storage
+          .from("package-photos")
+          .createSignedUrl(fileName, 86400); // 24 hours
+
+        if (signedError) {
+          console.error("Failed to generate signed URL:", signedError);
+        } else if (signedData?.signedUrl) {
+          photoUrl = signedData.signedUrl;
+          console.log("Signed URL generated successfully");
+        }
+      } catch (e) {
+        console.error("Signed URL generation error:", e);
+      }
+    }
+
     const contentVariables = JSON.stringify({
       "1": residentName || "Morador",
       "2": registeredBy || "Portaria",
       "3": dateTimeBR,
-      "4": photoFilename || "",
+      "4": photoUrl,
     });
+
+    console.log("ContentVariables:", contentVariables);
 
     const url = `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Messages.json`;
 
