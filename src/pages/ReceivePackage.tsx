@@ -45,6 +45,7 @@ export default function ReceivePackage() {
   const [residents, setResidents] = useState<Resident[]>([]);
   const [selectedResident, setSelectedResident] = useState<Resident | null>(null);
   const [carrier, setCarrier] = useState('');
+  const [trackingCode, setTrackingCode] = useState('');
   const [notes, setNotes] = useState('');
   const [aiSuggestion, setAiSuggestion] = useState<AISuggestion | null>(null);
   const [ocrRawText, setOcrRawText] = useState<string | null>(null);
