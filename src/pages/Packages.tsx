@@ -136,7 +136,8 @@ export default function Packages() {
     const name = pkg.resident?.full_name?.toLowerCase() || '';
     const unit = `${pkg.resident?.block || ''} ${pkg.resident?.apartment || ''}`.toLowerCase();
     const carrier = pkg.carrier?.toLowerCase() || '';
-    return name.includes(term) || unit.includes(term) || carrier.includes(term);
+    const tracking = pkg.tracking_code?.toLowerCase() || '';
+    return name.includes(term) || unit.includes(term) || carrier.includes(term) || tracking.includes(term);
   });
 
   const handlePickUpClick = (pkg: Package) => {
@@ -221,6 +222,9 @@ export default function Packages() {
                   <Badge variant="secondary" className="flex-shrink-0">{pkg.carrier}</Badge>
                 )}
               </div>
+              {pkg.tracking_code && (
+                <p className="text-xs text-muted-foreground mt-0.5 truncate">{pkg.tracking_code}</p>
+              )}
               <div className="flex items-center justify-between mt-2">
                 <Badge variant="outline" className="text-xs gap-1">
                   <Timer className="w-3 h-3" />

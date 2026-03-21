@@ -45,6 +45,7 @@ export default function ReceivePackage() {
   const [residents, setResidents] = useState<Resident[]>([]);
   const [selectedResident, setSelectedResident] = useState<Resident | null>(null);
   const [carrier, setCarrier] = useState('');
+  const [trackingCode, setTrackingCode] = useState('');
   const [notes, setNotes] = useState('');
   const [aiSuggestion, setAiSuggestion] = useState<AISuggestion | null>(null);
   const [ocrRawText, setOcrRawText] = useState<string | null>(null);
@@ -214,6 +215,7 @@ export default function ReceivePackage() {
         
         if (bestScore >= 35 && bestMatch) setSelectedResident(bestMatch);
         if (suggestion.carrier) setCarrier(suggestion.carrier);
+        if (suggestion.tracking_code) setTrackingCode(suggestion.tracking_code);
       }
     } catch (error) {
       console.error('AI processing error:', error);
@@ -265,6 +267,7 @@ export default function ReceivePackage() {
           resident_id: selectedResident?.id || null,
           photo_url: photoPath,
           carrier: carrier || null,
+          tracking_code: trackingCode || null,
           ocr_raw_text: ocrRawText,
           ai_suggestion: aiSuggestion as any,
           notes: notes || null,
@@ -411,10 +414,11 @@ export default function ReceivePackage() {
             onClick={() => {
               setStep('capture');
               setPhotoFile(null);
-              setPhotoPreview(null);
-              setSelectedResident(null);
-              setCarrier('');
-              setNotes('');
+            setPhotoPreview(null);
+            setSelectedResident(null);
+            setCarrier('');
+            setTrackingCode('');
+            setNotes('');
               setAiSuggestion(null);
             }}
             variant="ghost"
@@ -497,6 +501,11 @@ export default function ReceivePackage() {
           <div className="space-y-2">
             <Label htmlFor="carrier">Transportadora (opcional)</Label>
             <Input id="carrier" value={carrier} onChange={(e) => setCarrier(e.target.value)} placeholder="Ex: Correios, Jadlog..." className="h-12" />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="trackingCode">Código de rastreio (opcional)</Label>
+            <Input id="trackingCode" value={trackingCode} onChange={(e) => setTrackingCode(e.target.value)} placeholder="Ex: BR123456789BR" className="h-12" />
           </div>
 
           <div className="space-y-2">

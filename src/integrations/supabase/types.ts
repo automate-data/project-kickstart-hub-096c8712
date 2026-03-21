@@ -365,6 +365,7 @@ export type Database = {
           resident_id: string | null
           signature_data: string | null
           status: string
+          tracking_code: string | null
           updated_at: string
         }
         Insert: {
@@ -384,6 +385,7 @@ export type Database = {
           resident_id?: string | null
           signature_data?: string | null
           status?: string
+          tracking_code?: string | null
           updated_at?: string
         }
         Update: {
@@ -403,6 +405,7 @@ export type Database = {
           resident_id?: string | null
           signature_data?: string | null
           status?: string
+          tracking_code?: string | null
           updated_at?: string
         }
         Relationships: [

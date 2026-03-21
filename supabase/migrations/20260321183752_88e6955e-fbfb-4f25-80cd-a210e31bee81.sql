@@ -1,0 +1,1 @@
+ALTER TABLE public.packages ADD COLUMN tracking_code TEXT;
