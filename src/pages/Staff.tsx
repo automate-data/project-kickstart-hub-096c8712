@@ -33,6 +33,7 @@ export default function Staff() {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editingMember, setEditingMember] = useState<StaffMember | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<StaffMember | null>(null);
   const { toast } = useToast();
   const { condominium } = useCondominium();
 
