@@ -22,10 +22,10 @@ import NotFound from "./pages/NotFound";
 const queryClient = new QueryClient();
 
 function AppRoutes() {
-  const { user, isLoading: authLoading, role } = useAuth();
+  const { user, isLoading: authLoading, role, isPasswordRecovery } = useAuth();
   const { needsSetup, isLoading: condLoading } = useCondominium();
 
-  if (authLoading || (user && condLoading)) {
+  if (authLoading || (user && !isPasswordRecovery && condLoading)) {
     return null;
   }
 
