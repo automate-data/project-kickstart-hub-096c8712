@@ -1,5 +1,4 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -52,36 +51,11 @@ serve(async (req) => {
       minute: "2-digit",
     });
 
-    // Generate signed URL for the photo if provided
-    let photoUrl = "";
-    if (photoFilename) {
-      try {
-        const supabaseAdmin = createClient(
-          Deno.env.get("SUPABASE_URL")!,
-          Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-        );
-        // Extract just the filename, stripping any path/URL prefix
-        const fileName = String(photoFilename).split("/").pop() || photoFilename;
-        console.log("Generating signed URL for file:", fileName, "(original:", photoFilename, ")");
-        const { data: signedData, error: signedError } = await supabaseAdmin.storage
-          .from("package-photos")
-          .createSignedUrl(fileName, 86400);
-        if (signedError) {
-          console.error("Failed to generate signed URL:", signedError);
-        } else {
-          photoUrl = signedData?.signedUrl || "";
-          console.log("Signed URL generated successfully");
-        }
-      } catch (e) {
-        console.error("Signed URL generation error:", e);
-      }
-    }
-
     const contentVariables = JSON.stringify({
       "1": residentName || "Morador",
       "2": registeredBy || "Portaria",
       "3": dateTimeBR,
-      "4": photoUrl,
+      "4": photoFilename || "",
     });
 
     const url = `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Messages.json`;
