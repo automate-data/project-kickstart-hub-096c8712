@@ -6,24 +6,65 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { Package, Loader2, KeyRound } from 'lucide-react';
+import { Loader2, KeyRound, AlertTriangle } from 'lucide-react';
 
 export default function ResetPassword() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isRecovery, setIsRecovery] = useState(false);
+  const [isExpired, setIsExpired] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
 
   useEffect(() => {
+    let resolved = false;
+
+    const markRecovery = () => {
+      if (!resolved) {
+        resolved = true;
+        setIsRecovery(true);
+      }
+    };
+
+    // 1. Listen for the auth event
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       if (event === 'PASSWORD_RECOVERY') {
-        setIsRecovery(true);
+        markRecovery();
       }
     });
 
-    return () => subscription.unsubscribe();
+    // 2. Parse hash fragment manually as fallback
+    const hash = window.location.hash;
+    if (hash && hash.includes('type=recovery')) {
+      const params = new URLSearchParams(hash.substring(1));
+      const accessToken = params.get('access_token');
+      const refreshToken = params.get('refresh_token');
+
+      if (accessToken && refreshToken) {
+        supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken })
+          .then(({ error }) => {
+            if (!error) {
+              markRecovery();
+            }
+          });
+      }
+
+      // 3. Clean hash from URL
+      window.history.replaceState(null, '', window.location.pathname);
+    }
+
+    // 4. Timeout after 5 seconds
+    const timeout = setTimeout(() => {
+      if (!resolved) {
+        setIsExpired(true);
+      }
+    }, 5000);
+
+    return () => {
+      subscription.unsubscribe();
+      clearTimeout(timeout);
+    };
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
