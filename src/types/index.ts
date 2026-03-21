@@ -60,6 +60,7 @@ export interface Package {
   resident_id: string | null;
   photo_url: string;
   carrier: string | null;
+  tracking_code: string | null;
   ocr_raw_text: string | null;
   ai_suggestion: AISuggestion | null;
   notes: string | null;
