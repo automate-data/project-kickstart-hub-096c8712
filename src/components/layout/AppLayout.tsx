@@ -25,6 +25,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
     { path: '/packages', label: 'Encomendas', icon: ClipboardList, show: true },
     { path: '/residents', label: 'Moradores', icon: Users, show: isAdmin },
     { path: '/staff', label: 'Equipe', icon: UserCog, show: isAdmin },
+    { path: '/reports', label: 'Relatórios', icon: BarChart2, show: isAdmin },
   ].filter(item => item.show);
 
   const isActive = (path: string) => location.pathname === path;

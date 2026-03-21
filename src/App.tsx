@@ -104,6 +104,16 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
+      <Route
+        path="/reports"
+        element={
+          <ProtectedRoute requiredRole="admin">
+            {shouldRedirectToSetup ? <Navigate to="/setup" replace /> : (
+              <AppLayout><Reports /></AppLayout>
+            )}
+          </ProtectedRoute>
+        }
+      />
       <Route path="*" element={<NotFound />} />
     </Routes>
   );
