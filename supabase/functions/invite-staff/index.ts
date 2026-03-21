@@ -86,6 +86,7 @@ Deno.serve(async (req) => {
       .select('id')
       .eq('user_id', userId)
       .eq('condominium_id', condominium_id)
+      .is('deleted_at', null)
       .maybeSingle()
 
     if (existingRole) {
