@@ -414,10 +414,11 @@ export default function ReceivePackage() {
             onClick={() => {
               setStep('capture');
               setPhotoFile(null);
-              setPhotoPreview(null);
-              setSelectedResident(null);
-              setCarrier('');
-              setNotes('');
+            setPhotoPreview(null);
+            setSelectedResident(null);
+            setCarrier('');
+            setTrackingCode('');
+            setNotes('');
               setAiSuggestion(null);
             }}
             variant="ghost"
