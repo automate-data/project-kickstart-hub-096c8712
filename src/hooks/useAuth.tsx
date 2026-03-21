@@ -47,6 +47,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(session?.user ?? null);
       setMustChangePassword(session?.user?.user_metadata?.must_change_password === true);
       
+      if (event === 'PASSWORD_RECOVERY') {
+        setIsPasswordRecovery(true);
+      }
+      
       if (session?.user) {
         setTimeout(() => {
           fetchUserRole(session.user.id);
