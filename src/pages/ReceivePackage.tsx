@@ -70,6 +70,7 @@ export default function ReceivePackage() {
       .select('*')
       .eq('is_active', true)
       .eq('condominium_id', condominium.id)
+      .is('deleted_at', null)
       .order('full_name');
     
     if (data) {
