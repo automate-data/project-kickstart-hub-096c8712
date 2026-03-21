@@ -11,6 +11,10 @@ import {
   Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger,
 } from '@/components/ui/dialog';
 import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
@@ -29,6 +33,7 @@ export default function Staff() {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editingMember, setEditingMember] = useState<StaffMember | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<StaffMember | null>(null);
   const { toast } = useToast();
   const { condominium } = useCondominium();
 
@@ -120,11 +125,9 @@ export default function Staff() {
   };
 
   const handleRemoveStaff = async (member: StaffMember) => {
-    if (!confirm('Deseja realmente remover este membro da equipe?')) return;
-    // Delete only the role for this condominium, not all roles
     const { error } = await supabase
       .from('user_roles')
-      .delete()
+      .update({ deleted_at: new Date().toISOString() } as any)
       .eq('user_id', member.id)
       .eq('condominium_id', condominium?.id || '');
     if (error) {
@@ -133,6 +136,7 @@ export default function Staff() {
       toast({ title: 'Membro removido!' });
       fetchStaff();
     }
+    setDeleteTarget(null);
   };
 
   const handleEditStaff = (member: StaffMember) => {
@@ -264,7 +268,7 @@ export default function Staff() {
                     <Button variant="ghost" size="icon" onClick={() => handleEditStaff(member)}>
                       <Pencil className="w-4 h-4" />
                     </Button>
-                    <Button variant="ghost" size="icon" onClick={() => handleRemoveStaff(member)} className="text-destructive hover:text-destructive">
+                    <Button variant="ghost" size="icon" onClick={() => setDeleteTarget(member)} className="text-destructive hover:text-destructive">
                       <Trash2 className="w-4 h-4" />
                     </Button>
                   </div>
@@ -313,6 +317,23 @@ export default function Staff() {
           </form>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar remoção</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja remover {deleteTarget?.full_name} da equipe? O acesso será revogado imediatamente.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={() => deleteTarget && handleRemoveStaff(deleteTarget)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Remover
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -488,6 +488,7 @@ export type Database = {
           block: string
           condominium_id: string | null
           created_at: string
+          deleted_at: string | null
           full_name: string
           id: string
           is_active: boolean
@@ -500,6 +501,7 @@ export type Database = {
           block: string
           condominium_id?: string | null
           created_at?: string
+          deleted_at?: string | null
           full_name: string
           id?: string
           is_active?: boolean
@@ -512,6 +514,7 @@ export type Database = {
           block?: string
           condominium_id?: string | null
           created_at?: string
+          deleted_at?: string | null
           full_name?: string
           id?: string
           is_active?: boolean
@@ -568,18 +571,21 @@ export type Database = {
       user_roles: {
         Row: {
           condominium_id: string | null
+          deleted_at: string | null
           id: string
           role: Database["public"]["Enums"]["app_role"]
           user_id: string
         }
         Insert: {
           condominium_id?: string | null
+          deleted_at?: string | null
           id?: string
           role: Database["public"]["Enums"]["app_role"]
           user_id: string
         }
         Update: {
           condominium_id?: string | null
+          deleted_at?: string | null
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
           user_id?: string

@@ -12,6 +12,10 @@ import { Switch } from '@/components/ui/switch';
 import {
   Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { Plus, Search, User, Phone, Home, Loader2, Trash2, Pencil } from 'lucide-react';
 
@@ -28,6 +32,7 @@ export default function Residents() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingResident, setEditingResident] = useState<Resident | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<Resident | null>(null);
   const { toast } = useToast();
 
   const [fullName, setFullName] = useState('');
@@ -89,15 +94,15 @@ export default function Residents() {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Deseja realmente excluir este morador?')) return;
-    const { error } = await supabase.from('residents').delete().eq('id', id);
+  const handleDelete = async (resident: Resident) => {
+    const { error } = await supabase.from('residents').update({ deleted_at: new Date().toISOString() } as any).eq('id', resident.id);
     if (error) {
       toast({ title: 'Erro ao excluir', description: 'Tente novamente', variant: 'destructive' });
     } else {
-      toast({ title: 'Morador excluído!' });
+      toast({ title: 'Morador removido!' });
       fetchResidents();
     }
+    setDeleteTarget(null);
   };
 
   const handleToggleWhatsApp = async (resident: Resident) => {
@@ -205,7 +210,7 @@ export default function Residents() {
                       />
                     )}
                     <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEditDialog(resident)}><Pencil className="w-4 h-4" /></Button>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => handleDelete(resident.id)}><Trash2 className="w-4 h-4" /></Button>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => setDeleteTarget(resident)}><Trash2 className="w-4 h-4" /></Button>
                   </div>
                 </div>
               </CardContent>
@@ -217,6 +222,23 @@ export default function Residents() {
       <p className="text-sm text-muted-foreground text-center">
         {residents.length} morador{residents.length !== 1 ? 'es' : ''} cadastrado{residents.length !== 1 ? 's' : ''}
       </p>
+
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar remoção</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja remover {deleteTarget?.full_name}? Esta ação pode ser desfeita pelo suporte.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={() => deleteTarget && handleDelete(deleteTarget)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Remover
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
