@@ -57,6 +57,7 @@ export function CondominiumProvider({ children }: { children: ReactNode }) {
       .from('user_roles')
       .select('condominium_id')
       .eq('user_id', user.id)
+      .is('deleted_at', null)
       .not('condominium_id', 'is', null);
 
     const condIds = roles?.map(r => r.condominium_id).filter(Boolean) || [];
