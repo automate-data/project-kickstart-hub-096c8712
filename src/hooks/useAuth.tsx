@@ -105,8 +105,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const clearPasswordRecovery = () => setIsPasswordRecovery(false);
+
   return (
-    <AuthContext.Provider value={{ user, session, role, isLoading, mustChangePassword, signIn, signUp, signOut, refreshUser }}>
+    <AuthContext.Provider value={{ user, session, role, isLoading, mustChangePassword, isPasswordRecovery, clearPasswordRecovery, signIn, signUp, signOut, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );
