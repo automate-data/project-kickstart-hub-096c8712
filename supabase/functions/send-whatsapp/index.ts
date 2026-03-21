@@ -60,16 +60,17 @@ serve(async (req) => {
           Deno.env.get("SUPABASE_URL")!,
           Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
         );
-        const photoPath = photoFilename.includes("/package-photos/")
-          ? photoFilename.split("/package-photos/").pop()!
-          : photoFilename;
+        // Extract just the filename, stripping any path/URL prefix
+        const fileName = String(photoFilename).split("/").pop() || photoFilename;
+        console.log("Generating signed URL for file:", fileName, "(original:", photoFilename, ")");
         const { data: signedData, error: signedError } = await supabaseAdmin.storage
           .from("package-photos")
-          .createSignedUrl(photoPath, 86400);
+          .createSignedUrl(fileName, 86400);
         if (signedError) {
           console.error("Failed to generate signed URL:", signedError);
         } else {
           photoUrl = signedData?.signedUrl || "";
+          console.log("Signed URL generated successfully");
         }
       } catch (e) {
         console.error("Signed URL generation error:", e);
