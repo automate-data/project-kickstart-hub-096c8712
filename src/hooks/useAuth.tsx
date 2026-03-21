@@ -8,9 +8,11 @@ interface AuthContextType {
   session: Session | null;
   role: AppRole | null;
   isLoading: boolean;
+  mustChangePassword: boolean;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signUp: (email: string, password: string, fullName: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
