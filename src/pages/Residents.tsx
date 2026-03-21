@@ -210,7 +210,7 @@ export default function Residents() {
                       />
                     )}
                     <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEditDialog(resident)}><Pencil className="w-4 h-4" /></Button>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => handleDelete(resident.id)}><Trash2 className="w-4 h-4" /></Button>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => setDeleteTarget(resident)}><Trash2 className="w-4 h-4" /></Button>
                   </div>
                 </div>
               </CardContent>
