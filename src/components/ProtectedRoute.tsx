@@ -11,7 +11,7 @@ interface ProtectedRouteProps {
 }
 
 export default function ProtectedRoute({ children, requiredRole }: ProtectedRouteProps) {
-  const { user, role, isLoading, signOut } = useAuth();
+  const { user, role, isLoading, mustChangePassword, signOut } = useAuth();
 
   if (isLoading) {
     return (
