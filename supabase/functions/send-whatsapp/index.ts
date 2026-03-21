@@ -71,8 +71,13 @@ serve(async (req) => {
         if (signedError) {
           console.error("Failed to generate signed URL:", signedError);
         } else if (signedData?.signedUrl) {
-          photoUrl = signedData.signedUrl;
-          console.log("Signed URL generated successfully");
+          const signedUrl = new URL(signedData.signedUrl);
+          const signedPath = signedUrl.pathname.split("/storage/v1/object/sign/package-photos/").pop();
+
+          if (signedPath) {
+            photoUrl = `../../sign/package-photos/${signedPath}${signedUrl.search}`;
+            console.log("Signed URL generated successfully");
+          }
         }
       } catch (e) {
         console.error("Signed URL generation error:", e);
