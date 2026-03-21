@@ -136,7 +136,7 @@ export default function Packages() {
     const name = pkg.resident?.full_name?.toLowerCase() || '';
     const unit = `${pkg.resident?.block || ''} ${pkg.resident?.apartment || ''}`.toLowerCase();
     const carrier = pkg.carrier?.toLowerCase() || '';
-    const tracking = (pkg as any).tracking_code?.toLowerCase() || '';
+    const tracking = pkg.tracking_code?.toLowerCase() || '';
     return name.includes(term) || unit.includes(term) || carrier.includes(term) || tracking.includes(term);
   });
 
