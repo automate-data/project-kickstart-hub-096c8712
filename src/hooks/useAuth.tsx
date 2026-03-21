@@ -8,9 +8,11 @@ interface AuthContextType {
   session: Session | null;
   role: AppRole | null;
   isLoading: boolean;
+  mustChangePassword: boolean;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signUp: (email: string, password: string, fullName: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -20,6 +22,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [role, setRole] = useState<AppRole | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [mustChangePassword, setMustChangePassword] = useState(false);
 
   const fetchUserRole = async (userId: string) => {
     const { data } = await supabase
@@ -39,6 +42,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     supabase.auth.onAuthStateChange((event, session) => {
       setSession(session);
       setUser(session?.user ?? null);
+      setMustChangePassword(session?.user?.user_metadata?.must_change_password === true);
       
       if (session?.user) {
         setTimeout(() => {
@@ -53,6 +57,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
+      setMustChangePassword(session?.user?.user_metadata?.must_change_password === true);
       
       if (session?.user) {
         fetchUserRole(session.user.id);
@@ -81,10 +86,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = async () => {
     await supabase.auth.signOut();
     setRole(null);
+    setMustChangePassword(false);
+  };
+
+  const refreshUser = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      setUser(user);
+      setMustChangePassword(user.user_metadata?.must_change_password === true);
+    }
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, role, isLoading, signIn, signUp, signOut }}>
+    <AuthContext.Provider value={{ user, session, role, isLoading, mustChangePassword, signIn, signUp, signOut, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );

@@ -11,7 +11,7 @@ interface ProtectedRouteProps {
 }
 
 export default function ProtectedRoute({ children, requiredRole }: ProtectedRouteProps) {
-  const { user, role, isLoading, signOut } = useAuth();
+  const { user, role, isLoading, mustChangePassword, signOut } = useAuth();
 
   if (isLoading) {
     return (
@@ -23,6 +23,10 @@ export default function ProtectedRoute({ children, requiredRole }: ProtectedRout
 
   if (!user) {
     return <Navigate to="/auth" replace />;
+  }
+
+  if (mustChangePassword) {
+    return <Navigate to="/change-password" replace />;
   }
 
   if (!role) {
