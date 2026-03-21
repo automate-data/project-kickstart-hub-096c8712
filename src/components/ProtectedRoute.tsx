@@ -11,7 +11,11 @@ interface ProtectedRouteProps {
 }
 
 export default function ProtectedRoute({ children, requiredRole }: ProtectedRouteProps) {
-  const { user, role, isLoading, mustChangePassword, signOut } = useAuth();
+  const { user, role, isLoading, mustChangePassword, isPasswordRecovery, signOut } = useAuth();
+
+  if (isPasswordRecovery) {
+    return <Navigate to="/reset-password" replace />;
+  }
 
   if (isLoading) {
     return (
