@@ -6,9 +6,6 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const LEGACY_CONTENT_SID = "HX484f3a72c0e53e0570a0b521baabb147";
-const PRIVATE_CONTENT_SID = "HX48448c038f3a44d929c03391ef998b9d";
-
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -54,48 +51,25 @@ serve(async (req) => {
       minute: "2-digit",
     });
 
-    const normalizedPhotoFilename = photoFilename
+    const photoValue = photoFilename
       ? (String(photoFilename).split("/").pop() || "").trim()
       : "";
-
-    let contentSid = LEGACY_CONTENT_SID;
-
-    try {
-      const approvalResponse = await fetch(
-        `https://content.twilio.com/v1/Content/${PRIVATE_CONTENT_SID}/ApprovalRequests`,
-        {
-          headers: {
-            Authorization: "Basic " + btoa(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`),
-          },
-        },
-      );
-
-      if (approvalResponse.ok) {
-        const approvalData = await approvalResponse.json();
-        if (approvalData?.whatsapp?.status === "approved") {
-          contentSid = PRIVATE_CONTENT_SID;
-        }
-      }
-    } catch (approvalError) {
-      console.error("Template approval lookup failed:", approvalError);
-    }
 
     const contentVariables = JSON.stringify({
       "1": residentName || "Morador",
       "2": registeredBy || "Portaria",
       "3": dateTimeBR,
-      "4": normalizedPhotoFilename,
+      "4": photoValue,
     });
 
     console.log("ContentVariables:", contentVariables);
-    console.log("Using ContentSid:", contentSid);
 
     const url = `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Messages.json`;
 
     const body = new URLSearchParams({
       To: toNumber,
       From: fromNumber,
-      ContentSid: contentSid,
+      ContentSid: "HX484f3a72c0e53e0570a0b521baabb147",
       ContentVariables: contentVariables,
     });
 
