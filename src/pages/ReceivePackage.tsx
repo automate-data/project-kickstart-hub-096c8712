@@ -504,6 +504,11 @@ export default function ReceivePackage() {
           </div>
 
           <div className="space-y-2">
+            <Label htmlFor="trackingCode">Código de rastreio (opcional)</Label>
+            <Input id="trackingCode" value={trackingCode} onChange={(e) => setTrackingCode(e.target.value)} placeholder="Ex: BR123456789BR" className="h-12" />
+          </div>
+
+          <div className="space-y-2">
             <Label htmlFor="notes">Observações (opcional)</Label>
             <Textarea id="notes" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Informações adicionais..." rows={3} />
           </div>
