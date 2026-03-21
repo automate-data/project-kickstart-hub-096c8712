@@ -94,6 +94,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await supabase.auth.signOut();
     setRole(null);
     setMustChangePassword(false);
+    setIsPasswordRecovery(false);
   };
 
   const refreshUser = async () => {
