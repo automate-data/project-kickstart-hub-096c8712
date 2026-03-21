@@ -8,3 +8,6 @@ verify_jwt = false
 
 [functions.invite-staff]
 verify_jwt = false
+
+[functions.package-photo-redirect]
+verify_jwt = false

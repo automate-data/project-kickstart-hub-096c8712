@@ -1,11 +1,13 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
+
+const LEGACY_CONTENT_SID = "HX484f3a72c0e53e0570a0b521baabb147";
+const PRIVATE_CONTENT_SID = "HX48448c038f3a44d929c03391ef998b9d";
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -52,53 +54,48 @@ serve(async (req) => {
       minute: "2-digit",
     });
 
-    // Generate signed URL for the photo (bucket is private)
-    let photoUrl = "";
-    if (photoFilename) {
-      try {
-        const supabaseAdmin = createClient(
-          Deno.env.get("SUPABASE_URL")!,
-          Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-        );
-        // Extract just the base filename, stripping any path or URL prefix
-        const fileName = String(photoFilename).split("/").pop() || photoFilename;
-        console.log("Generating signed URL for file:", fileName);
+    const normalizedPhotoFilename = photoFilename
+      ? (String(photoFilename).split("/").pop() || "").trim()
+      : "";
 
-        const { data: signedData, error: signedError } = await supabaseAdmin.storage
-          .from("package-photos")
-          .createSignedUrl(fileName, 86400); // 24 hours
+    let contentSid = LEGACY_CONTENT_SID;
 
-        if (signedError) {
-          console.error("Failed to generate signed URL:", signedError);
-        } else if (signedData?.signedUrl) {
-          const signedUrl = new URL(signedData.signedUrl);
-          const signedPath = signedUrl.pathname.split("/storage/v1/object/sign/package-photos/").pop();
+    try {
+      const approvalResponse = await fetch(
+        `https://content.twilio.com/v1/Content/${PRIVATE_CONTENT_SID}/ApprovalRequests`,
+        {
+          headers: {
+            Authorization: "Basic " + btoa(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`),
+          },
+        },
+      );
 
-          if (signedPath) {
-            photoUrl = `../../sign/package-photos/${signedPath}${signedUrl.search}`;
-            console.log("Signed URL generated successfully");
-          }
+      if (approvalResponse.ok) {
+        const approvalData = await approvalResponse.json();
+        if (approvalData?.whatsapp?.status === "approved") {
+          contentSid = PRIVATE_CONTENT_SID;
         }
-      } catch (e) {
-        console.error("Signed URL generation error:", e);
       }
+    } catch (approvalError) {
+      console.error("Template approval lookup failed:", approvalError);
     }
 
     const contentVariables = JSON.stringify({
       "1": residentName || "Morador",
       "2": registeredBy || "Portaria",
       "3": dateTimeBR,
-      "4": photoUrl,
+      "4": normalizedPhotoFilename,
     });
 
     console.log("ContentVariables:", contentVariables);
+    console.log("Using ContentSid:", contentSid);
 
     const url = `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Messages.json`;
 
     const body = new URLSearchParams({
       To: toNumber,
       From: fromNumber,
-      ContentSid: "HX484f3a72c0e53e0570a0b521baabb147",
+      ContentSid: contentSid,
       ContentVariables: contentVariables,
     });
 
