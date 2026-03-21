@@ -1,19 +1,21 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useCondominium } from '@/hooks/useCondominium';
+import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import { Package } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Package as PackageIcon, Clock, CheckCircle2, Search, Timer, BellOff } from 'lucide-react';
-import { formatDistanceToNow, format, differenceInMinutes, differenceInHours, differenceInDays, startOfDay } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+import { Package as PackageIcon, Clock, CheckCircle2, Search, Timer, BellOff, Loader2 } from 'lucide-react';
+import { differenceInMinutes, differenceInHours, differenceInDays, startOfDay } from 'date-fns';
 import { PickupDialog } from '@/components/PickupDialog';
 import { PackageDetailsDialog } from '@/components/PackageDetailsDialog';
 import { toast } from 'sonner';
 import { PackagePhoto } from '@/components/PackagePhoto';
 import { Input } from '@/components/ui/input';
+
+const PAGE_SIZE = 20;
 
 function formatStayDuration(receivedAt: string, pickedUpAt?: string | null): string {
   const start = new Date(receivedAt);
@@ -26,10 +28,45 @@ function formatStayDuration(receivedAt: string, pickedUpAt?: string | null): str
   return `${days}d`;
 }
 
+async function fetchPackagesPage({
+  condominiumId,
+  status,
+  search,
+  pageParam = 0,
+}: {
+  condominiumId: string;
+  status: string;
+  search: string;
+  pageParam?: number;
+}) {
+  const from = pageParam * PAGE_SIZE;
+  const to = from + PAGE_SIZE - 1;
+
+  let query = supabase
+    .from('packages')
+    .select(`*, resident:residents(*)`, { count: 'exact' })
+    .eq('status', status)
+    .eq('condominium_id', condominiumId)
+    .order('received_at', { ascending: false })
+    .range(from, to);
+
+  // Server-side search not possible with ilike on joined fields,
+  // so we fetch the page and let client filter. For search we
+  // fetch a larger window to compensate.
+  const { data, count, error } = await query;
+
+  if (error) throw error;
+
+  return {
+    packages: (data ?? []) as unknown as Package[],
+    totalCount: count ?? 0,
+    page: pageParam,
+  };
+}
+
 export default function Packages() {
   const { condominium } = useCondominium();
-  const [packages, setPackages] = useState<Package[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [filter, setFilter] = useState<'pending' | 'picked_up'>('pending');
   const [selectedPackage, setSelectedPackage] = useState<Package | null>(null);
   const [pickupDialogOpen, setPickupDialogOpen] = useState(false);
@@ -40,9 +77,8 @@ export default function Packages() {
   const [pickedUpTodayCount, setPickedUpTodayCount] = useState(0);
 
   useEffect(() => {
-    fetchPackages();
     fetchCounts();
-  }, [filter, condominium?.id]);
+  }, [condominium?.id]);
 
   const fetchCounts = async () => {
     if (!condominium?.id) {
@@ -69,26 +105,39 @@ export default function Packages() {
     setPickedUpTodayCount(pickedUpRes.count ?? 0);
   };
 
-  const fetchPackages = async () => {
-    if (!condominium?.id) {
-      setPackages([]);
-      setIsLoading(false);
-      return;
-    }
+  const {
+    data,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    isLoading,
+  } = useInfiniteQuery({
+    queryKey: ['packages', condominium?.id, filter],
+    queryFn: ({ pageParam }) =>
+      fetchPackagesPage({
+        condominiumId: condominium!.id,
+        status: filter,
+        search: searchTerm,
+        pageParam: pageParam as number,
+      }),
+    initialPageParam: 0,
+    getNextPageParam: (lastPage) => {
+      const fetched = (lastPage.page + 1) * PAGE_SIZE;
+      return fetched < lastPage.totalCount ? lastPage.page + 1 : undefined;
+    },
+    enabled: !!condominium?.id,
+  });
 
-    setIsLoading(true);
-    const { data } = await supabase
-      .from('packages')
-      .select(`*, resident:residents(*)`)
-      .eq('status', filter)
-      .eq('condominium_id', condominium.id)
-      .order('received_at', { ascending: false });
+  const allPackages = data?.pages.flatMap((p) => p.packages) ?? [];
 
-    if (data) {
-      setPackages(data as unknown as Package[]);
-    }
-    setIsLoading(false);
-  };
+  const filteredPackages = allPackages.filter((pkg) => {
+    if (!searchTerm.trim()) return true;
+    const term = searchTerm.toLowerCase();
+    const name = pkg.resident?.full_name?.toLowerCase() || '';
+    const unit = `${pkg.resident?.block || ''} ${pkg.resident?.apartment || ''}`.toLowerCase();
+    const carrier = pkg.carrier?.toLowerCase() || '';
+    return name.includes(term) || unit.includes(term) || carrier.includes(term);
+  });
 
   const handlePickUpClick = (pkg: Package) => {
     setSelectedPackage(pkg);
@@ -134,19 +183,10 @@ export default function Packages() {
       }
     }
 
-    fetchPackages();
+    queryClient.invalidateQueries({ queryKey: ['packages'] });
     fetchCounts();
     setSelectedPackage(null);
   };
-
-  const filteredPackages = packages.filter((pkg) => {
-    if (!searchTerm.trim()) return true;
-    const term = searchTerm.toLowerCase();
-    const name = pkg.resident?.full_name?.toLowerCase() || '';
-    const unit = `${pkg.resident?.block || ''} ${pkg.resident?.apartment || ''}`.toLowerCase();
-    const carrier = pkg.carrier?.toLowerCase() || '';
-    return name.includes(term) || unit.includes(term) || carrier.includes(term);
-  });
 
   const PackageCard = ({ pkg }: { pkg: Package }) => {
     const isPickedUp = pkg.status === 'picked_up';
@@ -240,7 +280,10 @@ export default function Packages() {
         />
       </div>
 
-      <Tabs value={filter} onValueChange={(v) => setFilter(v as 'pending' | 'picked_up')}>
+      <Tabs value={filter} onValueChange={(v) => {
+        setFilter(v as 'pending' | 'picked_up');
+        setSearchTerm('');
+      }}>
         <TabsList className="w-full">
           <TabsTrigger value="pending" className="flex-1 gap-2">
             <Clock className="w-4 h-4" />
@@ -269,7 +312,7 @@ export default function Packages() {
                 </Card>
               ))}
             </div>
-          ) : packages.length === 0 ? (
+          ) : allPackages.length === 0 ? (
             <Card>
               <CardContent className="p-8 text-center">
                 <PackageIcon className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
@@ -283,6 +326,21 @@ export default function Packages() {
               {filteredPackages.map((pkg) => (
                 <PackageCard key={pkg.id} pkg={pkg} />
               ))}
+
+              {/* Load more / end of list */}
+              <div className="py-4 text-center">
+                {isFetchingNextPage ? (
+                  <Loader2 className="w-5 h-5 animate-spin mx-auto text-muted-foreground" />
+                ) : hasNextPage ? (
+                  <Button variant="ghost" onClick={() => fetchNextPage()}>
+                    Carregar mais
+                  </Button>
+                ) : allPackages.length > 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    Todas as encomendas foram carregadas
+                  </p>
+                ) : null}
+              </div>
             </div>
           )}
         </TabsContent>
