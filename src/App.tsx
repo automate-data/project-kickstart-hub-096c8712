@@ -15,6 +15,7 @@ import Residents from "./pages/Residents";
 import Staff from "./pages/Staff";
 import Setup from "./pages/Setup";
 import SelectCondominium from "./pages/SelectCondominium";
+import ResetPassword from "./pages/ResetPassword";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -33,6 +34,7 @@ function AppRoutes() {
   return (
     <Routes>
       <Route path="/auth" element={user ? <Navigate to="/" replace /> : <Auth />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
       <Route
         path="/setup"
         element={
