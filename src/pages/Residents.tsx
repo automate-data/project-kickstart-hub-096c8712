@@ -222,6 +222,23 @@ export default function Residents() {
       <p className="text-sm text-muted-foreground text-center">
         {residents.length} morador{residents.length !== 1 ? 'es' : ''} cadastrado{residents.length !== 1 ? 's' : ''}
       </p>
+
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar remoção</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja remover {deleteTarget?.full_name}? Esta ação pode ser desfeita pelo suporte.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={() => deleteTarget && handleDelete(deleteTarget)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Remover
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
