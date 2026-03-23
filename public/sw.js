@@ -27,7 +27,10 @@ self.addEventListener('fetch', (event) => {
   if (event.request.mode === 'navigate') {
     event.respondWith(
       fetch(event.request)
-        .then((res) => { caches.open(CACHE_NAME).then((c) => c.put(event.request, res.clone())); return res; })
+        .then((res) => {
+          caches.open(CACHE_NAME).then((c) => c.put(event.request, res.clone()));
+          return res;
+        })
         .catch(() => caches.match('/index.html'))
     );
     return;
@@ -35,10 +38,12 @@ self.addEventListener('fetch', (event) => {
 
   if (['script', 'style', 'font', 'image'].includes(event.request.destination)) {
     event.respondWith(
-      caches.match(event.request).then((cached) => cached || fetch(event.request).then((res) => {
-        caches.open(CACHE_NAME).then((c) => c.put(event.request, res.clone()));
-        return res;
-      }))
+      caches.match(event.request).then((cached) =>
+        cached || fetch(event.request).then((res) => {
+          caches.open(CACHE_NAME).then((c) => c.put(event.request, res.clone()));
+          return res;
+        })
+      )
     );
   }
 });
