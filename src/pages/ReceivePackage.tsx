@@ -218,8 +218,9 @@ export default function ReceivePackage() {
         if (suggestion.carrier) setCarrier(suggestion.carrier);
         if (suggestion.tracking_code) setTrackingCode(suggestion.tracking_code);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('AI processing error:', error);
+      insertLog({ event_type: 'ai_label_failed', condominium_id: condominium?.id, metadata: { error_message: error?.message || String(error) } });
       toast({
         title: 'Não foi possível ler a etiqueta',
         description: 'Selecione o morador manualmente',
