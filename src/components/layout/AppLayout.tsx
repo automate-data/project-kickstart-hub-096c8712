@@ -18,7 +18,8 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const hasMultiple = condominiums.length > 1;
 
-  const isAdmin = role === 'admin';
+  const isAdmin = role === 'admin' || role === 'superadmin';
+  const isSuperAdmin = role === 'superadmin';
 
   const navItems = [
     { path: '/', label: 'Receber', icon: Package, show: true },
@@ -26,6 +27,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
     { path: '/residents', label: 'Moradores', icon: Users, show: isAdmin },
     { path: '/staff', label: 'Equipe', icon: UserCog, show: isAdmin },
     { path: '/reports', label: 'Relatórios', icon: BarChart2, show: isAdmin },
+    { path: '/superadmin', label: 'Super Admin', icon: BarChart2, show: isSuperAdmin, highlight: true },
   ].filter(item => item.show);
 
   const isActive = (path: string) => location.pathname === path;
