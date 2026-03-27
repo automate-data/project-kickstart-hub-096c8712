@@ -307,10 +307,10 @@ export default function ReceivePackage() {
             throw new Error(errMsg);
           }
           notificationSent = true;
-          insertLog({ event_type: 'whatsapp_sent', condominium_id: condominium?.id, metadata: { resident_name: selectedResident.full_name, sid: whatsappData?.sid } });
+          await insertLog({ event_type: 'whatsapp_sent', condominium_id: condominium?.id, metadata: { resident_name: selectedResident.full_name, sid: whatsappData?.sid } });
         } catch (notifError: any) {
           console.error('WhatsApp notification error:', notifError);
-          insertLog({ event_type: 'whatsapp_failed', condominium_id: condominium?.id, metadata: { error_message: notifError?.message || String(notifError), resident_phone: selectedResident.phone } });
+          await insertLog({ event_type: 'whatsapp_failed', condominium_id: condominium?.id, metadata: { error_message: notifError?.message || String(notifError), resident_phone: selectedResident.phone } });
         }
       }
 
