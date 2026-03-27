@@ -183,6 +183,8 @@ export default function Packages() {
           },
         });
 
+        console.log('[Pickup] WhatsApp result:', { confirmResult, confirmError });
+
         if (confirmError || confirmResult?.error) {
           throw new Error(confirmError?.message || confirmResult?.error || 'Unknown error');
         }
@@ -192,7 +194,7 @@ export default function Packages() {
           .update({ pickup_confirmation_sent: confirmResult?.success || false })
           .eq('id', selectedPackage.id);
 
-        insertLog({
+        await insertLog({
           event_type: 'whatsapp_sent',
           condominium_id: condominium?.id,
           package_id: selectedPackage.id,
@@ -203,8 +205,8 @@ export default function Packages() {
           },
         });
       } catch (e: any) {
-        console.log('Failed to send pickup confirmation:', e);
-        insertLog({ event_type: 'whatsapp_failed', condominium_id: condominium?.id, package_id: selectedPackage.id, metadata: { context: 'pickup_confirmation', error_message: e?.message || String(e) } });
+        console.error('[Pickup] WhatsApp failed:', e);
+        await insertLog({ event_type: 'whatsapp_failed', condominium_id: condominium?.id, package_id: selectedPackage.id, metadata: { context: 'pickup_confirmation', error_message: e?.message || String(e) } });
       }
     }
 
