@@ -175,7 +175,7 @@ export default function Packages() {
 
     if (selectedPackage.resident?.phone) {
       try {
-        const { data: confirmResult } = await supabase.functions.invoke('send-pickup-confirmation', {
+        const { data: confirmResult, error: confirmError } = await supabase.functions.invoke('send-pickup-confirmation', {
           body: {
             phone: selectedPackage.resident.phone,
             resident_name: selectedPackage.resident.full_name,
@@ -183,13 +183,28 @@ export default function Packages() {
           },
         });
 
+        if (confirmError || confirmResult?.error) {
+          throw new Error(confirmError?.message || confirmResult?.error || 'Unknown error');
+        }
+
         await supabase
           .from('packages')
           .update({ pickup_confirmation_sent: confirmResult?.success || false })
           .eq('id', selectedPackage.id);
+
+        insertLog({
+          event_type: 'whatsapp_sent',
+          condominium_id: condominium?.id,
+          package_id: selectedPackage.id,
+          metadata: {
+            context: 'pickup_confirmation',
+            resident_name: selectedPackage.resident.full_name,
+            sid: confirmResult?.sid,
+          },
+        });
       } catch (e: any) {
         console.log('Failed to send pickup confirmation:', e);
-        insertLog({ event_type: 'whatsapp_failed', condominium_id: condominium?.id, metadata: { context: 'pickup_confirmation', error_message: e?.message || String(e) } });
+        insertLog({ event_type: 'whatsapp_failed', condominium_id: condominium?.id, package_id: selectedPackage.id, metadata: { context: 'pickup_confirmation', error_message: e?.message || String(e) } });
       }
     }
 
