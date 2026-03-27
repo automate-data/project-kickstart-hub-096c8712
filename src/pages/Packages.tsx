@@ -180,10 +180,10 @@ export default function Packages() {
             phone: selectedPackage.resident.phone,
             resident_name: selectedPackage.resident.full_name,
             picked_up_at: pickedUpAt,
+            package_id: selectedPackage.id,
+            condominium_id: condominium?.id,
           },
         });
-
-        console.log('[Pickup] WhatsApp result:', { confirmResult, confirmError });
 
         if (confirmError || confirmResult?.error) {
           throw new Error(confirmError?.message || confirmResult?.error || 'Unknown error');
@@ -193,20 +193,8 @@ export default function Packages() {
           .from('packages')
           .update({ pickup_confirmation_sent: confirmResult?.success || false })
           .eq('id', selectedPackage.id);
-
-        await insertLog({
-          event_type: 'whatsapp_sent',
-          condominium_id: condominium?.id,
-          package_id: selectedPackage.id,
-          metadata: {
-            context: 'pickup_confirmation',
-            resident_name: selectedPackage.resident.full_name,
-            sid: confirmResult?.sid,
-          },
-        });
       } catch (e: any) {
         console.error('[Pickup] WhatsApp failed:', e);
-        await insertLog({ event_type: 'whatsapp_failed', condominium_id: condominium?.id, package_id: selectedPackage.id, metadata: { context: 'pickup_confirmation', error_message: e?.message || String(e) } });
       }
     }
 
