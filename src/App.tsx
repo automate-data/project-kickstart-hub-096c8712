@@ -18,6 +18,7 @@ import SelectCondominium from "./pages/SelectCondominium";
 import ResetPassword from "./pages/ResetPassword";
 import ChangePassword from "./pages/ChangePassword";
 import Reports from "./pages/Reports";
+import SuperAdmin from "./pages/SuperAdmin";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
