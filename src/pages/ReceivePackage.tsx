@@ -279,6 +279,17 @@ export default function ReceivePackage() {
 
       if (insertError) throw insertError;
 
+      // Log package received
+      insertLog({
+        event_type: 'package_received',
+        condominium_id: condominium?.id,
+        metadata: {
+          resident_name: selectedResident?.full_name,
+          carrier: carrier || null,
+          ai_confidence: aiSuggestion?.confidence,
+        },
+      });
+
       let notificationSent = false;
       if (selectedResident?.phone && selectedResident?.whatsapp_enabled !== false) {
         try {
@@ -292,8 +303,10 @@ export default function ReceivePackage() {
             },
           });
           notificationSent = true;
-        } catch (notifError) {
+          insertLog({ event_type: 'whatsapp_sent', condominium_id: condominium?.id, metadata: { resident_name: selectedResident.full_name } });
+        } catch (notifError: any) {
           console.error('WhatsApp notification error:', notifError);
+          insertLog({ event_type: 'whatsapp_failed', condominium_id: condominium?.id, metadata: { error_message: notifError?.message || String(notifError), resident_phone: selectedResident.phone } });
         }
       }
 
