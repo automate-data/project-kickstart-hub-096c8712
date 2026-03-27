@@ -184,8 +184,7 @@ export default function SuperAdmin() {
         </div>
       </header>
       <div className="container py-6 space-y-6 animate-fade-in pb-8">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <h1 className="text-2xl font-bold">⚙️ Super Admin</h1>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-end gap-4">
         <div className="flex items-center gap-2 flex-wrap">
           {(['1', '7', '30', '90'] as Period[]).map(p => (
             <Button key={p} size="sm" variant={period === p ? 'default' : 'outline'} onClick={() => setPeriod(p)}>
