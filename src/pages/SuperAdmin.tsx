@@ -491,3 +491,18 @@ function KpiCard({ icon, label, value }: { icon: React.ReactNode; label: string;
     </Card>
   );
 }
+
+function CostCard({ icon, label, value, detail, highlight }: { icon: React.ReactNode; label: string; value: number; detail: string; highlight?: boolean }) {
+  return (
+    <Card className={highlight ? 'border-destructive/50 bg-destructive/5' : ''}>
+      <CardContent className="p-4 flex flex-col items-center text-center gap-1">
+        {icon}
+        <span className={`text-2xl font-bold ${highlight ? 'text-destructive' : ''}`}>
+          ${value.toFixed(2)}
+        </span>
+        <span className="text-xs text-muted-foreground font-medium">{label}</span>
+        <span className="text-[10px] text-muted-foreground">{detail}</span>
+      </CardContent>
+    </Card>
+  );
+}
