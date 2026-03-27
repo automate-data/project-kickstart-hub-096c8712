@@ -115,6 +115,14 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
+      <Route
+        path="/superadmin"
+        element={
+          <ProtectedRoute requiredRole="superadmin">
+            <AppLayout><SuperAdmin /></AppLayout>
+          </ProtectedRoute>
+        }
+      />
       <Route path="*" element={<NotFound />} />
     </Routes>
   );
