@@ -359,6 +359,9 @@ export default function SuperAdmin() {
                         <div>Erros: <strong>{s.errors_30d}</strong></div>
                         <div>Staff: <strong>{s.total_staff}</strong></div>
                         <div>Moradores: <strong>{s.total_residents}</strong></div>
+                        <div className="col-span-2 text-destructive font-medium">
+                          💰 Custo Est.: <strong>${condCosts[s.condominium_id]?.total?.toFixed(2) || '0.00'}</strong>
+                        </div>
                       </div>
                     </CardContent>
                   </Card>
