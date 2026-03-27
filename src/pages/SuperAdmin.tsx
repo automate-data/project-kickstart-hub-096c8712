@@ -47,7 +47,7 @@ export default function SuperAdmin() {
   });
 
   // Global metrics from system_logs
-  const { data: logs, isLoading: logsLoading, refetch: refetchLogs } = useQuery({
+  const { data: logs, isLoading: logsLoading } = useQuery({
     queryKey: ['sa-logs', period, condFilter],
     queryFn: async () => {
       let q = supabase
