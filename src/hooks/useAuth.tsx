@@ -114,6 +114,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signOut = async () => {
+    // Close open session
+    if (user) {
+      supabase.from('user_sessions')
+        .update({ logout_at: new Date().toISOString() } as any)
+        .eq('user_id', user.id)
+        .is('logout_at', null)
+        .then(() => {});
+    }
     await supabase.auth.signOut();
     setRole(null);
     setMustChangePassword(false);

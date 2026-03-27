@@ -52,7 +52,7 @@ export default function ProtectedRoute({ children, requiredRole }: ProtectedRout
     );
   }
 
-  if (requiredRole && role !== requiredRole && role !== 'admin') {
+  if (requiredRole && role !== requiredRole && role !== 'admin' && role !== 'superadmin') {
     return <Navigate to="/" replace />;
   }
 

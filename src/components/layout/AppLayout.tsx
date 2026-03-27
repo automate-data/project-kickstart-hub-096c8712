@@ -51,12 +51,12 @@ export default function AppLayout({ children }: AppLayoutProps) {
           </div>
 
           <nav className="hidden md:flex items-center gap-1">
-            {navItems.map((item) => (
+            {navItems.map((item: any) => (
               <Link key={item.path} to={item.path}>
                 <Button
                   variant={isActive(item.path) ? 'secondary' : 'ghost'}
                   size="sm"
-                  className="gap-2"
+                  className={`gap-2 ${item.highlight ? 'text-amber-600 hover:text-amber-700' : ''}`}
                 >
                   <item.icon className="w-4 h-4" />
                   {item.label}
