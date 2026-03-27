@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Package, CheckCircle2, Clock, MessageSquare, AlertTriangle, Users, RefreshCw, LogOut } from 'lucide-react';
+import { Package, CheckCircle2, Clock, MessageSquare, AlertTriangle, Users, RefreshCw, LogOut, DollarSign, Brain, Cloud } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { formatDistanceToNow, format, subDays } from 'date-fns';
@@ -127,6 +127,11 @@ export default function SuperAdmin() {
     return c ? (c as any).name : condId.slice(0, 8);
   };
 
+  // Cost constants
+  const WHATSAPP_COST_PER_MSG = 0.0068;
+  const AI_COST_PER_CALL = 0.0035;
+  const CLOUD_FIXED_MONTHLY = 25.0;
+
   // Compute metrics
   const metrics = {
     received: logs?.filter(l => (l as any).event_type === 'package_received').length || 0,
@@ -134,6 +139,27 @@ export default function SuperAdmin() {
     whatsappSent: logs?.filter(l => (l as any).event_type === 'whatsapp_sent').length || 0,
     errors: logs?.filter(l => ['error', 'whatsapp_failed', 'ai_label_failed'].includes((l as any).event_type)).length || 0,
   };
+
+  // Cost calculations
+  const whatsappCost = metrics.whatsappSent * WHATSAPP_COST_PER_MSG;
+  const aiCost = metrics.received * AI_COST_PER_CALL;
+  const activeCondCount = condStats?.length || 1;
+  const cloudCostPerCond = CLOUD_FIXED_MONTHLY / activeCondCount;
+  const totalCost = whatsappCost + aiCost + CLOUD_FIXED_MONTHLY;
+
+  // Per-condominium cost breakdown
+  const condCosts = (() => {
+    if (!logs || !condStats) return {};
+    const costs: Record<string, { whatsapp: number; ai: number; cloud: number; total: number }> = {};
+    condStats.forEach((s: any) => {
+      const condId = s.condominium_id;
+      const condLogs = logs.filter((l: any) => l.condominium_id === condId);
+      const wa = condLogs.filter((l: any) => l.event_type === 'whatsapp_sent').length * WHATSAPP_COST_PER_MSG;
+      const ai = condLogs.filter((l: any) => l.event_type === 'package_received').length * AI_COST_PER_CALL;
+      costs[condId] = { whatsapp: wa, ai, cloud: cloudCostPerCond, total: wa + ai + cloudCostPerCond };
+    });
+    return costs;
+  })();
 
   // Pending packages count (current)
   const pendingTotal = condStats?.reduce((sum: number, s: any) => sum + (Number(s.packages_pending) || 0), 0) || 0;
@@ -224,12 +250,28 @@ export default function SuperAdmin() {
           ))
         ) : (
           <>
-            <KpiCard icon={<Package className="w-5 h-5 text-blue-500" />} label="Recebidas" value={metrics.received} />
-            <KpiCard icon={<CheckCircle2 className="w-5 h-5 text-green-500" />} label="Retiradas" value={metrics.pickedUp} />
-            <KpiCard icon={<Clock className="w-5 h-5 text-amber-500" />} label="Aguardando" value={pendingTotal} />
-            <KpiCard icon={<MessageSquare className="w-5 h-5 text-emerald-500" />} label="WhatsApp Enviados" value={metrics.whatsappSent} />
+            <KpiCard icon={<Package className="w-5 h-5 text-primary" />} label="Recebidas" value={metrics.received} />
+            <KpiCard icon={<CheckCircle2 className="w-5 h-5 text-primary" />} label="Retiradas" value={metrics.pickedUp} />
+            <KpiCard icon={<Clock className="w-5 h-5 text-primary" />} label="Aguardando" value={pendingTotal} />
+            <KpiCard icon={<MessageSquare className="w-5 h-5 text-primary" />} label="WhatsApp Enviados" value={metrics.whatsappSent} />
             <KpiCard icon={<AlertTriangle className="w-5 h-5 text-destructive" />} label="Erros" value={metrics.errors} />
-            <KpiCard icon={<Users className="w-5 h-5 text-indigo-500" />} label="Usuários Ativos" value={activeUsers} />
+            <KpiCard icon={<Users className="w-5 h-5 text-primary" />} label="Usuários Ativos" value={activeUsers} />
+          </>
+        )}
+      </div>
+
+      {/* Cost KPI Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {logsLoading ? (
+          Array.from({ length: 4 }).map((_, i) => (
+            <Card key={i}><CardContent className="p-4"><Skeleton className="h-16" /></CardContent></Card>
+          ))
+        ) : (
+          <>
+            <CostCard icon={<MessageSquare className="w-5 h-5 text-primary" />} label="Custo WhatsApp" value={whatsappCost} detail={`${metrics.whatsappSent} msgs × $${WHATSAPP_COST_PER_MSG}`} />
+            <CostCard icon={<Brain className="w-5 h-5 text-primary" />} label="Custo IA" value={aiCost} detail={`${metrics.received} chamadas × $${AI_COST_PER_CALL}`} />
+            <CostCard icon={<Cloud className="w-5 h-5 text-primary" />} label="Custo Cloud (fixo/mês)" value={CLOUD_FIXED_MONTHLY} detail={`$${cloudCostPerCond.toFixed(2)}/condomínio`} />
+            <CostCard icon={<DollarSign className="w-5 h-5 text-destructive" />} label="Custo Total Estimado" value={totalCost} detail="WhatsApp + IA + Cloud" highlight />
           </>
         )}
       </div>
@@ -272,28 +314,35 @@ export default function SuperAdmin() {
                       <TableHead>Condomínio</TableHead>
                       <TableHead className="text-center">Pendentes</TableHead>
                       <TableHead className="text-center">Retiradas</TableHead>
-                      <TableHead className="text-center">WhatsApp (30d)</TableHead>
-                      <TableHead className="text-center">Erros (30d)</TableHead>
+                      <TableHead className="text-center">WhatsApp</TableHead>
+                      <TableHead className="text-center">Erros</TableHead>
                       <TableHead className="text-center">Staff</TableHead>
                       <TableHead className="text-center">Moradores</TableHead>
+                      <TableHead className="text-center">💰 Custo Est.</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {condStats?.map((s: any) => (
-                      <TableRow key={s.condominium_id}>
-                        <TableCell className="font-medium">{s.condominium_name}</TableCell>
-                        <TableCell className="text-center">{s.packages_pending}</TableCell>
-                        <TableCell className="text-center">{s.packages_picked_up}</TableCell>
-                        <TableCell className="text-center">{s.whatsapp_sent_30d}</TableCell>
-                        <TableCell className="text-center">
-                          {Number(s.errors_30d) > 0 ? (
-                            <Badge variant="destructive">{s.errors_30d}</Badge>
-                          ) : '0'}
-                        </TableCell>
-                        <TableCell className="text-center">{s.total_staff}</TableCell>
-                        <TableCell className="text-center">{s.total_residents}</TableCell>
-                      </TableRow>
-                    ))}
+                    {condStats?.map((s: any) => {
+                      const cc = condCosts[s.condominium_id];
+                      return (
+                        <TableRow key={s.condominium_id}>
+                          <TableCell className="font-medium">{s.condominium_name}</TableCell>
+                          <TableCell className="text-center">{s.packages_pending}</TableCell>
+                          <TableCell className="text-center">{s.packages_picked_up}</TableCell>
+                          <TableCell className="text-center">{s.whatsapp_sent_30d}</TableCell>
+                          <TableCell className="text-center">
+                            {Number(s.errors_30d) > 0 ? (
+                              <Badge variant="destructive">{s.errors_30d}</Badge>
+                            ) : '0'}
+                          </TableCell>
+                          <TableCell className="text-center">{s.total_staff}</TableCell>
+                          <TableCell className="text-center">{s.total_residents}</TableCell>
+                          <TableCell className="text-center font-medium text-destructive">
+                            ${cc?.total?.toFixed(2) || '0.00'}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
                   </TableBody>
                 </Table>
               </div>
@@ -310,6 +359,9 @@ export default function SuperAdmin() {
                         <div>Erros: <strong>{s.errors_30d}</strong></div>
                         <div>Staff: <strong>{s.total_staff}</strong></div>
                         <div>Moradores: <strong>{s.total_residents}</strong></div>
+                        <div className="col-span-2 text-destructive font-medium">
+                          💰 Custo Est.: <strong>${condCosts[s.condominium_id]?.total?.toFixed(2) || '0.00'}</strong>
+                        </div>
                       </div>
                     </CardContent>
                   </Card>
@@ -435,6 +487,21 @@ function KpiCard({ icon, label, value }: { icon: React.ReactNode; label: string;
         {icon}
         <span className="text-3xl font-bold">{value}</span>
         <span className="text-xs text-muted-foreground">{label}</span>
+      </CardContent>
+    </Card>
+  );
+}
+
+function CostCard({ icon, label, value, detail, highlight }: { icon: React.ReactNode; label: string; value: number; detail: string; highlight?: boolean }) {
+  return (
+    <Card className={highlight ? 'border-destructive/50 bg-destructive/5' : ''}>
+      <CardContent className="p-4 flex flex-col items-center text-center gap-1">
+        {icon}
+        <span className={`text-2xl font-bold ${highlight ? 'text-destructive' : ''}`}>
+          ${value.toFixed(2)}
+        </span>
+        <span className="text-xs text-muted-foreground font-medium">{label}</span>
+        <span className="text-[10px] text-muted-foreground">{detail}</span>
       </CardContent>
     </Card>
   );
