@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { insertLog } from '@/lib/logger';
 import { useCondominium } from '@/hooks/useCondominium';
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import { Package } from '@/types';
