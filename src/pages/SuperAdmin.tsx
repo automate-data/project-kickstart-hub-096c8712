@@ -314,28 +314,35 @@ export default function SuperAdmin() {
                       <TableHead>Condomínio</TableHead>
                       <TableHead className="text-center">Pendentes</TableHead>
                       <TableHead className="text-center">Retiradas</TableHead>
-                      <TableHead className="text-center">WhatsApp (30d)</TableHead>
-                      <TableHead className="text-center">Erros (30d)</TableHead>
+                      <TableHead className="text-center">WhatsApp</TableHead>
+                      <TableHead className="text-center">Erros</TableHead>
                       <TableHead className="text-center">Staff</TableHead>
                       <TableHead className="text-center">Moradores</TableHead>
+                      <TableHead className="text-center">💰 Custo Est.</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {condStats?.map((s: any) => (
-                      <TableRow key={s.condominium_id}>
-                        <TableCell className="font-medium">{s.condominium_name}</TableCell>
-                        <TableCell className="text-center">{s.packages_pending}</TableCell>
-                        <TableCell className="text-center">{s.packages_picked_up}</TableCell>
-                        <TableCell className="text-center">{s.whatsapp_sent_30d}</TableCell>
-                        <TableCell className="text-center">
-                          {Number(s.errors_30d) > 0 ? (
-                            <Badge variant="destructive">{s.errors_30d}</Badge>
-                          ) : '0'}
-                        </TableCell>
-                        <TableCell className="text-center">{s.total_staff}</TableCell>
-                        <TableCell className="text-center">{s.total_residents}</TableCell>
-                      </TableRow>
-                    ))}
+                    {condStats?.map((s: any) => {
+                      const cc = condCosts[s.condominium_id];
+                      return (
+                        <TableRow key={s.condominium_id}>
+                          <TableCell className="font-medium">{s.condominium_name}</TableCell>
+                          <TableCell className="text-center">{s.packages_pending}</TableCell>
+                          <TableCell className="text-center">{s.packages_picked_up}</TableCell>
+                          <TableCell className="text-center">{s.whatsapp_sent_30d}</TableCell>
+                          <TableCell className="text-center">
+                            {Number(s.errors_30d) > 0 ? (
+                              <Badge variant="destructive">{s.errors_30d}</Badge>
+                            ) : '0'}
+                          </TableCell>
+                          <TableCell className="text-center">{s.total_staff}</TableCell>
+                          <TableCell className="text-center">{s.total_residents}</TableCell>
+                          <TableCell className="text-center font-medium text-destructive">
+                            ${cc?.total?.toFixed(2) || '0.00'}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
                   </TableBody>
                 </Table>
               </div>
