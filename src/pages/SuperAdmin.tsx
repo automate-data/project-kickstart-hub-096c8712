@@ -250,12 +250,28 @@ export default function SuperAdmin() {
           ))
         ) : (
           <>
-            <KpiCard icon={<Package className="w-5 h-5 text-blue-500" />} label="Recebidas" value={metrics.received} />
-            <KpiCard icon={<CheckCircle2 className="w-5 h-5 text-green-500" />} label="Retiradas" value={metrics.pickedUp} />
-            <KpiCard icon={<Clock className="w-5 h-5 text-amber-500" />} label="Aguardando" value={pendingTotal} />
-            <KpiCard icon={<MessageSquare className="w-5 h-5 text-emerald-500" />} label="WhatsApp Enviados" value={metrics.whatsappSent} />
+            <KpiCard icon={<Package className="w-5 h-5 text-primary" />} label="Recebidas" value={metrics.received} />
+            <KpiCard icon={<CheckCircle2 className="w-5 h-5 text-primary" />} label="Retiradas" value={metrics.pickedUp} />
+            <KpiCard icon={<Clock className="w-5 h-5 text-primary" />} label="Aguardando" value={pendingTotal} />
+            <KpiCard icon={<MessageSquare className="w-5 h-5 text-primary" />} label="WhatsApp Enviados" value={metrics.whatsappSent} />
             <KpiCard icon={<AlertTriangle className="w-5 h-5 text-destructive" />} label="Erros" value={metrics.errors} />
-            <KpiCard icon={<Users className="w-5 h-5 text-indigo-500" />} label="Usuários Ativos" value={activeUsers} />
+            <KpiCard icon={<Users className="w-5 h-5 text-primary" />} label="Usuários Ativos" value={activeUsers} />
+          </>
+        )}
+      </div>
+
+      {/* Cost KPI Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {logsLoading ? (
+          Array.from({ length: 4 }).map((_, i) => (
+            <Card key={i}><CardContent className="p-4"><Skeleton className="h-16" /></CardContent></Card>
+          ))
+        ) : (
+          <>
+            <CostCard icon={<MessageSquare className="w-5 h-5 text-primary" />} label="Custo WhatsApp" value={whatsappCost} detail={`${metrics.whatsappSent} msgs × $${WHATSAPP_COST_PER_MSG}`} />
+            <CostCard icon={<Brain className="w-5 h-5 text-primary" />} label="Custo IA" value={aiCost} detail={`${metrics.received} chamadas × $${AI_COST_PER_CALL}`} />
+            <CostCard icon={<Cloud className="w-5 h-5 text-primary" />} label="Custo Cloud (fixo/mês)" value={CLOUD_FIXED_MONTHLY} detail={`$${cloudCostPerCond.toFixed(2)}/condomínio`} />
+            <CostCard icon={<DollarSign className="w-5 h-5 text-destructive" />} label="Custo Total Estimado" value={totalCost} detail="WhatsApp + IA + Cloud" highlight />
           </>
         )}
       </div>
