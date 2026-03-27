@@ -203,7 +203,14 @@ export default function SuperAdmin() {
               ))}
             </SelectContent>
           </Select>
-          <Button size="icon" variant="ghost" onClick={() => refetchLogs()}>
+          <Button size="icon" variant="ghost" onClick={() => {
+            queryClient.invalidateQueries({ queryKey: ['sa-logs'] });
+            queryClient.invalidateQueries({ queryKey: ['sa-cond-stats'] });
+            queryClient.invalidateQueries({ queryKey: ['sa-errors'] });
+            queryClient.invalidateQueries({ queryKey: ['sa-sessions'] });
+            queryClient.invalidateQueries({ queryKey: ['sa-profiles'] });
+            toast({ title: 'Dados atualizados!' });
+          }}>
             <RefreshCw className="w-4 h-4" />
           </Button>
         </div>
