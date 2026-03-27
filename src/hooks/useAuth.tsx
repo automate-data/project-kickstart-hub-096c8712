@@ -55,6 +55,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const trackSession = async (userId: string) => {
+    const condId = localStorage.getItem('selected_condominium');
+    // Check if there's already an open session for this user
+    const { data: existing } = await supabase
+      .from('user_sessions')
+      .select('id')
+      .eq('user_id', userId)
+      .is('logout_at', null)
+      .limit(1);
+    if (existing && existing.length > 0) return; // already tracked
+    await supabase.from('user_sessions').insert({
+      user_id: userId,
+      condominium_id: condId || null,
+      login_at: new Date().toISOString(),
+    } as any);
+  };
+
   useEffect(() => {
     supabase.auth.onAuthStateChange((event, session) => {
       setSession(session);
@@ -69,6 +86,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setTimeout(() => {
           fetchUserRole(session.user.id, session.user.email);
         }, 0);
+        // Track session on SIGNED_IN or TOKEN_REFRESHED
+        if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+          trackSession(session.user.id);
+        }
       } else {
         setRole(null);
       }
@@ -82,22 +103,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       if (session?.user) {
         fetchUserRole(session.user.id, session.user.email);
+        // Track session for existing session (e.g. PWA reload)
+        trackSession(session.user.id);
       }
       setIsLoading(false);
     });
   }, []);
 
   const signIn = async (email: string, password: string) => {
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-    if (!error && data.user) {
-      // Track login session
-      const condId = localStorage.getItem('selected_condominium');
-      supabase.from('user_sessions').insert({
-        user_id: data.user.id,
-        condominium_id: condId || null,
-        login_at: new Date().toISOString(),
-      } as any).then(() => {});
-    }
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    // Session tracking is now handled by onAuthStateChange
     return { error: error ? new Error(error.message) : null };
   };
 
