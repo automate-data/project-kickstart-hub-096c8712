@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Package, CheckCircle2, Clock, MessageSquare, AlertTriangle, Users, RefreshCw, LogOut } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { formatDistanceToNow, format, subDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -27,6 +27,7 @@ function formatDuration(seconds: number | null): string {
 export default function SuperAdmin() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [period, setPeriod] = useState<Period>('30');
   const [condFilter, setCondFilter] = useState<string>('all');
 
@@ -46,7 +47,7 @@ export default function SuperAdmin() {
   });
 
   // Global metrics from system_logs
-  const { data: logs, isLoading: logsLoading, refetch: refetchLogs } = useQuery({
+  const { data: logs, isLoading: logsLoading } = useQuery({
     queryKey: ['sa-logs', period, condFilter],
     queryFn: async () => {
       let q = supabase
@@ -202,7 +203,14 @@ export default function SuperAdmin() {
               ))}
             </SelectContent>
           </Select>
-          <Button size="icon" variant="ghost" onClick={() => refetchLogs()}>
+          <Button size="icon" variant="ghost" onClick={() => {
+            queryClient.invalidateQueries({ queryKey: ['sa-logs'] });
+            queryClient.invalidateQueries({ queryKey: ['sa-cond-stats'] });
+            queryClient.invalidateQueries({ queryKey: ['sa-errors'] });
+            queryClient.invalidateQueries({ queryKey: ['sa-sessions'] });
+            queryClient.invalidateQueries({ queryKey: ['sa-profiles'] });
+            toast({ title: 'Dados atualizados!' });
+          }}>
             <RefreshCw className="w-4 h-4" />
           </Button>
         </div>
