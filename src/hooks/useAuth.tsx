@@ -111,16 +111,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signIn = async (email: string, password: string) => {
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-    if (!error && data.user) {
-      // Track login session
-      const condId = localStorage.getItem('selected_condominium');
-      supabase.from('user_sessions').insert({
-        user_id: data.user.id,
-        condominium_id: condId || null,
-        login_at: new Date().toISOString(),
-      } as any).then(() => {});
-    }
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    // Session tracking is now handled by onAuthStateChange
     return { error: error ? new Error(error.message) : null };
   };
 
