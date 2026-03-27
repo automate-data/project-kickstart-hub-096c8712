@@ -294,7 +294,7 @@ export default function ReceivePackage() {
       if (selectedResident?.phone && selectedResident?.whatsapp_enabled !== false) {
         try {
           const registeredBy = user?.user_metadata?.full_name || 'Portaria';
-          await supabase.functions.invoke('send-whatsapp', {
+          const { data: whatsappData, error: whatsappError } = await supabase.functions.invoke('send-whatsapp', {
             body: {
               phone: selectedResident.phone,
               residentName: selectedResident.full_name,
@@ -302,8 +302,12 @@ export default function ReceivePackage() {
               photoFilename: whatsappPhotoFilename,
             },
           });
+          if (whatsappError || whatsappData?.error) {
+            const errMsg = whatsappError?.message || whatsappData?.error || 'Unknown error';
+            throw new Error(errMsg);
+          }
           notificationSent = true;
-          insertLog({ event_type: 'whatsapp_sent', condominium_id: condominium?.id, metadata: { resident_name: selectedResident.full_name } });
+          insertLog({ event_type: 'whatsapp_sent', condominium_id: condominium?.id, metadata: { resident_name: selectedResident.full_name, sid: whatsappData?.sid } });
         } catch (notifError: any) {
           console.error('WhatsApp notification error:', notifError);
           insertLog({ event_type: 'whatsapp_failed', condominium_id: condominium?.id, metadata: { error_message: notifError?.message || String(notifError), resident_phone: selectedResident.phone } });
