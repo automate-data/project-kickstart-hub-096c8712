@@ -27,6 +27,7 @@ function formatDuration(seconds: number | null): string {
 export default function SuperAdmin() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [period, setPeriod] = useState<Period>('30');
   const [condFilter, setCondFilter] = useState<string>('all');
 
