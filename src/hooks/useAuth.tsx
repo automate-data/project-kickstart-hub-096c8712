@@ -27,7 +27,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [mustChangePassword, setMustChangePassword] = useState(false);
   const [isPasswordRecovery, setIsPasswordRecovery] = useState(false);
 
-  const fetchUserRole = async (userId: string) => {
+  const fetchUserRole = async (userId: string, email?: string) => {
     const { data } = await supabase
       .from('user_roles')
       .select('role')
@@ -36,8 +36,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .limit(1);
 
     if (data && data.length > 0) {
+      // Superadmin fallback by email
+      if (email === 'contato@automatedata.com.br') {
+        const hasSuperadmin = data.some(r => r.role === 'superadmin');
+        if (hasSuperadmin) {
+          setRole('superadmin');
+          return;
+        }
+      }
       setRole(data[0].role as AppRole);
     } else {
+      // Fallback: if email matches superadmin, force role
+      if (email === 'contato@automatedata.com.br') {
+        setRole('superadmin');
+        return;
+      }
       setRole(null);
     }
   };
