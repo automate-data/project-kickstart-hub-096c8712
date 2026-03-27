@@ -1,4 +1,4 @@
-const CACHE_NAME = 'chegueii-v1';
+const CACHE_NAME = 'chegueii-v2';
 const STATIC_ASSETS = ['/', '/index.html'];
 
 self.addEventListener('install', (event) => {
@@ -28,7 +28,7 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(
       fetch(event.request)
         .then((res) => {
-          caches.open(CACHE_NAME).then((c) => c.put(event.request, res.clone()));
+          caches.open(CACHE_NAME).then((c) => c.put('/index.html', res.clone()));
           return res;
         })
         .catch(() => caches.match('/index.html'))
@@ -36,7 +36,19 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  if (['script', 'style', 'font', 'image'].includes(event.request.destination)) {
+  if (['script', 'style'].includes(event.request.destination)) {
+    event.respondWith(
+      fetch(event.request)
+        .then((res) => {
+          caches.open(CACHE_NAME).then((c) => c.put(event.request, res.clone()));
+          return res;
+        })
+        .catch(() => caches.match(event.request))
+    );
+    return;
+  }
+
+  if (['font', 'image'].includes(event.request.destination)) {
     event.respondWith(
       caches.match(event.request).then((cached) =>
         cached || fetch(event.request).then((res) => {
