@@ -119,7 +119,7 @@ function AppRoutes() {
         path="/superadmin"
         element={
           <ProtectedRoute requiredRole="superadmin">
-            <AppLayout><SuperAdmin /></AppLayout>
+            <SuperAdmin />
           </ProtectedRoute>
         }
       />
