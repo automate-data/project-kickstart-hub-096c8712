@@ -166,7 +166,24 @@ export default function SuperAdmin() {
   };
 
   return (
-    <div className="space-y-6 animate-fade-in pb-8">
+    <div className="min-h-screen bg-background">
+      <header className="bg-card border-b border-border sticky top-0 z-50">
+        <div className="container flex items-center justify-between h-16">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center">
+              <Package className="w-5 h-5 text-primary" />
+            </div>
+            <span className="font-semibold">⚙️ Super Admin</span>
+          </div>
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <span className="max-w-[200px] truncate">{user?.user_metadata?.full_name || user?.email}</span>
+            <Button variant="ghost" size="icon" onClick={() => { window.location.href = '/'; }}>
+              <LogOut className="w-4 h-4" />
+            </Button>
+          </div>
+        </div>
+      </header>
+      <div className="container py-6 space-y-6 animate-fade-in pb-8">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <h1 className="text-2xl font-bold">⚙️ Super Admin</h1>
         <div className="flex items-center gap-2 flex-wrap">
