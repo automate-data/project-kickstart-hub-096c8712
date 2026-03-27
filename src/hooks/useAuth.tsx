@@ -27,7 +27,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [mustChangePassword, setMustChangePassword] = useState(false);
   const [isPasswordRecovery, setIsPasswordRecovery] = useState(false);
 
-  const fetchUserRole = async (userId: string) => {
+  const fetchUserRole = async (userId: string, email?: string) => {
     const { data } = await supabase
       .from('user_roles')
       .select('role')
@@ -36,8 +36,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .limit(1);
 
     if (data && data.length > 0) {
+      // Superadmin fallback by email
+      if (email === 'contato@automatedata.com.br') {
+        const hasSuperadmin = data.some(r => r.role === 'superadmin');
+        if (hasSuperadmin) {
+          setRole('superadmin');
+          return;
+        }
+      }
       setRole(data[0].role as AppRole);
     } else {
+      // Fallback: if email matches superadmin, force role
+      if (email === 'contato@automatedata.com.br') {
+        setRole('superadmin');
+        return;
+      }
       setRole(null);
     }
   };
@@ -54,7 +67,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       if (session?.user) {
         setTimeout(() => {
-          fetchUserRole(session.user.id);
+          fetchUserRole(session.user.id, session.user.email);
         }, 0);
       } else {
         setRole(null);
@@ -68,14 +81,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setMustChangePassword(session?.user?.user_metadata?.must_change_password === true);
       
       if (session?.user) {
-        fetchUserRole(session.user.id);
+        fetchUserRole(session.user.id, session.user.email);
       }
       setIsLoading(false);
     });
   }, []);
 
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (!error && data.user) {
+      // Track login session
+      const condId = localStorage.getItem('selected_condominium');
+      supabase.from('user_sessions').insert({
+        user_id: data.user.id,
+        condominium_id: condId || null,
+        login_at: new Date().toISOString(),
+      } as any).then(() => {});
+    }
     return { error: error ? new Error(error.message) : null };
   };
 
@@ -92,6 +114,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signOut = async () => {
+    // Close open session
+    if (user) {
+      supabase.from('user_sessions')
+        .update({ logout_at: new Date().toISOString() } as any)
+        .eq('user_id', user.id)
+        .is('logout_at', null)
+        .then(() => {});
+    }
     await supabase.auth.signOut();
     setRole(null);
     setMustChangePassword(false);

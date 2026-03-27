@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { insertLog } from '@/lib/logger';
 import { useCondominium } from '@/hooks/useCondominium';
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import { Package } from '@/types';
@@ -165,6 +166,13 @@ export default function Packages() {
       return;
     }
 
+    // Log package picked up
+    insertLog({
+      event_type: 'package_picked_up',
+      package_id: selectedPackage.id,
+      condominium_id: condominium?.id,
+    });
+
     if (selectedPackage.resident?.phone) {
       try {
         const { data: confirmResult } = await supabase.functions.invoke('send-pickup-confirmation', {
@@ -179,8 +187,9 @@ export default function Packages() {
           .from('packages')
           .update({ pickup_confirmation_sent: confirmResult?.success || false })
           .eq('id', selectedPackage.id);
-      } catch (e) {
+      } catch (e: any) {
         console.log('Failed to send pickup confirmation:', e);
+        insertLog({ event_type: 'whatsapp_failed', condominium_id: condominium?.id, metadata: { context: 'pickup_confirmation', error_message: e?.message || String(e) } });
       }
     }
 

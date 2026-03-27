@@ -18,7 +18,8 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const hasMultiple = condominiums.length > 1;
 
-  const isAdmin = role === 'admin';
+  const isAdmin = role === 'admin' || role === 'superadmin';
+  const isSuperAdmin = role === 'superadmin';
 
   const navItems = [
     { path: '/', label: 'Receber', icon: Package, show: true },
@@ -26,6 +27,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
     { path: '/residents', label: 'Moradores', icon: Users, show: isAdmin },
     { path: '/staff', label: 'Equipe', icon: UserCog, show: isAdmin },
     { path: '/reports', label: 'Relatórios', icon: BarChart2, show: isAdmin },
+    { path: '/superadmin', label: 'Super Admin', icon: BarChart2, show: isSuperAdmin, highlight: true },
   ].filter(item => item.show);
 
   const isActive = (path: string) => location.pathname === path;
@@ -49,12 +51,12 @@ export default function AppLayout({ children }: AppLayoutProps) {
           </div>
 
           <nav className="hidden md:flex items-center gap-1">
-            {navItems.map((item) => (
+            {navItems.map((item: any) => (
               <Link key={item.path} to={item.path}>
                 <Button
                   variant={isActive(item.path) ? 'secondary' : 'ghost'}
                   size="sm"
-                  className="gap-2"
+                  className={`gap-2 ${item.highlight ? 'text-amber-600 hover:text-amber-700' : ''}`}
                 >
                   <item.icon className="w-4 h-4" />
                   {item.label}

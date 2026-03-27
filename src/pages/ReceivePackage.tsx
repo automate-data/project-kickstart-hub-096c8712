@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useCondominium } from '@/hooks/useCondominium';
 import { Resident, AISuggestion, SensitiveRegion } from '@/types';
+import { insertLog } from '@/lib/logger';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -217,8 +218,9 @@ export default function ReceivePackage() {
         if (suggestion.carrier) setCarrier(suggestion.carrier);
         if (suggestion.tracking_code) setTrackingCode(suggestion.tracking_code);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('AI processing error:', error);
+      insertLog({ event_type: 'ai_label_failed', condominium_id: condominium?.id, metadata: { error_message: error?.message || String(error) } });
       toast({
         title: 'Não foi possível ler a etiqueta',
         description: 'Selecione o morador manualmente',
@@ -277,6 +279,17 @@ export default function ReceivePackage() {
 
       if (insertError) throw insertError;
 
+      // Log package received
+      insertLog({
+        event_type: 'package_received',
+        condominium_id: condominium?.id,
+        metadata: {
+          resident_name: selectedResident?.full_name,
+          carrier: carrier || null,
+          ai_confidence: aiSuggestion?.confidence,
+        },
+      });
+
       let notificationSent = false;
       if (selectedResident?.phone && selectedResident?.whatsapp_enabled !== false) {
         try {
@@ -290,8 +303,10 @@ export default function ReceivePackage() {
             },
           });
           notificationSent = true;
-        } catch (notifError) {
+          insertLog({ event_type: 'whatsapp_sent', condominium_id: condominium?.id, metadata: { resident_name: selectedResident.full_name } });
+        } catch (notifError: any) {
           console.error('WhatsApp notification error:', notifError);
+          insertLog({ event_type: 'whatsapp_failed', condominium_id: condominium?.id, metadata: { error_message: notifError?.message || String(notifError), resident_phone: selectedResident.phone } });
         }
       }
 
