@@ -413,6 +413,13 @@ export type Database = {
             foreignKeyName: "packages_condominium_id_fkey"
             columns: ["condominium_id"]
             isOneToOne: false
+            referencedRelation: "condominium_stats"
+            referencedColumns: ["condominium_id"]
+          },
+          {
+            foreignKeyName: "packages_condominium_id_fkey"
+            columns: ["condominium_id"]
+            isOneToOne: false
             referencedRelation: "condominiums"
             referencedColumns: ["id"]
           },
@@ -530,6 +537,13 @@ export type Database = {
             foreignKeyName: "residents_condominium_id_fkey"
             columns: ["condominium_id"]
             isOneToOne: false
+            referencedRelation: "condominium_stats"
+            referencedColumns: ["condominium_id"]
+          },
+          {
+            foreignKeyName: "residents_condominium_id_fkey"
+            columns: ["condominium_id"]
+            isOneToOne: false
             referencedRelation: "condominiums"
             referencedColumns: ["id"]
           },
@@ -571,6 +585,58 @@ export type Database = {
         }
         Relationships: []
       }
+      system_logs: {
+        Row: {
+          condominium_id: string | null
+          created_at: string | null
+          event_type: string
+          id: string
+          metadata: Json | null
+          package_id: string | null
+          user_id: string | null
+        }
+        Insert: {
+          condominium_id?: string | null
+          created_at?: string | null
+          event_type: string
+          id?: string
+          metadata?: Json | null
+          package_id?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          condominium_id?: string | null
+          created_at?: string | null
+          event_type?: string
+          id?: string
+          metadata?: Json | null
+          package_id?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "system_logs_condominium_id_fkey"
+            columns: ["condominium_id"]
+            isOneToOne: false
+            referencedRelation: "condominium_stats"
+            referencedColumns: ["condominium_id"]
+          },
+          {
+            foreignKeyName: "system_logs_condominium_id_fkey"
+            columns: ["condominium_id"]
+            isOneToOne: false
+            referencedRelation: "condominiums"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "system_logs_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "packages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           condominium_id: string | null
@@ -598,6 +664,52 @@ export type Database = {
             foreignKeyName: "user_roles_condominium_id_fkey"
             columns: ["condominium_id"]
             isOneToOne: false
+            referencedRelation: "condominium_stats"
+            referencedColumns: ["condominium_id"]
+          },
+          {
+            foreignKeyName: "user_roles_condominium_id_fkey"
+            columns: ["condominium_id"]
+            isOneToOne: false
+            referencedRelation: "condominiums"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_sessions: {
+        Row: {
+          condominium_id: string | null
+          id: string
+          login_at: string | null
+          logout_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          condominium_id?: string | null
+          id?: string
+          login_at?: string | null
+          logout_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          condominium_id?: string | null
+          id?: string
+          login_at?: string | null
+          logout_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_sessions_condominium_id_fkey"
+            columns: ["condominium_id"]
+            isOneToOne: false
+            referencedRelation: "condominium_stats"
+            referencedColumns: ["condominium_id"]
+          },
+          {
+            foreignKeyName: "user_sessions_condominium_id_fkey"
+            columns: ["condominium_id"]
+            isOneToOne: false
             referencedRelation: "condominiums"
             referencedColumns: ["id"]
           },
@@ -605,7 +717,20 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      condominium_stats: {
+        Row: {
+          condominium_id: string | null
+          condominium_name: string | null
+          errors_30d: number | null
+          packages_last_30d: number | null
+          packages_pending: number | null
+          packages_picked_up: number | null
+          total_residents: number | null
+          total_staff: number | null
+          whatsapp_sent_30d: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       get_cobranca_user_id: { Args: { cobranca_uuid: string }; Returns: string }
@@ -618,7 +743,7 @@ export type Database = {
       }
     }
     Enums: {
-      app_role: "admin" | "doorman"
+      app_role: "admin" | "doorman" | "superadmin"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -746,7 +871,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "doorman"],
+      app_role: ["admin", "doorman", "superadmin"],
     },
   },
 } as const
