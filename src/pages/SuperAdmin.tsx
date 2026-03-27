@@ -416,6 +416,7 @@ export default function SuperAdmin() {
           )}
         </CardContent>
       </Card>
+      </div>
     </div>
   );
 }
