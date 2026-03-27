@@ -127,6 +127,11 @@ export default function SuperAdmin() {
     return c ? (c as any).name : condId.slice(0, 8);
   };
 
+  // Cost constants
+  const WHATSAPP_COST_PER_MSG = 0.0068;
+  const AI_COST_PER_CALL = 0.0035;
+  const CLOUD_FIXED_MONTHLY = 25.0;
+
   // Compute metrics
   const metrics = {
     received: logs?.filter(l => (l as any).event_type === 'package_received').length || 0,
@@ -134,6 +139,27 @@ export default function SuperAdmin() {
     whatsappSent: logs?.filter(l => (l as any).event_type === 'whatsapp_sent').length || 0,
     errors: logs?.filter(l => ['error', 'whatsapp_failed', 'ai_label_failed'].includes((l as any).event_type)).length || 0,
   };
+
+  // Cost calculations
+  const whatsappCost = metrics.whatsappSent * WHATSAPP_COST_PER_MSG;
+  const aiCost = metrics.received * AI_COST_PER_CALL;
+  const activeCondCount = condStats?.length || 1;
+  const cloudCostPerCond = CLOUD_FIXED_MONTHLY / activeCondCount;
+  const totalCost = whatsappCost + aiCost + CLOUD_FIXED_MONTHLY;
+
+  // Per-condominium cost breakdown
+  const condCosts = (() => {
+    if (!logs || !condStats) return {};
+    const costs: Record<string, { whatsapp: number; ai: number; cloud: number; total: number }> = {};
+    condStats.forEach((s: any) => {
+      const condId = s.condominium_id;
+      const condLogs = logs.filter((l: any) => l.condominium_id === condId);
+      const wa = condLogs.filter((l: any) => l.event_type === 'whatsapp_sent').length * WHATSAPP_COST_PER_MSG;
+      const ai = condLogs.filter((l: any) => l.event_type === 'package_received').length * AI_COST_PER_CALL;
+      costs[condId] = { whatsapp: wa, ai, cloud: cloudCostPerCond, total: wa + ai + cloudCostPerCond };
+    });
+    return costs;
+  })();
 
   // Pending packages count (current)
   const pendingTotal = condStats?.reduce((sum: number, s: any) => sum + (Number(s.packages_pending) || 0), 0) || 0;
