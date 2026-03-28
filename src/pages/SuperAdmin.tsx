@@ -151,7 +151,28 @@ export default function SuperAdmin() {
         source: string;
       };
     },
-    refetchInterval: 300000, // 5 min
+    refetchInterval: 300000,
+    retry: 1,
+  });
+
+  // Breakdown: per-condominium Twilio costs
+  const { data: twilioBreakdown, isLoading: breakdownLoading } = useQuery({
+    queryKey: ['sa-twilio-breakdown', period],
+    queryFn: async () => {
+      const { data, error } = await supabase.functions.invoke('twilio-usage', {
+        body: { startDate: twilioStartDate, endDate: twilioEndDate, breakdown: true },
+      });
+      if (error) throw error;
+      console.log('[twilio-breakdown] Resposta:', JSON.stringify(data, null, 2));
+      return data as {
+        perCondominium: Record<string, { count: number; price: number }>;
+        unmatched: { count: number; price: number };
+        totalMessages: number;
+        totalPrice: number;
+        source: string;
+      };
+    },
+    refetchInterval: 300000,
     retry: 1,
   });
 
