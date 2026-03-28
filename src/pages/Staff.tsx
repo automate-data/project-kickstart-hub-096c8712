@@ -183,6 +183,30 @@ export default function Staff() {
     }
   };
 
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!passwordTarget) return;
+    if (newPassword.length < 6) {
+      toast({ title: 'Senha muito curta', description: 'Mínimo de 6 caracteres.', variant: 'destructive' });
+      return;
+    }
+    setIsResettingPassword(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('admin-reset-password', {
+        body: { target_user_id: passwordTarget.id, new_password: newPassword },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      toast({ title: 'Senha alterada!', description: `Senha de ${passwordTarget.full_name} foi redefinida.` });
+      setPasswordTarget(null);
+      setNewPassword('');
+    } catch (err: any) {
+      toast({ title: 'Erro ao redefinir senha', description: err?.message || 'Tente novamente', variant: 'destructive' });
+    } finally {
+      setIsResettingPassword(false);
+    }
+  };
+
   const filteredStaff = staff.filter((s) =>
     s.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     (s.email || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
