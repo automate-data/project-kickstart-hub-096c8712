@@ -292,7 +292,7 @@ export default function Staff() {
                       <p className="font-medium truncate">{member.full_name}</p>
                       {member.role && getRoleBadge(member.role)}
                     </div>
-                    <p className="text-sm text-muted-foreground truncate">{member.email}</p>
+                    <p className="text-sm text-muted-foreground truncate">Usuário: {member.email?.replace('@cond.internal', '') || '—'}</p>
                     <p className="text-sm text-muted-foreground truncate">RG: {member.rg || '—'}</p>
                   </div>
                   <div className="flex gap-1">
