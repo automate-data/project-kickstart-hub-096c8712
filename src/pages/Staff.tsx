@@ -312,9 +312,26 @@ export default function Staff() {
         </div>
       )}
 
-      <p className="text-sm text-muted-foreground text-center">
-        {staff.length} membro{staff.length !== 1 ? 's' : ''} na equipe
-      </p>
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-muted-foreground">
+          {staff.length} membro{staff.length !== 1 ? 's' : ''} na equipe
+        </p>
+        {user && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2"
+            onClick={() => {
+              const me = staff.find(s => s.id === user.id);
+              setPasswordTarget(me || { id: user.id, full_name: 'Você', email: user.email || '', rg: null, created_at: '', updated_at: '' });
+              setNewPassword('');
+            }}
+          >
+            <KeyRound className="w-4 h-4" />
+            Alterar minha senha
+          </Button>
+        )}
+      </div>
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
         <DialogContent>
           <DialogHeader>
