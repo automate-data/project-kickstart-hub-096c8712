@@ -447,6 +447,11 @@ export default function SuperAdmin() {
                   </Card>
                 ))}
               </div>
+              {hasBreakdown && twilioBreakdown.unmatched.count > 0 && (
+                <p className="text-xs text-muted-foreground mt-3">
+                  ⚠️ {twilioBreakdown.unmatched.count} mensagens (${twilioBreakdown.unmatched.price.toFixed(2)}) não puderam ser associadas a um condomínio
+                </p>
+              )}
             </>
           )}
         </CardContent>
