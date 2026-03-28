@@ -85,8 +85,13 @@ Deno.serve(async (req) => {
     let totalPrice = 0;
     let totalCount = 0;
 
+    console.log("Twilio API status:", res.status);
     if (res.ok) {
       const data = await res.json();
+      console.log("Twilio records count:", data.usage_records?.length, "first_page_uri:", data.first_page_uri);
+      if (data.usage_records?.length > 0) {
+        console.log("Sample record:", JSON.stringify(data.usage_records[0]));
+      }
       if (data.usage_records?.length > 0) {
         for (const rec of data.usage_records) {
           const price = parseFloat(rec.price || "0");
