@@ -12,6 +12,7 @@ import { Package, CheckCircle2, Clock, MessageSquare, AlertTriangle, Users, Refr
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { formatDistanceToNow, format, subDays } from 'date-fns';
+// WhatsApp cost: Twilio $0.0050 + Meta Utility BR $0.0068 = $0.0118/msg
 import { ptBR } from 'date-fns/locale';
 
 type Period = '1' | '7' | '30' | '90';
@@ -127,33 +128,11 @@ export default function SuperAdmin() {
     return c ? (c as any).name : condId.slice(0, 8);
   };
 
-  // Cost constants (fallback estimates)
-  const WHATSAPP_COST_PER_MSG = 0.0068;
+  // Cost constants (fixed rates)
+  // WhatsApp: Twilio $0.0050 + Meta Utility BR $0.0068 = $0.0118
+  const WHATSAPP_COST_PER_MSG = 0.0118;
   const AI_COST_PER_CALL = 0.0035;
   const CLOUD_FIXED_MONTHLY = 25.0;
-
-  // Real Twilio usage data
-  const twilioStartDate = format(subDays(new Date(), parseInt(period)), 'yyyy-MM-dd');
-  const twilioEndDate = format(new Date(), 'yyyy-MM-dd');
-
-  const { data: twilioUsage, isLoading: twilioLoading } = useQuery({
-    queryKey: ['sa-twilio-usage', period],
-    queryFn: async () => {
-      const { data, error } = await supabase.functions.invoke('twilio-usage', {
-        body: { startDate: twilioStartDate, endDate: twilioEndDate },
-      });
-      if (error) throw error;
-      console.log('[twilio-usage] Resposta completa:', JSON.stringify(data, null, 2));
-      return data as {
-        categories: Record<string, { count: number; price: number; price_unit: string }>;
-        totalPrice: number;
-        totalCount: number;
-        source: string;
-      };
-    },
-    refetchInterval: 300000, // 5 min
-    retry: 1,
-  });
 
   // Compute metrics
   const metrics = {
@@ -164,15 +143,11 @@ export default function SuperAdmin() {
   };
 
   // Cost calculations
-  // Use real Twilio data or fallback to estimates
-  const hasTwilioData = !!twilioUsage && twilioUsage.source === 'twilio_api';
-  const whatsappCost = hasTwilioData ? Math.abs(twilioUsage.totalPrice) : metrics.whatsappSent * WHATSAPP_COST_PER_MSG;
-  const whatsappCount = hasTwilioData ? twilioUsage.totalCount : metrics.whatsappSent;
+  const whatsappCost = metrics.whatsappSent * WHATSAPP_COST_PER_MSG;
   const aiCost = metrics.received * AI_COST_PER_CALL;
   const activeCondCount = condStats?.length || 1;
   const cloudCostPerCond = CLOUD_FIXED_MONTHLY / activeCondCount;
   const totalCost = whatsappCost + aiCost + CLOUD_FIXED_MONTHLY;
-  const avgCostPerMsg = whatsappCount > 0 ? whatsappCost / whatsappCount : 0;
 
   // Per-condominium cost breakdown
   const condCosts = (() => {
@@ -289,7 +264,7 @@ export default function SuperAdmin() {
 
       {/* Cost KPI Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {logsLoading || twilioLoading ? (
+        {logsLoading ? (
           Array.from({ length: 4 }).map((_, i) => (
             <Card key={i}><CardContent className="p-4"><Skeleton className="h-16" /></CardContent></Card>
           ))
@@ -297,14 +272,13 @@ export default function SuperAdmin() {
           <>
             <CostCard
               icon={<MessageSquare className="w-5 h-5 text-primary" />}
-              label={hasTwilioData ? '💲 WhatsApp (real)' : 'Custo WhatsApp (est.)'}
+              label="Custo WhatsApp"
               value={whatsappCost}
-              detail={hasTwilioData ? `${whatsappCount} msgs · média $${avgCostPerMsg.toFixed(4)}` : `${metrics.whatsappSent} msgs × $${WHATSAPP_COST_PER_MSG}`}
-              badge={hasTwilioData ? 'API' : 'Estimativa'}
+              detail={`${metrics.whatsappSent} msgs × $${WHATSAPP_COST_PER_MSG}`}
             />
             <CostCard icon={<Brain className="w-5 h-5 text-primary" />} label="Custo IA" value={aiCost} detail={`${metrics.received} chamadas × $${AI_COST_PER_CALL}`} />
             <CostCard icon={<Cloud className="w-5 h-5 text-primary" />} label="Custo Cloud (fixo/mês)" value={CLOUD_FIXED_MONTHLY} detail={`$${cloudCostPerCond.toFixed(2)}/condomínio`} />
-            <CostCard icon={<DollarSign className="w-5 h-5 text-destructive" />} label={hasTwilioData ? 'Custo Total' : 'Custo Total Estimado'} value={totalCost} detail="WhatsApp + IA + Cloud" highlight />
+            <CostCard icon={<DollarSign className="w-5 h-5 text-destructive" />} label="Custo Total" value={totalCost} detail="WhatsApp + IA + Cloud" highlight />
           </>
         )}
       </div>
