@@ -45,13 +45,17 @@ Deno.serve(async (req) => {
       })
     }
 
-    const { role, full_name, rg, email, condominium_id } = await req.json()
+    const { role, full_name, rg, username, condominium_id } = await req.json()
 
-    if (!full_name || !role || !condominium_id || !email) {
-      return new Response(JSON.stringify({ error: 'Name, email, role and condominium are required' }), {
+    if (!full_name || !role || !condominium_id || !username) {
+      return new Response(JSON.stringify({ error: 'Name, username, role and condominium are required' }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       })
     }
+
+    // Generate internal email from username
+    const sanitizedUsername = username.toLowerCase().trim().replace(/[^a-z0-9._-]/g, '')
+    const email = `${sanitizedUsername}@cond.internal`
 
     // Check if a user with this email already exists
     const { data: existingUsers } = await adminClient.auth.admin.listUsers()
