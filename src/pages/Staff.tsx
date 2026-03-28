@@ -18,7 +18,8 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Search, UserCog, Loader2, Trash2, Pencil } from 'lucide-react';
+import { Plus, Search, UserCog, Loader2, Trash2, Pencil, KeyRound } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
 
 interface StaffMember extends Profile {
   role?: AppRole;
@@ -34,8 +35,12 @@ export default function Staff() {
   const [editingMember, setEditingMember] = useState<StaffMember | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<StaffMember | null>(null);
+  const [passwordTarget, setPasswordTarget] = useState<StaffMember | null>(null);
+  const [newPassword, setNewPassword] = useState('');
+  const [isResettingPassword, setIsResettingPassword] = useState(false);
   const { toast } = useToast();
   const { condominium } = useCondominium();
+  const { user } = useAuth();
 
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
@@ -178,6 +183,30 @@ export default function Staff() {
     }
   };
 
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!passwordTarget) return;
+    if (newPassword.length < 6) {
+      toast({ title: 'Senha muito curta', description: 'Mínimo de 6 caracteres.', variant: 'destructive' });
+      return;
+    }
+    setIsResettingPassword(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('admin-reset-password', {
+        body: { target_user_id: passwordTarget.id, new_password: newPassword },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      toast({ title: 'Senha alterada!', description: `Senha de ${passwordTarget.full_name} foi redefinida.` });
+      setPasswordTarget(null);
+      setNewPassword('');
+    } catch (err: any) {
+      toast({ title: 'Erro ao redefinir senha', description: err?.message || 'Tente novamente', variant: 'destructive' });
+    } finally {
+      setIsResettingPassword(false);
+    }
+  };
+
   const filteredStaff = staff.filter((s) =>
     s.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     (s.email || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -266,10 +295,13 @@ export default function Staff() {
                     <p className="text-sm text-muted-foreground truncate">RG: {member.rg || '—'}</p>
                   </div>
                   <div className="flex gap-1">
-                    <Button variant="ghost" size="icon" onClick={() => handleEditStaff(member)}>
+                    <Button variant="ghost" size="icon" onClick={() => handleEditStaff(member)} title="Editar">
                       <Pencil className="w-4 h-4" />
                     </Button>
-                    <Button variant="ghost" size="icon" onClick={() => setDeleteTarget(member)} className="text-destructive hover:text-destructive">
+                    <Button variant="ghost" size="icon" onClick={() => { setPasswordTarget(member); setNewPassword(''); }} title="Redefinir senha">
+                      <KeyRound className="w-4 h-4" />
+                    </Button>
+                    <Button variant="ghost" size="icon" onClick={() => setDeleteTarget(member)} className="text-destructive hover:text-destructive" title="Remover">
                       <Trash2 className="w-4 h-4" />
                     </Button>
                   </div>
@@ -280,9 +312,26 @@ export default function Staff() {
         </div>
       )}
 
-      <p className="text-sm text-muted-foreground text-center">
-        {staff.length} membro{staff.length !== 1 ? 's' : ''} na equipe
-      </p>
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-muted-foreground">
+          {staff.length} membro{staff.length !== 1 ? 's' : ''} na equipe
+        </p>
+        {user && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2"
+            onClick={() => {
+              const me = staff.find(s => s.id === user.id);
+              setPasswordTarget(me || { id: user.id, full_name: 'Você', email: user.email || '', rg: null, created_at: '', updated_at: '' });
+              setNewPassword('');
+            }}
+          >
+            <KeyRound className="w-4 h-4" />
+            Alterar minha senha
+          </Button>
+        )}
+      </div>
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
         <DialogContent>
           <DialogHeader>
@@ -335,6 +384,34 @@ export default function Staff() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog open={!!passwordTarget} onOpenChange={(open) => { if (!open) { setPasswordTarget(null); setNewPassword(''); } }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Redefinir senha</DialogTitle>
+            <DialogDescription>
+              Defina uma nova senha para {passwordTarget?.full_name}. O usuário será obrigado a alterar na próxima entrada.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleResetPassword} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="newPassword">Nova senha</Label>
+              <Input
+                id="newPassword"
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="Mínimo 6 caracteres"
+                required
+                minLength={6}
+              />
+            </div>
+            <Button type="submit" className="w-full" disabled={isResettingPassword}>
+              {isResettingPassword ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Redefinir senha'}
+            </Button>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
