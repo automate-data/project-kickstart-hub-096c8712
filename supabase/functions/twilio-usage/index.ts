@@ -64,6 +64,15 @@ Deno.serve(async (req) => {
     const authToken = Deno.env.get("TWILIO_AUTH_TOKEN")!;
     const credentials = btoa(`${accountSid}:${authToken}`);
 
+    // Aggregate/parent categories that duplicate child values
+    const aggregateCategories = new Set([
+      "totalprice",
+      "channels",
+      "channels-messaging",
+      "channels-whatsapp",
+      "phonenumbers",
+    ]);
+
     const results: Record<string, { count: number; price: number; price_unit: string }> = {};
     let totalPrice = 0;
     let totalCount = 0;
