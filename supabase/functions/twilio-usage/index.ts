@@ -111,7 +111,7 @@ Deno.serve(async (req) => {
         for (const rec of data.usage_records) {
           const price = parseFloat(rec.price || "0");
           const count = parseInt(rec.count || "0", 10);
-          if (price > 0 || count > 0) {
+          if ((price > 0 || count > 0) && !aggregateCategories.has(rec.category)) {
             console.log(`Category: ${rec.category}, count: ${count}, price: ${price}`);
             results[rec.category] = {
               count,
