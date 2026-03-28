@@ -80,8 +80,8 @@ Deno.serve(async (req) => {
         .eq('id', userId)
     }
 
-    // Check if role already exists for this condominium
-    const { data: existingRole } = await adminClient
+    // Check if role already exists for this condominium (active)
+    const { data: existingActiveRole } = await adminClient
       .from('user_roles')
       .select('id')
       .eq('user_id', userId)
@@ -89,18 +89,33 @@ Deno.serve(async (req) => {
       .is('deleted_at', null)
       .maybeSingle()
 
-    if (existingRole) {
+    if (existingActiveRole) {
       return new Response(JSON.stringify({ error: 'User already has a role in this condominium' }), {
         status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       })
     }
 
-    // Assign role scoped to condominium
-    const { error: roleError } = await adminClient
+    // Check if a soft-deleted role exists — reactivate it
+    const { data: deletedRole } = await adminClient
       .from('user_roles')
-      .insert({ user_id: userId, role, condominium_id })
+      .select('id')
+      .eq('user_id', userId)
+      .eq('condominium_id', condominium_id)
+      .not('deleted_at', 'is', null)
+      .maybeSingle()
 
-    if (roleError) throw roleError
+    if (deletedRole) {
+      const { error: reactivateError } = await adminClient
+        .from('user_roles')
+        .update({ role, deleted_at: null })
+        .eq('id', deletedRole.id)
+      if (reactivateError) throw reactivateError
+    } else {
+      const { error: roleError } = await adminClient
+        .from('user_roles')
+        .insert({ user_id: userId, role, condominium_id })
+      if (roleError) throw roleError
+    }
 
     const isNew = !existingUser
     return new Response(JSON.stringify({ success: true, user_id: userId, is_new: isNew, temp_password: isNew ? 'Mudar@123' : undefined }), {
