@@ -143,6 +143,7 @@ export default function SuperAdmin() {
         body: { startDate: twilioStartDate, endDate: twilioEndDate },
       });
       if (error) throw error;
+      console.log('[twilio-usage] Resposta completa:', JSON.stringify(data, null, 2));
       return data as {
         categories: Record<string, { count: number; price: number; price_unit: string }>;
         totalPrice: number;
