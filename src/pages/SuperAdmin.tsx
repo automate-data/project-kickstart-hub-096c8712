@@ -288,16 +288,22 @@ export default function SuperAdmin() {
 
       {/* Cost KPI Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {logsLoading ? (
+        {logsLoading || twilioLoading ? (
           Array.from({ length: 4 }).map((_, i) => (
             <Card key={i}><CardContent className="p-4"><Skeleton className="h-16" /></CardContent></Card>
           ))
         ) : (
           <>
-            <CostCard icon={<MessageSquare className="w-5 h-5 text-primary" />} label="Custo WhatsApp" value={whatsappCost} detail={`${metrics.whatsappSent} msgs × $${WHATSAPP_COST_PER_MSG}`} />
+            <CostCard
+              icon={<MessageSquare className="w-5 h-5 text-primary" />}
+              label={hasTwilioData ? '💲 WhatsApp (real)' : 'Custo WhatsApp (est.)'}
+              value={whatsappCost}
+              detail={hasTwilioData ? `${whatsappCount} msgs · média $${avgCostPerMsg.toFixed(4)}` : `${metrics.whatsappSent} msgs × $${WHATSAPP_COST_PER_MSG}`}
+              badge={hasTwilioData ? 'API' : 'Estimativa'}
+            />
             <CostCard icon={<Brain className="w-5 h-5 text-primary" />} label="Custo IA" value={aiCost} detail={`${metrics.received} chamadas × $${AI_COST_PER_CALL}`} />
             <CostCard icon={<Cloud className="w-5 h-5 text-primary" />} label="Custo Cloud (fixo/mês)" value={CLOUD_FIXED_MONTHLY} detail={`$${cloudCostPerCond.toFixed(2)}/condomínio`} />
-            <CostCard icon={<DollarSign className="w-5 h-5 text-destructive" />} label="Custo Total Estimado" value={totalCost} detail="WhatsApp + IA + Cloud" highlight />
+            <CostCard icon={<DollarSign className="w-5 h-5 text-destructive" />} label={hasTwilioData ? 'Custo Total' : 'Custo Total Estimado'} value={totalCost} detail="WhatsApp + IA + Cloud" highlight />
           </>
         )}
       </div>
