@@ -127,10 +127,32 @@ export default function SuperAdmin() {
     return c ? (c as any).name : condId.slice(0, 8);
   };
 
-  // Cost constants
+  // Cost constants (fallback estimates)
   const WHATSAPP_COST_PER_MSG = 0.0068;
   const AI_COST_PER_CALL = 0.0035;
   const CLOUD_FIXED_MONTHLY = 25.0;
+
+  // Real Twilio usage data
+  const twilioStartDate = format(subDays(new Date(), parseInt(period)), 'yyyy-MM-dd');
+  const twilioEndDate = format(new Date(), 'yyyy-MM-dd');
+
+  const { data: twilioUsage, isLoading: twilioLoading } = useQuery({
+    queryKey: ['sa-twilio-usage', period],
+    queryFn: async () => {
+      const { data, error } = await supabase.functions.invoke('twilio-usage', {
+        body: { startDate: twilioStartDate, endDate: twilioEndDate },
+      });
+      if (error) throw error;
+      return data as {
+        categories: Record<string, { count: number; price: number; price_unit: string }>;
+        totalPrice: number;
+        totalCount: number;
+        source: string;
+      };
+    },
+    refetchInterval: 300000, // 5 min
+    retry: 1,
+  });
 
   // Compute metrics
   const metrics = {
@@ -141,11 +163,15 @@ export default function SuperAdmin() {
   };
 
   // Cost calculations
-  const whatsappCost = metrics.whatsappSent * WHATSAPP_COST_PER_MSG;
+  // Use real Twilio data or fallback to estimates
+  const hasTwilioData = !!twilioUsage && twilioUsage.source === 'twilio_api';
+  const whatsappCost = hasTwilioData ? Math.abs(twilioUsage.totalPrice) : metrics.whatsappSent * WHATSAPP_COST_PER_MSG;
+  const whatsappCount = hasTwilioData ? twilioUsage.totalCount : metrics.whatsappSent;
   const aiCost = metrics.received * AI_COST_PER_CALL;
   const activeCondCount = condStats?.length || 1;
   const cloudCostPerCond = CLOUD_FIXED_MONTHLY / activeCondCount;
   const totalCost = whatsappCost + aiCost + CLOUD_FIXED_MONTHLY;
+  const avgCostPerMsg = whatsappCount > 0 ? whatsappCost / whatsappCount : 0;
 
   // Per-condominium cost breakdown
   const condCosts = (() => {
@@ -262,16 +288,22 @@ export default function SuperAdmin() {
 
       {/* Cost KPI Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {logsLoading ? (
+        {logsLoading || twilioLoading ? (
           Array.from({ length: 4 }).map((_, i) => (
             <Card key={i}><CardContent className="p-4"><Skeleton className="h-16" /></CardContent></Card>
           ))
         ) : (
           <>
-            <CostCard icon={<MessageSquare className="w-5 h-5 text-primary" />} label="Custo WhatsApp" value={whatsappCost} detail={`${metrics.whatsappSent} msgs × $${WHATSAPP_COST_PER_MSG}`} />
+            <CostCard
+              icon={<MessageSquare className="w-5 h-5 text-primary" />}
+              label={hasTwilioData ? '💲 WhatsApp (real)' : 'Custo WhatsApp (est.)'}
+              value={whatsappCost}
+              detail={hasTwilioData ? `${whatsappCount} msgs · média $${avgCostPerMsg.toFixed(4)}` : `${metrics.whatsappSent} msgs × $${WHATSAPP_COST_PER_MSG}`}
+              badge={hasTwilioData ? 'API' : 'Estimativa'}
+            />
             <CostCard icon={<Brain className="w-5 h-5 text-primary" />} label="Custo IA" value={aiCost} detail={`${metrics.received} chamadas × $${AI_COST_PER_CALL}`} />
             <CostCard icon={<Cloud className="w-5 h-5 text-primary" />} label="Custo Cloud (fixo/mês)" value={CLOUD_FIXED_MONTHLY} detail={`$${cloudCostPerCond.toFixed(2)}/condomínio`} />
-            <CostCard icon={<DollarSign className="w-5 h-5 text-destructive" />} label="Custo Total Estimado" value={totalCost} detail="WhatsApp + IA + Cloud" highlight />
+            <CostCard icon={<DollarSign className="w-5 h-5 text-destructive" />} label={hasTwilioData ? 'Custo Total' : 'Custo Total Estimado'} value={totalCost} detail="WhatsApp + IA + Cloud" highlight />
           </>
         )}
       </div>
@@ -492,7 +524,7 @@ function KpiCard({ icon, label, value }: { icon: React.ReactNode; label: string;
   );
 }
 
-function CostCard({ icon, label, value, detail, highlight }: { icon: React.ReactNode; label: string; value: number; detail: string; highlight?: boolean }) {
+function CostCard({ icon, label, value, detail, highlight, badge }: { icon: React.ReactNode; label: string; value: number; detail: string; highlight?: boolean; badge?: string }) {
   return (
     <Card className={highlight ? 'border-destructive/50 bg-destructive/5' : ''}>
       <CardContent className="p-4 flex flex-col items-center text-center gap-1">
@@ -502,6 +534,11 @@ function CostCard({ icon, label, value, detail, highlight }: { icon: React.React
         </span>
         <span className="text-xs text-muted-foreground font-medium">{label}</span>
         <span className="text-[10px] text-muted-foreground">{detail}</span>
+        {badge && (
+          <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-semibold ${badge === 'API' ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'}`}>
+            {badge}
+          </span>
+        )}
       </CardContent>
     </Card>
   );
