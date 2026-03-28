@@ -70,7 +70,7 @@ Deno.serve(async (req) => {
       const { data: newUser, error: createError } = await adminClient.auth.admin.createUser({
         email,
         email_confirm: true,
-        user_metadata: { full_name: full_name || '', must_change_password: true },
+        user_metadata: { full_name: full_name || '', must_change_password: true, username: sanitizedUsername },
         password: tempPassword,
       })
 
@@ -80,7 +80,7 @@ Deno.serve(async (req) => {
       // Update profile
       await adminClient
         .from('profiles')
-        .update({ full_name, rg: rg || '' })
+        .update({ full_name, rg: rg || '', email })
         .eq('id', userId)
     }
 
