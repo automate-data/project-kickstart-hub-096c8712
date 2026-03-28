@@ -263,7 +263,7 @@ export default function SuperAdmin() {
 
       {/* Cost KPI Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {logsLoading || twilioLoading ? (
+        {logsLoading ? (
           Array.from({ length: 4 }).map((_, i) => (
             <Card key={i}><CardContent className="p-4"><Skeleton className="h-16" /></CardContent></Card>
           ))
