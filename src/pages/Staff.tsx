@@ -35,8 +35,12 @@ export default function Staff() {
   const [editingMember, setEditingMember] = useState<StaffMember | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<StaffMember | null>(null);
+  const [passwordTarget, setPasswordTarget] = useState<StaffMember | null>(null);
+  const [newPassword, setNewPassword] = useState('');
+  const [isResettingPassword, setIsResettingPassword] = useState(false);
   const { toast } = useToast();
   const { condominium } = useCondominium();
+  const { user } = useAuth();
 
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
