@@ -18,7 +18,8 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Search, UserCog, Loader2, Trash2, Pencil } from 'lucide-react';
+import { Plus, Search, UserCog, Loader2, Trash2, Pencil, KeyRound } from 'lucide-react';
+import { useAuth } from '@/hooks/useAuth';
 
 interface StaffMember extends Profile {
   role?: AppRole;
