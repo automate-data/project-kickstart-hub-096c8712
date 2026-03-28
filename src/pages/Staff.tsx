@@ -239,8 +239,9 @@ export default function Staff() {
                 <Input id="fullName" type="text" value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Nome do usuário" required />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="email@exemplo.com" required />
+                <Label htmlFor="username">Usuário</Label>
+                <Input id="username" type="text" value={username} onChange={(e) => setUsername(e.target.value)} placeholder="nome.usuario" required />
+                <p className="text-xs text-muted-foreground">Será usado para login (sem espaços ou caracteres especiais)</p>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="rg">RG</Label>
