@@ -388,7 +388,7 @@ export default function SuperAdmin() {
                       <TableHead className="text-center">Erros</TableHead>
                       <TableHead className="text-center">Staff</TableHead>
                       <TableHead className="text-center">Moradores</TableHead>
-                      <TableHead className="text-center">💰 Custo Est.</TableHead>
+                      <TableHead className="text-center">💰 Custo WhatsApp</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
