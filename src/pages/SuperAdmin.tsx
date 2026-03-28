@@ -297,6 +297,8 @@ export default function SuperAdmin() {
             queryClient.invalidateQueries({ queryKey: ['sa-errors'] });
             queryClient.invalidateQueries({ queryKey: ['sa-sessions'] });
             queryClient.invalidateQueries({ queryKey: ['sa-profiles'] });
+            queryClient.invalidateQueries({ queryKey: ['sa-twilio-usage'] });
+            queryClient.invalidateQueries({ queryKey: ['sa-twilio-breakdown'] });
             toast({ title: 'Dados atualizados!' });
           }}>
             <RefreshCw className="w-4 h-4" />
