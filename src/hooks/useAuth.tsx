@@ -32,17 +32,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .from('user_roles')
       .select('role')
       .eq('user_id', userId)
-      .is('deleted_at', null)
-      .limit(1);
+      .is('deleted_at', null);
 
     if (data && data.length > 0) {
-      // Superadmin fallback by email
-      if (email === 'contato@automatedata.com.br') {
-        const hasSuperadmin = data.some(r => r.role === 'superadmin');
-        if (hasSuperadmin) {
-          setRole('superadmin');
-          return;
-        }
+      // Prioritize superadmin role if user has multiple roles
+      const hasSuperadmin = data.some(r => r.role === 'superadmin');
+      if (hasSuperadmin) {
+        setRole('superadmin');
+        return;
+      }
+      // Then prioritize admin
+      const hasAdmin = data.some(r => r.role === 'admin');
+      if (hasAdmin) {
+        setRole('admin');
+        return;
       }
       setRole(data[0].role as AppRole);
     } else {
