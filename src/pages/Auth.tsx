@@ -182,13 +182,13 @@ export default function Auth() {
               </div>
             )}
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">{isLogin ? 'Email ou Usuário' : 'Email'}</Label>
               <Input
                 id="email"
-                type="email"
+                type={isLogin ? 'text' : 'email'}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="seu@email.com"
+                placeholder={isLogin ? 'seu@email.com ou nome.usuario' : 'seu@email.com'}
                 required
                 className="h-12"
               />
