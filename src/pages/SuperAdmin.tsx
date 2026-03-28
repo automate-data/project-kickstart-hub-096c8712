@@ -142,15 +142,11 @@ export default function SuperAdmin() {
   };
 
   // Cost calculations
-  // Use real Twilio data or fallback to estimates
-  const hasTwilioData = !!twilioUsage && twilioUsage.source === 'twilio_api';
-  const whatsappCost = hasTwilioData ? Math.abs(twilioUsage.totalPrice) : metrics.whatsappSent * WHATSAPP_COST_PER_MSG;
-  const whatsappCount = hasTwilioData ? twilioUsage.totalCount : metrics.whatsappSent;
+  const whatsappCost = metrics.whatsappSent * WHATSAPP_COST_PER_MSG;
   const aiCost = metrics.received * AI_COST_PER_CALL;
   const activeCondCount = condStats?.length || 1;
   const cloudCostPerCond = CLOUD_FIXED_MONTHLY / activeCondCount;
   const totalCost = whatsappCost + aiCost + CLOUD_FIXED_MONTHLY;
-  const avgCostPerMsg = whatsappCount > 0 ? whatsappCost / whatsappCount : 0;
 
   // Per-condominium cost breakdown
   const condCosts = (() => {
