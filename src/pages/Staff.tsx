@@ -295,10 +295,13 @@ export default function Staff() {
                     <p className="text-sm text-muted-foreground truncate">RG: {member.rg || '—'}</p>
                   </div>
                   <div className="flex gap-1">
-                    <Button variant="ghost" size="icon" onClick={() => handleEditStaff(member)}>
+                    <Button variant="ghost" size="icon" onClick={() => handleEditStaff(member)} title="Editar">
                       <Pencil className="w-4 h-4" />
                     </Button>
-                    <Button variant="ghost" size="icon" onClick={() => setDeleteTarget(member)} className="text-destructive hover:text-destructive">
+                    <Button variant="ghost" size="icon" onClick={() => { setPasswordTarget(member); setNewPassword(''); }} title="Redefinir senha">
+                      <KeyRound className="w-4 h-4" />
+                    </Button>
+                    <Button variant="ghost" size="icon" onClick={() => setDeleteTarget(member)} className="text-destructive hover:text-destructive" title="Remover">
                       <Trash2 className="w-4 h-4" />
                     </Button>
                   </div>
