@@ -12,6 +12,7 @@ import { Package, CheckCircle2, Clock, MessageSquare, AlertTriangle, Users, Refr
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { formatDistanceToNow, format, subDays } from 'date-fns';
+// WhatsApp cost: Twilio $0.0050 + Meta Utility BR $0.0068 = $0.0118/msg
 import { ptBR } from 'date-fns/locale';
 
 type Period = '1' | '7' | '30' | '90';
