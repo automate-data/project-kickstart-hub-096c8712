@@ -434,8 +434,13 @@ export default function SuperAdmin() {
                         <div>Erros: <strong>{s.errors_30d}</strong></div>
                         <div>Staff: <strong>{s.total_staff}</strong></div>
                         <div>Moradores: <strong>{s.total_residents}</strong></div>
-                        <div className="col-span-2 text-destructive font-medium">
-                          💰 Custo Est.: <strong>${condCosts[s.condominium_id]?.total?.toFixed(2) || '0.00'}</strong>
+                        <div className="col-span-2 text-destructive font-medium flex items-center gap-1">
+                          💰 Custo: <strong>${condCosts[s.condominium_id]?.total?.toFixed(2) || '0.00'}</strong>
+                          {condCosts[s.condominium_id]?.whatsappReal ? (
+                            <span className="text-[9px] px-1 py-0.5 rounded-full bg-primary/10 text-primary font-semibold">Real</span>
+                          ) : (
+                            <span className="text-[9px] px-1 py-0.5 rounded-full bg-muted text-muted-foreground font-semibold">Est.</span>
+                          )}
                         </div>
                       </div>
                     </CardContent>
