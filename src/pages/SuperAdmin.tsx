@@ -271,14 +271,13 @@ export default function SuperAdmin() {
           <>
             <CostCard
               icon={<MessageSquare className="w-5 h-5 text-primary" />}
-              label={hasTwilioData ? '💲 WhatsApp (real)' : 'Custo WhatsApp (est.)'}
+              label="Custo WhatsApp"
               value={whatsappCost}
-              detail={hasTwilioData ? `${whatsappCount} msgs · média $${avgCostPerMsg.toFixed(4)}` : `${metrics.whatsappSent} msgs × $${WHATSAPP_COST_PER_MSG}`}
-              badge={hasTwilioData ? 'API' : 'Estimativa'}
+              detail={`${metrics.whatsappSent} msgs × $${WHATSAPP_COST_PER_MSG}`}
             />
             <CostCard icon={<Brain className="w-5 h-5 text-primary" />} label="Custo IA" value={aiCost} detail={`${metrics.received} chamadas × $${AI_COST_PER_CALL}`} />
             <CostCard icon={<Cloud className="w-5 h-5 text-primary" />} label="Custo Cloud (fixo/mês)" value={CLOUD_FIXED_MONTHLY} detail={`$${cloudCostPerCond.toFixed(2)}/condomínio`} />
-            <CostCard icon={<DollarSign className="w-5 h-5 text-destructive" />} label={hasTwilioData ? 'Custo Total' : 'Custo Total Estimado'} value={totalCost} detail="WhatsApp + IA + Cloud" highlight />
+            <CostCard icon={<DollarSign className="w-5 h-5 text-destructive" />} label="Custo Total" value={totalCost} detail="WhatsApp + IA + Cloud" highlight />
           </>
         )}
       </div>
