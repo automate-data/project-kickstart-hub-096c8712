@@ -67,13 +67,16 @@ Deno.serve(async (req) => {
     const authToken = Deno.env.get("TWILIO_AUTH_TOKEN")!;
     const credentials = btoa(`${accountSid}:${authToken}`);
 
-    // Fetch usage for multiple categories
-    const categories = [
-      "whatsapp",
-      "whatsapp-outbound",
-      "sms",
-      "sms-outbound",
-    ];
+    // Fetch ALL usage records (no category filter) to discover actual categories
+    const url = new URL(
+      `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Usage/Records.json`
+    );
+    url.searchParams.set("StartDate", startDate);
+    url.searchParams.set("EndDate", endDate);
+
+    const res = await fetch(url.toString(), {
+      headers: { Authorization: `Basic ${credentials}` },
+    });
 
     const results: Record<
       string,
@@ -82,37 +85,29 @@ Deno.serve(async (req) => {
     let totalPrice = 0;
     let totalCount = 0;
 
-    await Promise.all(
-      categories.map(async (category) => {
-        const url = new URL(
-          `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Usage/Records.json`
-        );
-        url.searchParams.set("Category", category);
-        url.searchParams.set("StartDate", startDate);
-        url.searchParams.set("EndDate", endDate);
-
-        const res = await fetch(url.toString(), {
-          headers: { Authorization: `Basic ${credentials}` },
-        });
-
-        if (res.ok) {
-          const data = await res.json();
-          if (data.usage_records?.length > 0) {
-            for (const rec of data.usage_records) {
-              const price = parseFloat(rec.price || "0");
-              const count = parseInt(rec.count || "0", 10);
-              results[rec.category] = {
-                count,
-                price,
-                price_unit: rec.price_unit || "USD",
-              };
-              totalPrice += price;
-              totalCount += count;
-            }
+    if (res.ok) {
+      const data = await res.json();
+      if (data.usage_records?.length > 0) {
+        for (const rec of data.usage_records) {
+          const price = parseFloat(rec.price || "0");
+          const count = parseInt(rec.count || "0", 10);
+          // Only include records with actual usage or cost
+          if (price > 0 || count > 0) {
+            results[rec.category] = {
+              count,
+              price,
+              price_unit: rec.price_unit || "USD",
+            };
+            totalPrice += price;
+            totalCount += count;
           }
         }
-      })
-    );
+      }
+    } else {
+      const errorBody = await res.text();
+      console.error("Twilio API error:", res.status, errorBody);
+      throw new Error(`Twilio API returned ${res.status}`);
+    }
 
     return new Response(
       JSON.stringify({
