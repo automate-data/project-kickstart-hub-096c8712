@@ -345,8 +345,8 @@ export default function Staff() {
               <Input id="editFullName" type="text" value={editFullName} onChange={(e) => setEditFullName(e.target.value)} required />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="editEmail">Email</Label>
-              <Input id="editEmail" type="email" value={editEmail} onChange={(e) => setEditEmail(e.target.value)} disabled />
+              <Label htmlFor="editUsername">Usuário</Label>
+              <Input id="editUsername" type="text" value={editEmail?.replace('@cond.internal', '') || ''} disabled className="bg-muted" />
             </div>
             <div className="space-y-2">
               <Label htmlFor="editRg">RG</Label>
