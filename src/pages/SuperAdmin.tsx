@@ -196,15 +196,29 @@ export default function SuperAdmin() {
   const avgCostPerMsg = whatsappCount > 0 ? whatsappCost / whatsappCount : 0;
 
   // Per-condominium cost breakdown
+  const hasBreakdown = !!twilioBreakdown && twilioBreakdown.source === 'twilio_messages_api';
   const condCosts = (() => {
     if (!logs || !condStats) return {};
-    const costs: Record<string, { whatsapp: number; ai: number; cloud: number; total: number }> = {};
+    const costs: Record<string, { whatsapp: number; ai: number; cloud: number; total: number; whatsappReal: boolean }> = {};
     condStats.forEach((s: any) => {
       const condId = s.condominium_id;
       const condLogs = logs.filter((l: any) => l.condominium_id === condId);
-      const wa = condLogs.filter((l: any) => l.event_type === 'whatsapp_sent').length * WHATSAPP_COST_PER_MSG;
+      
+      // Use real Twilio breakdown if available, otherwise estimate
+      let wa: number;
+      let waReal = false;
+      if (hasBreakdown && twilioBreakdown.perCondominium[condId]) {
+        wa = twilioBreakdown.perCondominium[condId].price;
+        waReal = true;
+      } else if (hasBreakdown) {
+        wa = 0; // no messages found for this condo
+        waReal = true;
+      } else {
+        wa = condLogs.filter((l: any) => l.event_type === 'whatsapp_sent').length * WHATSAPP_COST_PER_MSG;
+      }
+      
       const ai = condLogs.filter((l: any) => l.event_type === 'package_received').length * AI_COST_PER_CALL;
-      costs[condId] = { whatsapp: wa, ai, cloud: cloudCostPerCond, total: wa + ai + cloudCostPerCond };
+      costs[condId] = { whatsapp: wa, ai, cloud: cloudCostPerCond, total: wa + ai + cloudCostPerCond, whatsappReal: waReal };
     });
     return costs;
   })();
