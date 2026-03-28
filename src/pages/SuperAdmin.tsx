@@ -151,7 +151,28 @@ export default function SuperAdmin() {
         source: string;
       };
     },
-    refetchInterval: 300000, // 5 min
+    refetchInterval: 300000,
+    retry: 1,
+  });
+
+  // Breakdown: per-condominium Twilio costs
+  const { data: twilioBreakdown, isLoading: breakdownLoading } = useQuery({
+    queryKey: ['sa-twilio-breakdown', period],
+    queryFn: async () => {
+      const { data, error } = await supabase.functions.invoke('twilio-usage', {
+        body: { startDate: twilioStartDate, endDate: twilioEndDate, breakdown: true },
+      });
+      if (error) throw error;
+      console.log('[twilio-breakdown] Resposta:', JSON.stringify(data, null, 2));
+      return data as {
+        perCondominium: Record<string, { count: number; price: number }>;
+        unmatched: { count: number; price: number };
+        totalMessages: number;
+        totalPrice: number;
+        source: string;
+      };
+    },
+    refetchInterval: 300000,
     retry: 1,
   });
 
@@ -175,15 +196,29 @@ export default function SuperAdmin() {
   const avgCostPerMsg = whatsappCount > 0 ? whatsappCost / whatsappCount : 0;
 
   // Per-condominium cost breakdown
+  const hasBreakdown = !!twilioBreakdown && twilioBreakdown.source === 'twilio_messages_api';
   const condCosts = (() => {
     if (!logs || !condStats) return {};
-    const costs: Record<string, { whatsapp: number; ai: number; cloud: number; total: number }> = {};
+    const costs: Record<string, { whatsapp: number; ai: number; cloud: number; total: number; whatsappReal: boolean }> = {};
     condStats.forEach((s: any) => {
       const condId = s.condominium_id;
       const condLogs = logs.filter((l: any) => l.condominium_id === condId);
-      const wa = condLogs.filter((l: any) => l.event_type === 'whatsapp_sent').length * WHATSAPP_COST_PER_MSG;
+      
+      // Use real Twilio breakdown if available, otherwise estimate
+      let wa: number;
+      let waReal = false;
+      if (hasBreakdown && twilioBreakdown.perCondominium[condId]) {
+        wa = twilioBreakdown.perCondominium[condId].price;
+        waReal = true;
+      } else if (hasBreakdown) {
+        wa = 0; // no messages found for this condo
+        waReal = true;
+      } else {
+        wa = condLogs.filter((l: any) => l.event_type === 'whatsapp_sent').length * WHATSAPP_COST_PER_MSG;
+      }
+      
       const ai = condLogs.filter((l: any) => l.event_type === 'package_received').length * AI_COST_PER_CALL;
-      costs[condId] = { whatsapp: wa, ai, cloud: cloudCostPerCond, total: wa + ai + cloudCostPerCond };
+      costs[condId] = { whatsapp: wa, ai, cloud: cloudCostPerCond, total: wa + ai + cloudCostPerCond, whatsappReal: waReal };
     });
     return costs;
   })();
@@ -262,6 +297,8 @@ export default function SuperAdmin() {
             queryClient.invalidateQueries({ queryKey: ['sa-errors'] });
             queryClient.invalidateQueries({ queryKey: ['sa-sessions'] });
             queryClient.invalidateQueries({ queryKey: ['sa-profiles'] });
+            queryClient.invalidateQueries({ queryKey: ['sa-twilio-usage'] });
+            queryClient.invalidateQueries({ queryKey: ['sa-twilio-breakdown'] });
             toast({ title: 'Dados atualizados!' });
           }}>
             <RefreshCw className="w-4 h-4" />
@@ -351,7 +388,7 @@ export default function SuperAdmin() {
                       <TableHead className="text-center">Erros</TableHead>
                       <TableHead className="text-center">Staff</TableHead>
                       <TableHead className="text-center">Moradores</TableHead>
-                      <TableHead className="text-center">💰 Custo Est.</TableHead>
+                      <TableHead className="text-center">💰 Custo WhatsApp</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -372,6 +409,11 @@ export default function SuperAdmin() {
                           <TableCell className="text-center">{s.total_residents}</TableCell>
                           <TableCell className="text-center font-medium text-destructive">
                             ${cc?.total?.toFixed(2) || '0.00'}
+                            {cc?.whatsappReal ? (
+                              <span className="ml-1 text-[9px] px-1 py-0.5 rounded-full bg-primary/10 text-primary font-semibold">Real</span>
+                            ) : (
+                              <span className="ml-1 text-[9px] px-1 py-0.5 rounded-full bg-muted text-muted-foreground font-semibold">Est.</span>
+                            )}
                           </TableCell>
                         </TableRow>
                       );
@@ -392,14 +434,24 @@ export default function SuperAdmin() {
                         <div>Erros: <strong>{s.errors_30d}</strong></div>
                         <div>Staff: <strong>{s.total_staff}</strong></div>
                         <div>Moradores: <strong>{s.total_residents}</strong></div>
-                        <div className="col-span-2 text-destructive font-medium">
-                          💰 Custo Est.: <strong>${condCosts[s.condominium_id]?.total?.toFixed(2) || '0.00'}</strong>
+                        <div className="col-span-2 text-destructive font-medium flex items-center gap-1">
+                          💰 Custo: <strong>${condCosts[s.condominium_id]?.total?.toFixed(2) || '0.00'}</strong>
+                          {condCosts[s.condominium_id]?.whatsappReal ? (
+                            <span className="text-[9px] px-1 py-0.5 rounded-full bg-primary/10 text-primary font-semibold">Real</span>
+                          ) : (
+                            <span className="text-[9px] px-1 py-0.5 rounded-full bg-muted text-muted-foreground font-semibold">Est.</span>
+                          )}
                         </div>
                       </div>
                     </CardContent>
                   </Card>
                 ))}
               </div>
+              {hasBreakdown && twilioBreakdown.unmatched.count > 0 && (
+                <p className="text-xs text-muted-foreground mt-3">
+                  ⚠️ {twilioBreakdown.unmatched.count} mensagens (${twilioBreakdown.unmatched.price.toFixed(2)}) não puderam ser associadas a um condomínio
+                </p>
+              )}
             </>
           )}
         </CardContent>
