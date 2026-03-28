@@ -12,7 +12,6 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // Auth check
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
@@ -39,7 +38,6 @@ Deno.serve(async (req) => {
 
     const userId = claimsData.claims.sub as string;
 
-    // Check superadmin role
     const { data: roleData } = await supabase
       .from("user_roles")
       .select("role")
@@ -54,7 +52,6 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Parse params
     const { startDate, endDate } = await req.json();
     if (!startDate || !endDate) {
       return new Response(
@@ -67,37 +64,46 @@ Deno.serve(async (req) => {
     const authToken = Deno.env.get("TWILIO_AUTH_TOKEN")!;
     const credentials = btoa(`${accountSid}:${authToken}`);
 
-    // Fetch ALL usage records (no category filter) to discover actual categories
-    const url = new URL(
-      `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Usage/Records.json`
-    );
-    url.searchParams.set("StartDate", startDate);
-    url.searchParams.set("EndDate", endDate);
-
-    const res = await fetch(url.toString(), {
-      headers: { Authorization: `Basic ${credentials}` },
-    });
-
-    const results: Record<
-      string,
-      { count: number; price: number; price_unit: string }
-    > = {};
+    const results: Record<string, { count: number; price: number; price_unit: string }> = {};
     let totalPrice = 0;
     let totalCount = 0;
 
-    console.log("Twilio API status:", res.status);
-    if (res.ok) {
-      const data = await res.json();
-      console.log("Twilio records count:", data.usage_records?.length, "first_page_uri:", data.first_page_uri);
-      if (data.usage_records?.length > 0) {
-        console.log("Sample record:", JSON.stringify(data.usage_records[0]));
+    // Paginate through all usage records
+    let nextPageUri: string | null = null;
+    let pageUrl = new URL(
+      `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Usage/Records.json`
+    );
+    pageUrl.searchParams.set("StartDate", startDate);
+    pageUrl.searchParams.set("EndDate", endDate);
+    pageUrl.searchParams.set("PageSize", "1000");
+
+    let pageNum = 0;
+    do {
+      const fetchUrl = nextPageUri
+        ? `https://api.twilio.com${nextPageUri}`
+        : pageUrl.toString();
+
+      console.log(`Fetching page ${pageNum}:`, fetchUrl);
+
+      const res = await fetch(fetchUrl, {
+        headers: { Authorization: `Basic ${credentials}` },
+      });
+
+      if (!res.ok) {
+        const errorBody = await res.text();
+        console.error("Twilio API error:", res.status, errorBody);
+        throw new Error(`Twilio API returned ${res.status}`);
       }
+
+      const data = await res.json();
+      console.log(`Page ${pageNum}: ${data.usage_records?.length || 0} records, next_page_uri: ${data.next_page_uri}`);
+
       if (data.usage_records?.length > 0) {
         for (const rec of data.usage_records) {
           const price = parseFloat(rec.price || "0");
           const count = parseInt(rec.count || "0", 10);
-          // Only include records with actual usage or cost
           if (price > 0 || count > 0) {
+            console.log(`Category: ${rec.category}, count: ${count}, price: ${price}`);
             results[rec.category] = {
               count,
               price,
@@ -108,11 +114,12 @@ Deno.serve(async (req) => {
           }
         }
       }
-    } else {
-      const errorBody = await res.text();
-      console.error("Twilio API error:", res.status, errorBody);
-      throw new Error(`Twilio API returned ${res.status}`);
-    }
+
+      nextPageUri = data.next_page_uri || null;
+      pageNum++;
+    } while (nextPageUri && pageNum < 10); // safety limit
+
+    console.log(`Total: ${Object.keys(results).length} categories with usage, price: ${totalPrice}, count: ${totalCount}`);
 
     return new Response(
       JSON.stringify({
