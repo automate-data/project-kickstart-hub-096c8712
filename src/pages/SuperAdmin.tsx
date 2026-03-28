@@ -409,6 +409,11 @@ export default function SuperAdmin() {
                           <TableCell className="text-center">{s.total_residents}</TableCell>
                           <TableCell className="text-center font-medium text-destructive">
                             ${cc?.total?.toFixed(2) || '0.00'}
+                            {cc?.whatsappReal ? (
+                              <span className="ml-1 text-[9px] px-1 py-0.5 rounded-full bg-primary/10 text-primary font-semibold">Real</span>
+                            ) : (
+                              <span className="ml-1 text-[9px] px-1 py-0.5 rounded-full bg-muted text-muted-foreground font-semibold">Est.</span>
+                            )}
                           </TableCell>
                         </TableRow>
                       );
