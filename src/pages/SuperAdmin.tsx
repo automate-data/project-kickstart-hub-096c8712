@@ -524,7 +524,7 @@ function KpiCard({ icon, label, value }: { icon: React.ReactNode; label: string;
   );
 }
 
-function CostCard({ icon, label, value, detail, highlight }: { icon: React.ReactNode; label: string; value: number; detail: string; highlight?: boolean }) {
+function CostCard({ icon, label, value, detail, highlight, badge }: { icon: React.ReactNode; label: string; value: number; detail: string; highlight?: boolean; badge?: string }) {
   return (
     <Card className={highlight ? 'border-destructive/50 bg-destructive/5' : ''}>
       <CardContent className="p-4 flex flex-col items-center text-center gap-1">
@@ -534,6 +534,11 @@ function CostCard({ icon, label, value, detail, highlight }: { icon: React.React
         </span>
         <span className="text-xs text-muted-foreground font-medium">{label}</span>
         <span className="text-[10px] text-muted-foreground">{detail}</span>
+        {badge && (
+          <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-semibold ${badge === 'API' ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'}`}>
+            {badge}
+          </span>
+        )}
       </CardContent>
     </Card>
   );
