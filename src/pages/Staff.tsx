@@ -43,7 +43,7 @@ export default function Staff() {
   const { user } = useAuth();
 
   const [fullName, setFullName] = useState('');
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [rg, setRg] = useState('');
   const [role, setRole] = useState<AppRole>('doorman');
   const [tempPassword, setTempPassword] = useState('');
