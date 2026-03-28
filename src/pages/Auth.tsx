@@ -49,12 +49,14 @@ export default function Auth() {
 
     try {
       if (isLogin) {
-        const { error } = await signIn(email, password);
+        // If input doesn't contain @, treat as username and convert to internal email
+        const loginEmail = email.includes('@') ? email : `${email.toLowerCase().trim()}@cond.internal`;
+        const { error } = await signIn(loginEmail, password);
         if (error) {
           toast({
             title: 'Erro ao entrar',
             description: error.message === 'Invalid login credentials' 
-              ? 'Email ou senha incorretos' 
+              ? 'Usuário ou senha incorretos' 
               : error.message,
             variant: 'destructive',
           });
