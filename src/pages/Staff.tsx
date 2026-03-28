@@ -118,7 +118,7 @@ export default function Staff() {
       }
       setDialogOpen(false);
       setFullName('');
-      setEmail('');
+      setUsername('');
       setRg('');
       setRole('doorman');
       fetchStaff();
