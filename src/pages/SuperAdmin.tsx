@@ -127,33 +127,11 @@ export default function SuperAdmin() {
     return c ? (c as any).name : condId.slice(0, 8);
   };
 
-  // Cost constants (fallback estimates)
-  const WHATSAPP_COST_PER_MSG = 0.0068;
+  // Cost constants (fixed rates)
+  // WhatsApp: Twilio $0.0050 + Meta Utility BR $0.0068 = $0.0118
+  const WHATSAPP_COST_PER_MSG = 0.0118;
   const AI_COST_PER_CALL = 0.0035;
   const CLOUD_FIXED_MONTHLY = 25.0;
-
-  // Real Twilio usage data
-  const twilioStartDate = format(subDays(new Date(), parseInt(period)), 'yyyy-MM-dd');
-  const twilioEndDate = format(new Date(), 'yyyy-MM-dd');
-
-  const { data: twilioUsage, isLoading: twilioLoading } = useQuery({
-    queryKey: ['sa-twilio-usage', period],
-    queryFn: async () => {
-      const { data, error } = await supabase.functions.invoke('twilio-usage', {
-        body: { startDate: twilioStartDate, endDate: twilioEndDate },
-      });
-      if (error) throw error;
-      console.log('[twilio-usage] Resposta completa:', JSON.stringify(data, null, 2));
-      return data as {
-        categories: Record<string, { count: number; price: number; price_unit: string }>;
-        totalPrice: number;
-        totalCount: number;
-        source: string;
-      };
-    },
-    refetchInterval: 300000, // 5 min
-    retry: 1,
-  });
 
   // Compute metrics
   const metrics = {
