@@ -43,7 +43,7 @@ export default function Staff() {
   const { user } = useAuth();
 
   const [fullName, setFullName] = useState('');
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [rg, setRg] = useState('');
   const [role, setRole] = useState<AppRole>('doorman');
   const [tempPassword, setTempPassword] = useState('');
@@ -95,7 +95,7 @@ export default function Staff() {
 
     try {
       const { data, error } = await supabase.functions.invoke('invite-staff', {
-        body: { role, full_name: fullName, email, rg, condominium_id: condominium?.id },
+        body: { role, full_name: fullName, username, rg, condominium_id: condominium?.id },
       });
 
       if (error) throw error;
@@ -118,7 +118,7 @@ export default function Staff() {
       }
       setDialogOpen(false);
       setFullName('');
-      setEmail('');
+      setUsername('');
       setRg('');
       setRole('doorman');
       fetchStaff();
@@ -239,8 +239,9 @@ export default function Staff() {
                 <Input id="fullName" type="text" value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Nome do usuário" required />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="email@exemplo.com" required />
+                <Label htmlFor="username">Usuário</Label>
+                <Input id="username" type="text" value={username} onChange={(e) => setUsername(e.target.value)} placeholder="nome.usuario" required />
+                <p className="text-xs text-muted-foreground">Será usado para login (sem espaços ou caracteres especiais)</p>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="rg">RG</Label>
@@ -291,7 +292,7 @@ export default function Staff() {
                       <p className="font-medium truncate">{member.full_name}</p>
                       {member.role && getRoleBadge(member.role)}
                     </div>
-                    <p className="text-sm text-muted-foreground truncate">{member.email}</p>
+                    <p className="text-sm text-muted-foreground truncate">Usuário: {member.email?.replace('@cond.internal', '') || '—'}</p>
                     <p className="text-sm text-muted-foreground truncate">RG: {member.rg || '—'}</p>
                   </div>
                   <div className="flex gap-1">
@@ -344,8 +345,8 @@ export default function Staff() {
               <Input id="editFullName" type="text" value={editFullName} onChange={(e) => setEditFullName(e.target.value)} required />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="editEmail">Email</Label>
-              <Input id="editEmail" type="email" value={editEmail} onChange={(e) => setEditEmail(e.target.value)} disabled />
+              <Label htmlFor="editUsername">Usuário</Label>
+              <Input id="editUsername" type="text" value={editEmail?.replace('@cond.internal', '') || ''} disabled className="bg-muted" />
             </div>
             <div className="space-y-2">
               <Label htmlFor="editRg">RG</Label>

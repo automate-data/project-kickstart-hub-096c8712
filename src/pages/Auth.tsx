@@ -49,12 +49,14 @@ export default function Auth() {
 
     try {
       if (isLogin) {
-        const { error } = await signIn(email, password);
+        // If input doesn't contain @, treat as username and convert to internal email
+        const loginEmail = email.includes('@') ? email : `${email.toLowerCase().trim()}@cond.internal`;
+        const { error } = await signIn(loginEmail, password);
         if (error) {
           toast({
             title: 'Erro ao entrar',
             description: error.message === 'Invalid login credentials' 
-              ? 'Email ou senha incorretos' 
+              ? 'Usuário ou senha incorretos' 
               : error.message,
             variant: 'destructive',
           });
@@ -180,13 +182,13 @@ export default function Auth() {
               </div>
             )}
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">{isLogin ? 'Email ou Usuário' : 'Email'}</Label>
               <Input
                 id="email"
-                type="email"
+                type={isLogin ? 'text' : 'email'}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="seu@email.com"
+                placeholder={isLogin ? 'seu@email.com ou nome.usuario' : 'seu@email.com'}
                 required
                 className="h-12"
               />
