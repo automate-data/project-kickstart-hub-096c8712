@@ -1,50 +1,47 @@
 
 
-## Plano: Custos Reais do Twilio no Painel Super Admin
+## Plano: Custos Twilio por Condomínio via Messages API
 
 ### Contexto
-Atualmente os custos de WhatsApp no `/superadmin` são estimativas fixas ($0.0068/msg). O objetivo é buscar os custos reais da API do Twilio e exibi-los no painel.
+A Usage Records API do Twilio retorna totais agregados sem separação por número de destino. Para separar custos por condomínio, usaremos a **Messages API** (`GET /Messages.json`) que retorna cada mensagem individual com `To`, `Price` e `DateSent`.
 
-### Abordagem
-
-O sistema já usa credenciais Twilio diretamente (Account SID + Auth Token) na edge function `send-whatsapp`. Vamos seguir o mesmo padrão para buscar dados de uso.
-
-### Arquitetura
+### Como funciona o cruzamento
 
 ```text
-SuperAdmin (frontend)
-  → supabase.functions.invoke('twilio-usage')
-    → Twilio Usage Records API
-      → Retorna custos reais por período
+Twilio Messages API (GET /Messages.json)
+  → Lista mensagens: { To: "whatsapp:+5511999...", Price: "-0.0050", ... }
+
+residents (banco de dados)
+  → { phone: "+5511999...", condominium_id: "abc-123" }
+
+Cruzamento: normalizar número → buscar resident → agrupar por condominium_id
 ```
 
 ### Alterações
 
-**1. Nova Edge Function: `supabase/functions/twilio-usage/index.ts`**
-- Recebe parâmetros: `startDate`, `endDate` (período)
-- Valida que o chamador é superadmin (via `getClaims` + verificação de email)
-- Chama a API Twilio: `GET /2010-04-01/Accounts/{SID}/Usage/Records.json`
-  - Parâmetros: `Category=sms`, `StartDate`, `EndDate`
-  - Também busca `Category=whatsapp` (Twilio separa por categoria)
-- Retorna: custo total, quantidade de mensagens, breakdown por categoria
-- Usa as credenciais existentes (`TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`)
+**1. Atualizar edge function `supabase/functions/twilio-usage/index.ts`**
+- Adicionar novo modo: quando receber `breakdown: true` no body, buscar mensagens individuais via `GET /Messages.json` com paginação
+- Parâmetros: `DateSent>=startDate`, `DateSent<=endDate`, `From=whatsapp:+5511979684575`
+- Cada mensagem retorna: `to`, `price`, `date_sent`, `status`
+- Usar service role client para buscar tabela `residents` (phone + condominium_id) e montar mapa `phone → condominium_id`
+- Normalizar números (remover `whatsapp:`, garantir formato E.164) para cruzamento
+- Agrupar custos reais por `condominium_id`
+- Retornar: `{ perCondominium: { [condId]: { count, price } }, unmatched: { count, price } }`
+- Manter o modo atual (Usage Records) como default para o custo total geral
+- Limitar paginação (safety limit de 20 páginas = 20.000 mensagens)
 
 **2. Atualizar `src/pages/SuperAdmin.tsx`**
-- Adicionar query `useQuery` para invocar `twilio-usage` com o período selecionado
-- Substituir os CostCards de WhatsApp estimados por dados reais da API
-- Manter fallback para estimativa caso a API falhe
-- Adicionar indicador visual "Dados reais" vs "Estimativa"
-- Mostrar breakdown: custo unitário médio, total de mensagens, custo total
+- Nova query para invocar `twilio-usage` com `breakdown: true`
+- Substituir `condCosts` WhatsApp estimados por custos reais do Twilio por condomínio
+- Na tabela "Visão por Condomínio", coluna "Custo Est." passa a mostrar custo real do WhatsApp + estimativa IA + cloud
+- Adicionar indicador para mensagens sem match (números não cadastrados)
+- Badge "Real" vs "Estimativa" por condomínio
 
-**3. Detalhes da API Twilio Usage Records**
-- Endpoint: `GET /Usage/Records/Daily.json` ou `/Usage/Records.json`
-- Filtros: `Category`, `StartDate`, `EndDate`
-- Resposta inclui: `count`, `price`, `price_unit`, `usage`
-- Categorias relevantes: `whatsapp`, `whatsapp-outbound`
-
-### Segurança
-- A edge function valida que apenas o superadmin (`contato@automatedata.com.br`) pode acessar
-- Credenciais Twilio já existem como secrets no projeto
+### Considerações
+- A Messages API retorna campo `price` (negativo) por mensagem — usaremos `Math.abs()`
+- Mensagens para números não encontrados na tabela `residents` ficam em categoria "não identificado"
+- O campo `phone` dos residents precisa normalização para comparação (remover espaços, parênteses, garantir +55)
+- A query de residents usa service role (na edge function) para acessar todos os condomínios
 
 ### Sem alterações de banco de dados
 Nenhuma migration necessária.
