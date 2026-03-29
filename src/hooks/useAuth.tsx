@@ -49,11 +49,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       setRole(data[0].role as AppRole);
     } else {
-      // Fallback: if email matches superadmin, force role
-      if (email === 'contato@automatedata.com.br') {
-        setRole('superadmin');
-        return;
-      }
       setRole(null);
     }
   };

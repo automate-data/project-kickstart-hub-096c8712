@@ -741,6 +741,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      shares_condominium: {
+        Args: { _target_user_id: string; _user_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
       app_role: "admin" | "doorman" | "superadmin"
