@@ -468,7 +468,7 @@ export default function ReceivePackage() {
               <PopoverTrigger asChild>
                 <Button variant="outline" role="combobox" className="w-full justify-between h-12 text-left font-normal">
                   {selectedResident ? (
-                    <span>{selectedResident.full_name} - {groupLabel} {selectedResident.block}/{unitLabel} {selectedResident.apartment}</span>
+                    <span className="truncate">{selectedResident.full_name} - {selectedResident.block}/{selectedResident.apartment}</span>
                   ) : (
                     <span className="text-muted-foreground">Selecionar morador...</span>
                   )}
