@@ -38,13 +38,13 @@ OUTRAS INFORMAÇÕES:
 - O código de rastreio é um número longo (geralmente 13+ caracteres)
 - Procure por "CD" (Centro de Distribuição) que indica origem logística
 
-PROTEÇÃO LGPD - REGIÕES VISÍVEIS:
-- Em vez de marcar áreas sensíveis, identifique as áreas que DEVEM PERMANECER VISÍVEIS na imagem
-- Todo o resto da imagem será borrado automaticamente
-- Áreas visíveis: APENAS o nome do destinatário e o logo/nome da transportadora ou marketplace
+PROTEÇÃO LGPD - REGIÕES SENSÍVEIS A BORRAR:
+- Identifique TODAS as áreas que contêm dados pessoais sensíveis que devem ser BORRADAS na imagem
+- Dados sensíveis incluem: CPF, RG, endereço completo, CEP, telefone, QR codes, códigos de barras, números de nota fiscal
+- NÃO inclua: nome do destinatário e logo/nome da transportadora (esses devem permanecer visíveis)
 - Retorne as coordenadas dessas áreas como bounding boxes em PORCENTAGEM (0-100) relativa ao tamanho da imagem
-- Seja GENEROSO nos bounding boxes - melhor mostrar um pouco mais do que cortar texto
-- Use margens extras de pelo menos 5% ao redor de cada texto visível
+- Seja GENEROSO nos bounding boxes - melhor borrar um pouco mais do que deixar dados sensíveis visíveis
+- Use margens extras de pelo menos 5% ao redor de cada área sensível
 
 FORMATO DE RESPOSTA - Retorne APENAS JSON válido:
 {
@@ -59,12 +59,13 @@ FORMATO DE RESPOSTA - Retorne APENAS JSON válido:
   "logistics_origin": "origem logística se visível",
   "confidence": 0.0,
   "visible_regions": [
-    { "label": "recipient_name", "x_pct": 10, "y_pct": 40, "w_pct": 60, "h_pct": 8 },
-    { "label": "carrier_logo", "x_pct": 5, "y_pct": 2, "w_pct": 30, "h_pct": 12 }
+    { "label": "cpf", "x_pct": 10, "y_pct": 40, "w_pct": 60, "h_pct": 8 },
+    { "label": "address", "x_pct": 5, "y_pct": 50, "w_pct": 80, "h_pct": 12 },
+    { "label": "qr_code", "x_pct": 70, "y_pct": 60, "w_pct": 25, "h_pct": 20 }
   ]
 }`;
 
-const USER_PROMPT = `Analise esta etiqueta de encomenda brasileira de condomínio. IMPORTANTE: Separe BLOCO e APARTAMENTO em campos distintos. Se a etiqueta mostrar "B01", extraia bloco="B" e apartment="01". Preste atenção especial ao nome completo do destinatário. Retorne as visible_regions em PORCENTAGEM (0-100) indicando APENAS onde estão o nome do destinatário e o logo/nome da transportadora.`;
+const USER_PROMPT = `Analise esta etiqueta de encomenda brasileira de condomínio. IMPORTANTE: Separe BLOCO e APARTAMENTO em campos distintos. Se a etiqueta mostrar "B01", extraia bloco="B" e apartment="01". Preste atenção especial ao nome completo do destinatário. Retorne as visible_regions em PORCENTAGEM (0-100) indicando onde estão os DADOS SENSÍVEIS (CPF, endereço, telefone, QR codes, códigos de barras) que devem ser borrados.`;
 
 function postProcess(suggestion: any): any {
   if (!suggestion) return suggestion;
