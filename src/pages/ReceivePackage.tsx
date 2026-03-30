@@ -51,7 +51,7 @@ export default function ReceivePackage() {
   const [aiSuggestion, setAiSuggestion] = useState<AISuggestion | null>(null);
   const [ocrRawText, setOcrRawText] = useState<string | null>(null);
   const [residentSearchOpen, setResidentSearchOpen] = useState(false);
-  const [sensitiveRegions, setSensitiveRegions] = useState<SensitiveRegion[]>([]);
+  const [visibleRegions, setVisibleRegions] = useState<VisibleRegion[]>([]);
 
   useEffect(() => {
     return () => {
