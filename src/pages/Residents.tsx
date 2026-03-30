@@ -71,16 +71,27 @@ export default function Residents() {
     setDialogOpen(true);
   };
 
+  const sanitizePhone = (raw: string): string => {
+    let digits = raw.replace(/[^\d]/g, "");
+    if (digits.startsWith("55") && digits.length >= 12) {
+      return `+${digits}`;
+    } else if (digits.length === 10 || digits.length === 11) {
+      return `+55${digits}`;
+    }
+    return `+${digits}`;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSaving(true);
+    const sanitizedPhone = sanitizePhone(phone);
     try {
       if (editingResident) {
-        const { error } = await supabase.from('residents').update({ full_name: fullName, phone, block, apartment }).eq('id', editingResident.id);
+        const { error } = await supabase.from('residents').update({ full_name: fullName, phone: sanitizedPhone, block, apartment }).eq('id', editingResident.id);
         if (error) throw error;
         toast({ title: 'Morador atualizado!' });
       } else {
-        const { error } = await supabase.from('residents').insert({ full_name: fullName, phone, block, apartment, condominium_id: condominium?.id || null });
+        const { error } = await supabase.from('residents').insert({ full_name: fullName, phone: sanitizedPhone, block, apartment, condominium_id: condominium?.id || null });
         if (error) throw error;
         toast({ title: 'Morador cadastrado!' });
       }

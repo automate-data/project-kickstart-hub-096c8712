@@ -82,8 +82,17 @@ serve(async (req) => {
       );
     }
 
-    const normalizedPhone = phone.replace(/[\s\-\(\)]/g, "");
-    const toNumber = normalizedPhone.startsWith("whatsapp:") ? normalizedPhone : `whatsapp:${normalizedPhone}`;
+    console.log("Original phone:", phone);
+    let cleanPhone = phone.replace(/whatsapp:/gi, "").replace(/[^\d]/g, "");
+    if (cleanPhone.startsWith("55") && cleanPhone.length >= 12) {
+      cleanPhone = `+${cleanPhone}`;
+    } else if (cleanPhone.length === 10 || cleanPhone.length === 11) {
+      cleanPhone = `+55${cleanPhone}`;
+    } else if (!cleanPhone.startsWith("+")) {
+      cleanPhone = `+${cleanPhone}`;
+    }
+    console.log("Normalized phone:", cleanPhone);
+    const toNumber = `whatsapp:${cleanPhone}`;
     const fromNumber = TWILIO_WHATSAPP_FROM.startsWith("whatsapp:")
       ? TWILIO_WHATSAPP_FROM
       : `whatsapp:${TWILIO_WHATSAPP_FROM}`;
