@@ -115,45 +115,41 @@ export async function processImageRedacted(file: File, visibleRegions: VisibleRe
   const ctx = canvas.getContext('2d');
   if (!ctx) throw new Error('Could not get canvas context');
 
-  // Draw the original image
+  // Draw the original image (clear)
   ctx.fillStyle = '#FFFFFF';
   ctx.fillRect(0, 0, width, height);
   ctx.drawImage(img, 0, 0, width, height);
 
-  // Create a blurred version of the full image
-  const blurCanvas = document.createElement('canvas');
-  blurCanvas.width = width;
-  blurCanvas.height = height;
-  const blurCtx = blurCanvas.getContext('2d');
-  if (!blurCtx) throw new Error('Could not get blur canvas context');
-
-  // Heavy blur via downscale-upscale
-  const blurFactor = 0.04;
-  const smallW = Math.max(1, Math.round(width * blurFactor));
-  const smallH = Math.max(1, Math.round(height * blurFactor));
-  const tmpCanvas = document.createElement('canvas');
-  tmpCanvas.width = smallW;
-  tmpCanvas.height = smallH;
-  const tmpCtx = tmpCanvas.getContext('2d');
-  if (tmpCtx) {
-    tmpCtx.drawImage(img, 0, 0, smallW, smallH);
-    blurCtx.drawImage(tmpCanvas, 0, 0, width, height);
-  }
-
-  // Apply additional CSS blur if supported
-  try {
-    blurCtx.filter = 'blur(6px)';
-    blurCtx.drawImage(blurCanvas, 0, 0);
-    blurCtx.filter = 'none';
-  } catch {
-    // filter not supported, downscale blur is sufficient
-  }
-
-  // Start with the blurred image as base
-  ctx.drawImage(blurCanvas, 0, 0);
-
   if (visibleRegions && visibleRegions.length > 0) {
-    // "Cut out" visible regions by drawing the original image only in those areas
+    // Create a blurred version for patching over sensitive regions
+    const blurCanvas = document.createElement('canvas');
+    blurCanvas.width = width;
+    blurCanvas.height = height;
+    const blurCtx = blurCanvas.getContext('2d');
+    if (!blurCtx) throw new Error('Could not get blur canvas context');
+
+    // Heavy blur via downscale-upscale
+    const blurFactor = 0.04;
+    const smallW = Math.max(1, Math.round(width * blurFactor));
+    const smallH = Math.max(1, Math.round(height * blurFactor));
+    const tmpCanvas = document.createElement('canvas');
+    tmpCanvas.width = smallW;
+    tmpCanvas.height = smallH;
+    const tmpCtx = tmpCanvas.getContext('2d');
+    if (tmpCtx) {
+      tmpCtx.drawImage(img, 0, 0, smallW, smallH);
+      blurCtx.drawImage(tmpCanvas, 0, 0, width, height);
+    }
+
+    try {
+      blurCtx.filter = 'blur(6px)';
+      blurCtx.drawImage(blurCanvas, 0, 0);
+      blurCtx.filter = 'none';
+    } catch {
+      // filter not supported, downscale blur is sufficient
+    }
+
+    // Paint blurred patches OVER the visible (sensitive) regions
     const margin = 3; // percentage margin for safety
     for (const region of visibleRegions) {
       const rx = Math.max(0, ((region.x_pct - margin) / 100) * width);
@@ -161,7 +157,6 @@ export async function processImageRedacted(file: File, visibleRegions: VisibleRe
       const rw = Math.min(width - rx, ((region.w_pct + margin * 2) / 100) * width);
       const rh = Math.min(height - ry, ((region.h_pct + margin * 2) / 100) * height);
 
-      // Draw original image clip for this visible region
       ctx.save();
       ctx.beginPath();
       const radius = 4;
@@ -171,13 +166,12 @@ export async function processImageRedacted(file: File, visibleRegions: VisibleRe
         ctx.rect(rx, ry, rw, rh);
       }
       ctx.clip();
-      ctx.drawImage(img, 0, 0, width, height);
+      ctx.drawImage(blurCanvas, 0, 0, width, height);
       ctx.restore();
     }
-    console.log(`[ImageProcessor] Redacted image with ${visibleRegions.length} visible region(s) preserved`);
+    console.log(`[ImageProcessor] Redacted image with ${visibleRegions.length} region(s) blurred`);
   } else {
-    // Fallback: already fully blurred above
-    console.log('[ImageProcessor] No visible regions provided, full blur applied');
+    console.log('[ImageProcessor] No regions to redact, image kept clear');
   }
 
   const { blob, finalWidth, finalHeight } = await compressToTarget(canvas, img, width, height);
