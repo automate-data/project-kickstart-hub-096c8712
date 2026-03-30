@@ -52,6 +52,8 @@ export default function ReceivePackage() {
   const [ocrRawText, setOcrRawText] = useState<string | null>(null);
   const [residentSearchOpen, setResidentSearchOpen] = useState(false);
   const [visibleRegions, setVisibleRegions] = useState<VisibleRegion[]>([]);
+  const [redactedPreview, setRedactedPreview] = useState<string | null>(null);
+  const [showRedactedPreview, setShowRedactedPreview] = useState(false);
 
   useEffect(() => {
     return () => {
@@ -230,7 +232,20 @@ export default function ReceivePackage() {
       setIsProcessing(false);
       setStep('confirm');
     }
+
   };
+
+  // Redacted preview is generated via useEffect below
+
+  // Effect to generate preview when visibleRegions change
+  useEffect(() => {
+    if (photoFile && visibleRegions.length > 0 && step === 'confirm') {
+      processImageRedacted(photoFile, visibleRegions).then((result) => {
+        const url = URL.createObjectURL(result.blob);
+        setRedactedPreview(url);
+      }).catch(console.error);
+    }
+  }, [visibleRegions, photoFile, step]);
 
   const handleSubmit = async () => {
     if (!photoFile || !user) return;
@@ -439,6 +454,8 @@ export default function ReceivePackage() {
             setTrackingCode('');
             setNotes('');
               setAiSuggestion(null);
+              setRedactedPreview(null);
+              setShowRedactedPreview(false);
             }}
             variant="ghost"
             size="sm"
@@ -448,10 +465,30 @@ export default function ReceivePackage() {
           </Button>
 
           <Card>
-            <CardContent className="p-4">
+            <CardContent className="p-4 space-y-3">
               <div className="aspect-video rounded-lg overflow-hidden bg-muted">
-                <img src={photoPreview!} alt="Encomenda" className="w-full h-full object-contain" />
+                <img
+                  src={showRedactedPreview && redactedPreview ? redactedPreview : photoPreview!}
+                  alt="Encomenda"
+                  className="w-full h-full object-contain"
+                />
               </div>
+              {redactedPreview && (
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground">
+                    {showRedactedPreview ? 'Visualizando imagem enviada ao morador (LGPD)' : 'Foto original'}
+                  </span>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowRedactedPreview(!showRedactedPreview)}
+                    className="text-xs h-7"
+                  >
+                    {showRedactedPreview ? 'Ver original' : 'Ver versão LGPD'}
+                  </Button>
+                </div>
+              )}
             </CardContent>
           </Card>
 
