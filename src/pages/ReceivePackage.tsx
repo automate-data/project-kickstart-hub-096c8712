@@ -164,7 +164,7 @@ export default function ReceivePackage() {
         const suggestion = data.suggestion;
         setAiSuggestion(suggestion);
         setOcrRawText(data.raw_text || null);
-        setSensitiveRegions(suggestion.sensitive_regions || []);
+        setVisibleRegions(suggestion.visible_regions || []);
 
         // Auto-select resident matching logic
         const normalizeText = (str: string) => 
