@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useCondominium } from '@/hooks/useCondominium';
-import { Resident, AISuggestion, SensitiveRegion } from '@/types';
+import { Resident, AISuggestion, VisibleRegion } from '@/types';
 import { insertLog } from '@/lib/logger';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -51,7 +51,7 @@ export default function ReceivePackage() {
   const [aiSuggestion, setAiSuggestion] = useState<AISuggestion | null>(null);
   const [ocrRawText, setOcrRawText] = useState<string | null>(null);
   const [residentSearchOpen, setResidentSearchOpen] = useState(false);
-  const [sensitiveRegions, setSensitiveRegions] = useState<SensitiveRegion[]>([]);
+  const [visibleRegions, setVisibleRegions] = useState<VisibleRegion[]>([]);
 
   useEffect(() => {
     return () => {
@@ -164,7 +164,7 @@ export default function ReceivePackage() {
         const suggestion = data.suggestion;
         setAiSuggestion(suggestion);
         setOcrRawText(data.raw_text || null);
-        setSensitiveRegions(suggestion.sensitive_regions || []);
+        setVisibleRegions(suggestion.visible_regions || []);
 
         // Auto-select resident matching logic
         const normalizeText = (str: string) => 
@@ -239,7 +239,7 @@ export default function ReceivePackage() {
     try {
       const [processedImage, redactedImage] = await Promise.all([
         processImageForWhatsApp(photoFile),
-        processImageRedacted(photoFile, sensitiveRegions),
+        processImageRedacted(photoFile, visibleRegions),
       ]);
 
       const [uploadOriginal, uploadRedacted] = await Promise.all([

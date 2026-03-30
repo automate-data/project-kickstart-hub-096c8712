@@ -8,6 +8,14 @@ export interface SensitiveRegion {
   height: number;
 }
 
+export interface VisibleRegion {
+  label: string;
+  x_pct: number;
+  y_pct: number;
+  w_pct: number;
+  h_pct: number;
+}
+
 export interface Condominium {
   id: string;
   name: string;
