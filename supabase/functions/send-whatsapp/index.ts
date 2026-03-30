@@ -30,11 +30,16 @@ serve(async (req) => {
     }
 
     // Normalize phone to E.164
-    let cleanPhone = phone.replace(/[\s\-\(\)]/g, "");
-    if (cleanPhone.startsWith("whatsapp:")) cleanPhone = cleanPhone.replace("whatsapp:", "");
-    if (!cleanPhone.startsWith("+")) {
-      cleanPhone = cleanPhone.startsWith("55") ? `+${cleanPhone}` : `+55${cleanPhone}`;
+    console.log("Original phone:", phone);
+    let cleanPhone = phone.replace(/whatsapp:/gi, "").replace(/[^\d]/g, "");
+    if (cleanPhone.startsWith("55") && cleanPhone.length >= 12) {
+      cleanPhone = `+${cleanPhone}`;
+    } else if (cleanPhone.length === 10 || cleanPhone.length === 11) {
+      cleanPhone = `+55${cleanPhone}`;
+    } else if (!cleanPhone.startsWith("+")) {
+      cleanPhone = `+${cleanPhone}`;
     }
+    console.log("Normalized phone:", cleanPhone);
     const toNumber = `whatsapp:${cleanPhone}`;
     const fromNumber = TWILIO_WHATSAPP_FROM.startsWith("whatsapp:")
       ? TWILIO_WHATSAPP_FROM
