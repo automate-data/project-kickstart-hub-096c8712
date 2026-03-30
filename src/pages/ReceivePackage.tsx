@@ -52,6 +52,8 @@ export default function ReceivePackage() {
   const [ocrRawText, setOcrRawText] = useState<string | null>(null);
   const [residentSearchOpen, setResidentSearchOpen] = useState(false);
   const [visibleRegions, setVisibleRegions] = useState<VisibleRegion[]>([]);
+  const [redactedPreview, setRedactedPreview] = useState<string | null>(null);
+  const [showRedactedPreview, setShowRedactedPreview] = useState(false);
 
   useEffect(() => {
     return () => {
