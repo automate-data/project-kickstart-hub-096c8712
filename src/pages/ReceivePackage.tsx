@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useCondominium } from '@/hooks/useCondominium';
-import { Resident, AISuggestion, SensitiveRegion } from '@/types';
+import { Resident, AISuggestion, VisibleRegion } from '@/types';
 import { insertLog } from '@/lib/logger';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
