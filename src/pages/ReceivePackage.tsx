@@ -239,7 +239,7 @@ export default function ReceivePackage() {
     try {
       const [processedImage, redactedImage] = await Promise.all([
         processImageForWhatsApp(photoFile),
-        processImageRedacted(photoFile, sensitiveRegions),
+        processImageRedacted(photoFile, visibleRegions),
       ]);
 
       const [uploadOriginal, uploadRedacted] = await Promise.all([
