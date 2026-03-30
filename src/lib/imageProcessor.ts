@@ -1,4 +1,4 @@
-import { SensitiveRegion } from '@/types';
+import { VisibleRegion } from '@/types';
 
 export interface ProcessedImage {
   blob: Blob;
