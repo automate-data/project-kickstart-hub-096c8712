@@ -467,10 +467,30 @@ export default function ReceivePackage() {
           </Button>
 
           <Card>
-            <CardContent className="p-4">
+            <CardContent className="p-4 space-y-3">
               <div className="aspect-video rounded-lg overflow-hidden bg-muted">
-                <img src={photoPreview!} alt="Encomenda" className="w-full h-full object-contain" />
+                <img
+                  src={showRedactedPreview && redactedPreview ? redactedPreview : photoPreview!}
+                  alt="Encomenda"
+                  className="w-full h-full object-contain"
+                />
               </div>
+              {redactedPreview && (
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground">
+                    {showRedactedPreview ? 'Visualizando imagem enviada ao morador (LGPD)' : 'Foto original'}
+                  </span>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowRedactedPreview(!showRedactedPreview)}
+                    className="text-xs h-7"
+                  >
+                    {showRedactedPreview ? 'Ver original' : 'Ver versão LGPD'}
+                  </Button>
+                </div>
+              )}
             </CardContent>
           </Card>
 
