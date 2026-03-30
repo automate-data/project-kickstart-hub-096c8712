@@ -105,7 +105,7 @@ export async function processImageForWhatsApp(file: File): Promise<ProcessedImag
   return { blob, fileName, width: finalWidth, height: finalHeight, sizeKB: Math.round(blob.size / 1024) };
 }
 
-export async function processImageRedacted(file: File, regions: SensitiveRegion[]): Promise<ProcessedImage> {
+export async function processImageRedacted(file: File, visibleRegions: VisibleRegion[]): Promise<ProcessedImage> {
   const img = await createImageFromFile(file);
   const { width, height } = resizeImage(img);
 
@@ -115,55 +115,69 @@ export async function processImageRedacted(file: File, regions: SensitiveRegion[
   const ctx = canvas.getContext('2d');
   if (!ctx) throw new Error('Could not get canvas context');
 
+  // Draw the original image
   ctx.fillStyle = '#FFFFFF';
   ctx.fillRect(0, 0, width, height);
   ctx.drawImage(img, 0, 0, width, height);
 
-  if (regions && regions.length > 0) {
-    // Draw black redaction bars over sensitive regions
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.92)';
-    const margin = 4; // small safety margin in pixels
+  // Create a blurred version of the full image
+  const blurCanvas = document.createElement('canvas');
+  blurCanvas.width = width;
+  blurCanvas.height = height;
+  const blurCtx = blurCanvas.getContext('2d');
+  if (!blurCtx) throw new Error('Could not get blur canvas context');
 
-    for (const region of regions) {
-      const rx = Math.max(0, (region.x / 1000) * width - margin);
-      const ry = Math.max(0, (region.y / 1000) * height - margin);
-      const rw = Math.min(width - rx, (region.width / 1000) * width + margin * 2);
-      const rh = Math.min(height - ry, (region.height / 1000) * height + margin * 2);
+  // Heavy blur via downscale-upscale
+  const blurFactor = 0.04;
+  const smallW = Math.max(1, Math.round(width * blurFactor));
+  const smallH = Math.max(1, Math.round(height * blurFactor));
+  const tmpCanvas = document.createElement('canvas');
+  tmpCanvas.width = smallW;
+  tmpCanvas.height = smallH;
+  const tmpCtx = tmpCanvas.getContext('2d');
+  if (tmpCtx) {
+    tmpCtx.drawImage(img, 0, 0, smallW, smallH);
+    blurCtx.drawImage(tmpCanvas, 0, 0, width, height);
+  }
+
+  // Apply additional CSS blur if supported
+  try {
+    blurCtx.filter = 'blur(6px)';
+    blurCtx.drawImage(blurCanvas, 0, 0);
+    blurCtx.filter = 'none';
+  } catch {
+    // filter not supported, downscale blur is sufficient
+  }
+
+  // Start with the blurred image as base
+  ctx.drawImage(blurCanvas, 0, 0);
+
+  if (visibleRegions && visibleRegions.length > 0) {
+    // "Cut out" visible regions by drawing the original image only in those areas
+    const margin = 3; // percentage margin for safety
+    for (const region of visibleRegions) {
+      const rx = Math.max(0, ((region.x_pct - margin) / 100) * width);
+      const ry = Math.max(0, ((region.y_pct - margin) / 100) * height);
+      const rw = Math.min(width - rx, ((region.w_pct + margin * 2) / 100) * width);
+      const rh = Math.min(height - ry, ((region.h_pct + margin * 2) / 100) * height);
+
+      // Draw original image clip for this visible region
+      ctx.save();
+      ctx.beginPath();
       const radius = 4;
-
       if (ctx.roundRect) {
-        ctx.beginPath();
         ctx.roundRect(rx, ry, rw, rh, radius);
-        ctx.fill();
       } else {
-        ctx.fillRect(rx, ry, rw, rh);
+        ctx.rect(rx, ry, rw, rh);
       }
+      ctx.clip();
+      ctx.drawImage(img, 0, 0, width, height);
+      ctx.restore();
     }
-
-    console.log(`[ImageProcessor] Redacted ${regions.length} sensitive region(s)`);
+    console.log(`[ImageProcessor] Redacted image with ${visibleRegions.length} visible region(s) preserved`);
   } else {
-    // Fallback: apply blur if no regions provided
-    console.log('[ImageProcessor] No regions provided, applying blur fallback');
-    const blurFactor = 0.08;
-    const smallW = Math.max(1, Math.round(width * blurFactor));
-    const smallH = Math.max(1, Math.round(height * blurFactor));
-
-    const tmpCanvas = document.createElement('canvas');
-    tmpCanvas.width = smallW;
-    tmpCanvas.height = smallH;
-    const tmpCtx = tmpCanvas.getContext('2d');
-    if (tmpCtx) {
-      tmpCtx.drawImage(img, 0, 0, smallW, smallH);
-      ctx.drawImage(tmpCanvas, 0, 0, width, height);
-    }
-
-    try {
-      ctx.filter = 'blur(4px)';
-      ctx.drawImage(canvas, 0, 0);
-      ctx.filter = 'none';
-    } catch {
-      // filter not supported
-    }
+    // Fallback: already fully blurred above
+    console.log('[ImageProcessor] No visible regions provided, full blur applied');
   }
 
   const { blob, finalWidth, finalHeight } = await compressToTarget(canvas, img, width, height);
