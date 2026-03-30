@@ -235,12 +235,7 @@ export default function ReceivePackage() {
 
   };
 
-  const generateRedactedPreview = useCallback(async (file: File) => {
-    try {
-      // Wait a tick so visibleRegions state is set
-      await new Promise(r => setTimeout(r, 100));
-    } catch {}
-  }, []);
+  // Redacted preview is generated via useEffect below
 
   // Effect to generate preview when visibleRegions change
   useEffect(() => {
