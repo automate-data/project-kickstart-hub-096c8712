@@ -458,6 +458,8 @@ export default function ReceivePackage() {
             setTrackingCode('');
             setNotes('');
               setAiSuggestion(null);
+              setRedactedPreview(null);
+              setShowRedactedPreview(false);
             }}
             variant="ghost"
             size="sm"
