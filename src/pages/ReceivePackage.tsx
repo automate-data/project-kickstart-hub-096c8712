@@ -234,6 +234,23 @@ export default function ReceivePackage() {
     }
   };
 
+  const generateRedactedPreview = useCallback(async (file: File) => {
+    try {
+      // Wait a tick so visibleRegions state is set
+      await new Promise(r => setTimeout(r, 100));
+    } catch {}
+  }, []);
+
+  // Effect to generate preview when visibleRegions change
+  useEffect(() => {
+    if (photoFile && visibleRegions.length > 0 && step === 'confirm') {
+      processImageRedacted(photoFile, visibleRegions).then((result) => {
+        const url = URL.createObjectURL(result.blob);
+        setRedactedPreview(url);
+      }).catch(console.error);
+    }
+  }, [visibleRegions, photoFile, step]);
+
   const handleSubmit = async () => {
     if (!photoFile || !user) return;
     setIsSaving(true);
