@@ -1,22 +1,16 @@
 
-## Plano: Custos Fixos por Mensagem no Painel Super Admin
+
+## Plano: Deletar encomendas de teste do Solar dos Pinheiros
 
 ### Contexto
-Os custos de WhatsApp no `/superadmin` são calculados com custo fixo por mensagem, separados por condomínio via `system_logs`.
+Existem 12 encomendas no condomínio "Solar dos Pinheiros" (ID: `df888202-1a6f-4121-956a-1270f04065e2`) que precisam ser removidas antes da apresentação.
 
-### Composição do Custo WhatsApp
-```text
-Twilio (Taxa de saída):       US$ 0,0050
-Meta (WhatsApp Utility - BR): US$ 0,0068
-TOTAL POR MENSAGEM:           US$ 0,0118
-```
+### Alteração
 
-### Custos Fixos
-- WhatsApp: $0.0118/msg (Twilio + Meta)
-- IA (OCR label): $0.0035/chamada
-- Cloud/Infra: $25.00/mês (rateado entre condomínios ativos)
+**1. Migration SQL para deletar os pacotes**
+- Executar `DELETE FROM packages WHERE condominium_id = 'df888202-...'`
+- Também limpar os `system_logs` relacionados a esses pacotes (event_type `package_received`, `package_picked_up`, `whatsapp_sent`) para o mesmo condomínio, mantendo o painel de custos limpo
 
-### Arquitetura
-- Custos calculados no frontend a partir de `system_logs` (event_type + condominium_id)
-- Separação por condomínio automática via `condominium_id` nos logs
-- Sem dependência de APIs externas para cálculo de custos
+### Sem alterações de código
+Apenas limpeza de dados via migration.
+
