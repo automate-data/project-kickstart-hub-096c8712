@@ -232,6 +232,7 @@ export default function ReceivePackage() {
       setIsProcessing(false);
       setStep('confirm');
     }
+
   };
 
   const generateRedactedPreview = useCallback(async (file: File) => {
