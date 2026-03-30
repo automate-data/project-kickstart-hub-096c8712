@@ -64,7 +64,7 @@ FORMATO DE RESPOSTA - Retorne APENAS JSON válido:
   ]
 }`;
 
-const USER_PROMPT = `Analise esta etiqueta de encomenda brasileira de condomínio. IMPORTANTE: Separe BLOCO e APARTAMENTO em campos distintos. Se a etiqueta mostrar "B01", extraia bloco="B" e apartment="01". Preste atenção especial ao nome completo do destinatário. Identifique também as regiões sensíveis (CPF, endereço, telefone, CEP) com bounding boxes normalizados (0-1000).`;
+const USER_PROMPT = `Analise esta etiqueta de encomenda brasileira de condomínio. IMPORTANTE: Separe BLOCO e APARTAMENTO em campos distintos. Se a etiqueta mostrar "B01", extraia bloco="B" e apartment="01". Preste atenção especial ao nome completo do destinatário. Retorne as visible_regions em PORCENTAGEM (0-100) indicando APENAS onde estão o nome do destinatário e o logo/nome da transportadora.`;
 
 function postProcess(suggestion: any): any {
   if (!suggestion) return suggestion;
