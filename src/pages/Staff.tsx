@@ -337,6 +337,9 @@ export default function Staff() {
                     </div>
                     <p className="text-sm text-muted-foreground truncate">Usuário: {member.email?.replace('@cond.internal', '') || '—'}</p>
                     <p className="text-sm text-muted-foreground truncate">RG: {member.rg || '—'}</p>
+                    {member.role === 'tower_doorman' && member.tower_name && (
+                      <p className="text-xs text-amber-600 truncate">Torre: {member.tower_name}</p>
+                    )}
                   </div>
                   <div className="flex gap-1">
                     <Button variant="ghost" size="icon" onClick={() => handleEditStaff(member)} title="Editar">
