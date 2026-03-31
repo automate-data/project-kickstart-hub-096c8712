@@ -25,13 +25,30 @@ export default function Dashboard() {
       return;
     }
 
-    const { data } = await supabase
+    let query = supabase
       .from('packages')
       .select(`*, resident:residents(*)`)
       .eq('status', 'pending')
       .eq('condominium_id', condominium.id)
       .order('received_at', { ascending: false })
       .limit(10);
+
+    // In multi_custody mode, only show packages at central location
+    if (condominium.custody_mode === 'multi_custody') {
+      const { data: central } = await supabase
+        .from('locations')
+        .select('id')
+        .eq('condominium_id', condominium.id)
+        .eq('type', 'central')
+        .limit(1)
+        .single();
+
+      if (central) {
+        query = query.eq('current_location_id', central.id);
+      }
+    }
+
+    const { data } = await query;
     if (data) setPendingPackages(data as unknown as PackageType[]);
     setIsLoading(false);
   };
