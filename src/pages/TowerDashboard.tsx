@@ -147,6 +147,7 @@ export default function TowerDashboard() {
       const alloc = lockerAllocations.get(p.id);
       return {
         ...p,
+        ai_suggestion: p.ai_suggestion as any,
         resident: p.resident || undefined,
         status: p.status as 'pending' | 'picked_up',
         locker_reference: alloc?.reference || null,
