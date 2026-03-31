@@ -20,6 +20,7 @@ import ChangePassword from "./pages/ChangePassword";
 import Reports from "./pages/Reports";
 import AdvancedSettings from "./pages/AdvancedSettings";
 import SuperAdmin from "./pages/SuperAdmin";
+import TowerDashboard from "./pages/TowerDashboard";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
