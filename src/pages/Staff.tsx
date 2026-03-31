@@ -282,8 +282,23 @@ export default function Staff() {
                   <SelectContent>
                     <SelectItem value="doorman">Porteiro</SelectItem>
                     <SelectItem value="admin">Administrador</SelectItem>
+                    <SelectItem value="tower_doorman">Porteiro de Torre</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+              {role === 'tower_doorman' && (
+              <div className="space-y-2">
+                <Label htmlFor="locationId">Torre vinculada</Label>
+                <Select value={locationId || ''} onValueChange={(v) => setLocationId(v)}>
+                  <SelectTrigger><SelectValue placeholder="Selecione a torre" /></SelectTrigger>
+                  <SelectContent>
+                    {towers.map((t) => (
+                      <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              )
               </div>
               <Button type="submit" className="w-full" disabled={isSaving}>
                 {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Adicionar membro'}
