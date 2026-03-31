@@ -337,8 +337,8 @@ export default function TowerDashboard() {
                               variant="outline"
                               className="gap-1.5"
                               onClick={() => {
-                                // LockerDialog will be created in Prompt 4
-                                toast.info('Funcionalidade de armário em breve');
+                                setLockerPkg(pkg);
+                                setLockerOpen(true);
                               }}
                             >
                               <LocateFixed className="w-3.5 h-3.5" />
