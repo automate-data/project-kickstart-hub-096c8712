@@ -280,10 +280,11 @@ export default function Staff() {
                 <Label htmlFor="role">Papel</Label>
                 <Select value={role} onValueChange={(v) => setRole(v as AppRole)}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
+                   <SelectContent>
                     <SelectItem value="doorman">Porteiro</SelectItem>
                     <SelectItem value="admin">Administrador</SelectItem>
                     <SelectItem value="tower_doorman">Porteiro de Torre</SelectItem>
+                    <SelectItem value="tower_admin">Administrador de Bloco</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
