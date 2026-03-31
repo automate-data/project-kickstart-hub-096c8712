@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useCondominium } from '@/hooks/useCondominium';
 import { Button } from '@/components/ui/button';
-import { Package, Users, UserCog, ClipboardList, LogOut, Menu, X, Building2, BarChart2, Settings2 } from 'lucide-react';
+import { Package, Users, UserCog, ClipboardList, LogOut, Menu, X, Building2, BarChart2, Settings2, Home } from 'lucide-react';
 import { useState } from 'react';
 
 interface AppLayoutProps {
