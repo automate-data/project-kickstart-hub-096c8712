@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { Profile, AppRole } from '@/types';
+import { Profile, AppRole, Location } from '@/types';
 import { useCondominium } from '@/hooks/useCondominium';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -24,6 +24,8 @@ import { useAuth } from '@/hooks/useAuth';
 interface StaffMember extends Profile {
   role?: AppRole;
   role_id?: string;
+  location_id?: string | null;
+  tower_name?: string;
 }
 
 export default function Staff() {
@@ -46,6 +48,8 @@ export default function Staff() {
   const [username, setUsername] = useState('');
   const [rg, setRg] = useState('');
   const [role, setRole] = useState<AppRole>('doorman');
+  const [locationId, setLocationId] = useState<string | null>(null);
+  const [towers, setTowers] = useState<Location[]>([]);
   const [tempPassword, setTempPassword] = useState('');
 
   const [editFullName, setEditFullName] = useState('');
@@ -53,7 +57,17 @@ export default function Staff() {
   const [editRg, setEditRg] = useState('');
   const [editRole, setEditRole] = useState<AppRole>('doorman');
 
-  useEffect(() => { fetchStaff(); }, [condominium?.id]);
+  useEffect(() => { fetchStaff(); fetchTowers(); }, [condominium?.id]);
+
+  const fetchTowers = async () => {
+    if (!condominium) { setTowers([]); return; }
+    const { data } = await supabase
+      .from('locations')
+      .select('*')
+      .eq('condominium_id', condominium.id)
+      .eq('type', 'tower');
+    setTowers((data as unknown as Location[]) || []);
+  };
 
   const fetchStaff = async () => {
     if (!condominium) {
@@ -70,15 +84,27 @@ export default function Staff() {
 
     if (rolesData && rolesData.length > 0) {
       const userIds = rolesData.map(r => r.user_id);
-      const { data: profilesData } = await supabase.from('profiles').select('*').in('id', userIds);
+      const locationIds = rolesData.map(r => (r as any).location_id).filter(Boolean);
+
+      const [{ data: profilesData }, locationsResult] = await Promise.all([
+        supabase.from('profiles').select('*').in('id', userIds),
+        locationIds.length > 0
+          ? supabase.from('locations').select('*').in('id', locationIds)
+          : Promise.resolve({ data: [] }),
+      ]);
+
+      const locationsMap = new Map((locationsResult.data || []).map((l: any) => [l.id, l.name]));
 
       if (profilesData) {
         const staffWithRoles = profilesData.map(profile => {
           const roleEntry = rolesData.find(r => r.user_id === profile.id);
+          const locId = (roleEntry as any)?.location_id;
           return {
             ...profile,
             role: roleEntry?.role as AppRole,
             role_id: roleEntry?.id,
+            location_id: locId || null,
+            tower_name: locId ? (locationsMap.get(locId) || '') : undefined,
           };
         });
         setStaff(staffWithRoles);
@@ -95,7 +121,7 @@ export default function Staff() {
 
     try {
       const { data, error } = await supabase.functions.invoke('invite-staff', {
-        body: { role, full_name: fullName, username, rg, condominium_id: condominium?.id },
+        body: { role, full_name: fullName, username, rg, condominium_id: condominium?.id, location_id: role === 'tower_doorman' ? locationId : null },
       });
 
       if (error) throw error;
@@ -121,6 +147,7 @@ export default function Staff() {
       setUsername('');
       setRg('');
       setRole('doorman');
+      setLocationId(null);
       fetchStaff();
     } catch (error) {
       console.error(error);
@@ -217,6 +244,7 @@ export default function Staff() {
     switch (role) {
       case 'admin': return <Badge variant="default">Administrador</Badge>;
       case 'doorman': return <Badge variant="secondary">Porteiro</Badge>;
+      case 'tower_doorman': return <Badge className="bg-amber-500/15 text-amber-700 border-amber-300">Porteiro de Torre</Badge>;
     }
   };
 
@@ -254,9 +282,23 @@ export default function Staff() {
                   <SelectContent>
                     <SelectItem value="doorman">Porteiro</SelectItem>
                     <SelectItem value="admin">Administrador</SelectItem>
+                    <SelectItem value="tower_doorman">Porteiro de Torre</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
+              {role === 'tower_doorman' && (
+              <div className="space-y-2">
+                <Label htmlFor="locationId">Torre vinculada</Label>
+                <Select value={locationId || ''} onValueChange={(v) => setLocationId(v)}>
+                  <SelectTrigger><SelectValue placeholder="Selecione a torre" /></SelectTrigger>
+                  <SelectContent>
+                    {towers.map((t) => (
+                      <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              )}
               <Button type="submit" className="w-full" disabled={isSaving}>
                 {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Adicionar membro'}
               </Button>
@@ -294,6 +336,9 @@ export default function Staff() {
                     </div>
                     <p className="text-sm text-muted-foreground truncate">Usuário: {member.email?.replace('@cond.internal', '') || '—'}</p>
                     <p className="text-sm text-muted-foreground truncate">RG: {member.rg || '—'}</p>
+                    {member.role === 'tower_doorman' && member.tower_name && (
+                      <p className="text-xs text-amber-600 truncate">Torre: {member.tower_name}</p>
+                    )}
                   </div>
                   <div className="flex gap-1">
                     <Button variant="ghost" size="icon" onClick={() => handleEditStaff(member)} title="Editar">
@@ -359,6 +404,7 @@ export default function Staff() {
                 <SelectContent>
                   <SelectItem value="doorman">Porteiro</SelectItem>
                   <SelectItem value="admin">Administrador</SelectItem>
+                  <SelectItem value="tower_doorman">Porteiro de Torre</SelectItem>
                 </SelectContent>
               </Select>
             </div>
