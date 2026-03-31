@@ -167,12 +167,14 @@ export default function TowerDashboard() {
   const handlePickup = async (signatureData: string) => {
     if (!pickupPkg || !user) return;
 
+    const pickedUpAt = new Date().toISOString();
+
     const { error } = await supabase
       .from('packages')
       .update({
         status: 'picked_up',
-        picked_up_at: new Date().toISOString(),
-        picked_up_by: user.user_metadata?.full_name || user.email || 'Porteiro Torre',
+        picked_up_at: pickedUpAt,
+        picked_up_by: pickupPkg.resident?.full_name || 'Morador',
         signature_data: signatureData,
       })
       .eq('id', pickupPkg.id);
@@ -180,6 +182,32 @@ export default function TowerDashboard() {
     if (error) {
       toast.error('Erro ao registrar retirada');
       throw error;
+    }
+
+    // Send WhatsApp pickup confirmation
+    if (pickupPkg.resident?.phone) {
+      try {
+        const { data: confirmResult, error: confirmError } = await supabase.functions.invoke('send-pickup-confirmation', {
+          body: {
+            phone: pickupPkg.resident.phone,
+            resident_name: pickupPkg.resident.full_name,
+            picked_up_at: pickedUpAt,
+            package_id: pickupPkg.id,
+            condominium_id: condominium?.id,
+          },
+        });
+
+        if (confirmError || confirmResult?.error) {
+          throw new Error(confirmError?.message || confirmResult?.error || 'Unknown error');
+        }
+
+        await supabase
+          .from('packages')
+          .update({ pickup_confirmation_sent: confirmResult?.success || false })
+          .eq('id', pickupPkg.id);
+      } catch (e: any) {
+        console.error('[TowerDashboard] WhatsApp pickup confirmation failed:', e);
+      }
     }
 
     toast.success('Retirada registrada com sucesso!');
