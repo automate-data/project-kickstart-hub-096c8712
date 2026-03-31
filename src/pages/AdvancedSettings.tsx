@@ -64,6 +64,18 @@ export default function AdvancedSettings() {
     fetchLocations();
   }, [condominium?.id, custodyMode]);
 
+  if (user?.email !== 'contato@automatedata.com.br') {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
+        <div className="text-center space-y-4">
+          <h1 className="text-2xl font-bold">Acesso não autorizado</h1>
+          <p className="text-muted-foreground">Você não tem permissão para acessar esta página.</p>
+          <Button onClick={() => navigate('/')}>Voltar ao início</Button>
+        </div>
+      </div>
+    );
+  }
+
   const fetchLocations = async () => {
     if (!condominium?.id) return;
     setLoadingLocations(true);
