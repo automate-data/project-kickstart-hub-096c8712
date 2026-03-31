@@ -117,6 +117,16 @@ function AppRoutes() {
         }
       />
       <Route
+        path="/advanced-settings"
+        element={
+          <ProtectedRoute requiredRole="admin">
+            {shouldRedirectToSetup ? <Navigate to="/setup" replace /> : (
+              <AppLayout><AdvancedSettings /></AppLayout>
+            )}
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/superadmin"
         element={
           <ProtectedRoute requiredRole="superadmin">

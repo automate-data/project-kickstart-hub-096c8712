@@ -27,6 +27,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
     { path: '/residents', label: 'Moradores', icon: Users, show: isAdmin },
     { path: '/staff', label: 'Equipe', icon: UserCog, show: isAdmin },
     { path: '/reports', label: 'Relatórios', icon: BarChart2, show: isAdmin },
+    { path: '/advanced-settings', label: 'Configurações Avançadas', icon: Settings2, show: isAdmin },
     { path: '/superadmin', label: 'Super Admin', icon: BarChart2, show: isSuperAdmin, highlight: true },
   ].filter(item => item.show);
 
