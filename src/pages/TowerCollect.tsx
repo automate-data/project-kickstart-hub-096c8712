@@ -31,6 +31,7 @@ interface CentralPackage {
   photo_url: string;
   carrier: string | null;
   created_at: string;
+  resident_id: string | null;
   resident?: {
     full_name: string;
     block: string;
