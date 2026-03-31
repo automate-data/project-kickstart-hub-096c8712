@@ -11,3 +11,6 @@ verify_jwt = false
 
 [functions.package-photo-redirect]
 verify_jwt = false
+
+[functions.send-locker-notification]
+verify_jwt = false
