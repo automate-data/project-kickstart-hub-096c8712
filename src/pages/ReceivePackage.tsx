@@ -305,6 +305,7 @@ export default function ReceivePackage() {
           notes: notes || null,
           received_by: user.id,
           condominium_id: condominium?.id || null,
+          current_location_id: centralLocationId,
         }]);
 
       if (insertError) throw insertError;
