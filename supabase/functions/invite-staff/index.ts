@@ -112,7 +112,7 @@ Deno.serve(async (req) => {
     if (deletedRole) {
       const { error: reactivateError } = await adminClient
         .from('user_roles')
-        .update({ role, deleted_at: null })
+        .update({ role, deleted_at: null, location_id: resolvedLocationId })
         .eq('id', deletedRole.id)
       if (reactivateError) throw reactivateError
     } else {
