@@ -33,11 +33,13 @@ async function fetchPackagesPage({
   condominiumId,
   status,
   search,
+  centralLocationId,
   pageParam = 0,
 }: {
   condominiumId: string;
   status: string;
   search: string;
+  centralLocationId?: string | null;
   pageParam?: number;
 }) {
   const from = pageParam * PAGE_SIZE;
@@ -51,9 +53,11 @@ async function fetchPackagesPage({
     .order('received_at', { ascending: false })
     .range(from, to);
 
-  // Server-side search not possible with ilike on joined fields,
-  // so we fetch the page and let client filter. For search we
-  // fetch a larger window to compensate.
+  // In multi_custody mode, only show packages at central location for pending
+  if (centralLocationId && status === 'pending') {
+    query = query.eq('current_location_id', centralLocationId);
+  }
+
   const { data, count, error } = await query;
 
   if (error) throw error;
