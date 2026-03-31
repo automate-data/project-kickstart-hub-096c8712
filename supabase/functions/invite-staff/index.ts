@@ -45,7 +45,8 @@ Deno.serve(async (req) => {
       })
     }
 
-    const { role, full_name, rg, username, condominium_id } = await req.json()
+    const { role, full_name, rg, username, condominium_id, location_id } = await req.json()
+    const resolvedLocationId = (role === 'tower_doorman' && location_id) ? location_id : null
 
     if (!full_name || !role || !condominium_id || !username) {
       return new Response(JSON.stringify({ error: 'Name, username, role and condominium are required' }), {
@@ -111,13 +112,13 @@ Deno.serve(async (req) => {
     if (deletedRole) {
       const { error: reactivateError } = await adminClient
         .from('user_roles')
-        .update({ role, deleted_at: null })
+        .update({ role, deleted_at: null, location_id: resolvedLocationId })
         .eq('id', deletedRole.id)
       if (reactivateError) throw reactivateError
     } else {
       const { error: roleError } = await adminClient
         .from('user_roles')
-        .insert({ user_id: userId, role, condominium_id })
+        .insert({ user_id: userId, role, condominium_id, location_id: resolvedLocationId })
       if (roleError) throw roleError
     }
 
