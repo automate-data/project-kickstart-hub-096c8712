@@ -48,6 +48,8 @@ export default function Staff() {
   const [username, setUsername] = useState('');
   const [rg, setRg] = useState('');
   const [role, setRole] = useState<AppRole>('doorman');
+  const [locationId, setLocationId] = useState<string | null>(null);
+  const [towers, setTowers] = useState<Location[]>([]);
   const [tempPassword, setTempPassword] = useState('');
 
   const [editFullName, setEditFullName] = useState('');
