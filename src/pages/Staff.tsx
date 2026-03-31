@@ -341,6 +341,9 @@ export default function Staff() {
                     {member.role === 'tower_doorman' && member.tower_name && (
                       <p className="text-xs text-amber-600 truncate">Torre: {member.tower_name}</p>
                     )}
+                    {member.role === 'tower_admin' && member.tower_name && (
+                      <p className="text-xs text-purple-600 truncate">Bloco: {member.tower_name}</p>
+                    )}
                   </div>
                   <div className="flex gap-1">
                     <Button variant="ghost" size="icon" onClick={() => handleEditStaff(member)} title="Editar">
