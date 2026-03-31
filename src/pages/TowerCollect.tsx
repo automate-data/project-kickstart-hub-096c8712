@@ -99,7 +99,7 @@ export default function TowerCollect() {
 
     const { data, error } = await supabase
       .from('packages')
-      .select('id, photo_url, carrier, created_at, resident:residents(full_name, block, apartment)')
+      .select('id, photo_url, carrier, created_at, resident_id, resident:residents(full_name, block, apartment)')
       .eq('current_location_id', centralLocationId)
       .eq('status', 'pending')
       .order('created_at', { ascending: true });
