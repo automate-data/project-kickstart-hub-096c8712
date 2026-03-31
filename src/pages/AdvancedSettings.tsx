@@ -33,18 +33,6 @@ export default function AdvancedSettings() {
   const { user } = useAuth();
   const navigate = useNavigate();
 
-  if (user?.email !== 'contato@automatedata.com.br') {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background p-4">
-        <div className="text-center space-y-4">
-          <h1 className="text-2xl font-bold">Acesso não autorizado</h1>
-          <p className="text-muted-foreground">Você não tem permissão para acessar esta página.</p>
-          <Button onClick={() => navigate('/')}>Voltar ao início</Button>
-        </div>
-      </div>
-    );
-  }
-
   const [custodyMode, setCustodyMode] = useState<CustodyMode>('simple');
   const [locations, setLocations] = useState<Location[]>([]);
   const [loadingMode, setLoadingMode] = useState(true);
