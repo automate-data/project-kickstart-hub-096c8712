@@ -21,6 +21,7 @@ import Reports from "./pages/Reports";
 import AdvancedSettings from "./pages/AdvancedSettings";
 import SuperAdmin from "./pages/SuperAdmin";
 import TowerDashboard from "./pages/TowerDashboard";
+import TowerCollect from "./pages/TowerCollect";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
