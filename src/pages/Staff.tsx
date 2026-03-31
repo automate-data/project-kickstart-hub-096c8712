@@ -245,6 +245,7 @@ export default function Staff() {
       case 'admin': return <Badge variant="default">Administrador</Badge>;
       case 'doorman': return <Badge variant="secondary">Porteiro</Badge>;
       case 'tower_doorman': return <Badge className="bg-amber-500/15 text-amber-700 border-amber-300">Porteiro de Torre</Badge>;
+      case 'tower_admin': return <Badge className="bg-purple-500/15 text-purple-700 border-purple-300">Admin de Bloco</Badge>;
     }
   };
 
