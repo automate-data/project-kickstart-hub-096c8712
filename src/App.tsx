@@ -18,6 +18,7 @@ import SelectCondominium from "./pages/SelectCondominium";
 import ResetPassword from "./pages/ResetPassword";
 import ChangePassword from "./pages/ChangePassword";
 import Reports from "./pages/Reports";
+import AdvancedSettings from "./pages/AdvancedSettings";
 import SuperAdmin from "./pages/SuperAdmin";
 import NotFound from "./pages/NotFound";
 
