@@ -66,7 +66,8 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             {shouldRedirectToSetup ? <Navigate to="/setup" replace /> : 
-             shouldRedirectToTower ? <Navigate to="/tower-dashboard" replace /> : (
+             shouldRedirectToTower ? <Navigate to="/tower-dashboard" replace /> :
+             shouldRedirectToTowerAdmin ? <Navigate to="/tower-admin-dashboard" replace /> : (
               <AppLayout><Dashboard /></AppLayout>
             )}
           </ProtectedRoute>
