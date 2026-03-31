@@ -45,7 +45,8 @@ Deno.serve(async (req) => {
       })
     }
 
-    const { role, full_name, rg, username, condominium_id } = await req.json()
+    const { role, full_name, rg, username, condominium_id, location_id } = await req.json()
+    const resolvedLocationId = (role === 'tower_doorman' && location_id) ? location_id : null
 
     if (!full_name || !role || !condominium_id || !username) {
       return new Response(JSON.stringify({ error: 'Name, username, role and condominium are required' }), {
