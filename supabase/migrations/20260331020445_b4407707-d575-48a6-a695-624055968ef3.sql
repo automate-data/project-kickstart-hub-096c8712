@@ -1,0 +1,1 @@
+UPDATE user_roles SET deleted_at = NULL WHERE id = '8ed1f3e3-06e9-4751-9f57-526e5032cd6e';
