@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useCondominium } from '@/hooks/useCondominium';
 import { Button } from '@/components/ui/button';
-import { Package, Users, UserCog, ClipboardList, LogOut, Menu, X, Building2, BarChart2 } from 'lucide-react';
+import { Package, Users, UserCog, ClipboardList, LogOut, Menu, X, Building2, BarChart2, Settings2 } from 'lucide-react';
 import { useState } from 'react';
 
 interface AppLayoutProps {
@@ -27,6 +27,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
     { path: '/residents', label: 'Moradores', icon: Users, show: isAdmin },
     { path: '/staff', label: 'Equipe', icon: UserCog, show: isAdmin },
     { path: '/reports', label: 'Relatórios', icon: BarChart2, show: isAdmin },
+    { path: '/advanced-settings', label: 'Configurações Avançadas', icon: Settings2, show: isAdmin },
     { path: '/superadmin', label: 'Super Admin', icon: BarChart2, show: isSuperAdmin, highlight: true },
   ].filter(item => item.show);
 
