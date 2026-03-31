@@ -288,7 +288,7 @@ export default function Staff() {
                   </SelectContent>
                 </Select>
               </div>
-              {role === 'tower_doorman' && (
+              {(role === 'tower_doorman' || role === 'tower_admin') && (
               <div className="space-y-2">
                 <Label htmlFor="locationId">Torre vinculada</Label>
                 <Select value={locationId || ''} onValueChange={(v) => setLocationId(v)}>
