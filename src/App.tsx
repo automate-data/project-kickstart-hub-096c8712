@@ -90,6 +90,14 @@ function AppRoutes() {
         }
       />
       <Route
+        path="/tower-admin-dashboard"
+        element={
+          <ProtectedRoute>
+            <TowerAdminDashboard />
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/receive"
         element={
           <ProtectedRoute>
