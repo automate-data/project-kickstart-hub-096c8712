@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { Profile, AppRole } from '@/types';
+import { Profile, AppRole, Location } from '@/types';
 import { useCondominium } from '@/hooks/useCondominium';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
