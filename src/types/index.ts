@@ -117,3 +117,20 @@ export interface Location {
 export interface LocationWithChildren extends Location {
   children: LocationWithChildren[];
 }
+
+// ─── Phase 2: Multi-Custody Roles & Events ───────────────────────────────────
+
+export interface PackageEvent {
+  id: string;
+  package_id: string;
+  from_location_id: string | null;
+  to_location_id: string | null;
+  transferred_by: string | null;
+  signature_data: string | null;
+  notes: string | null;
+  created_at: string;
+  // Joined
+  from_location?: Location;
+  to_location?: Location;
+  transferred_by_profile?: { full_name: string };
+}
