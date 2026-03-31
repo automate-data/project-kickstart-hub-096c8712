@@ -298,8 +298,7 @@ export default function Staff() {
                   </SelectContent>
                 </Select>
               </div>
-              )
-              </div>
+              )}
               <Button type="submit" className="w-full" disabled={isSaving}>
                 {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Adicionar membro'}
               </Button>
