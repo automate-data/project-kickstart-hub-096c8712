@@ -33,11 +33,13 @@ async function fetchPackagesPage({
   condominiumId,
   status,
   search,
+  centralLocationId,
   pageParam = 0,
 }: {
   condominiumId: string;
   status: string;
   search: string;
+  centralLocationId?: string | null;
   pageParam?: number;
 }) {
   const from = pageParam * PAGE_SIZE;
@@ -51,9 +53,11 @@ async function fetchPackagesPage({
     .order('received_at', { ascending: false })
     .range(from, to);
 
-  // Server-side search not possible with ilike on joined fields,
-  // so we fetch the page and let client filter. For search we
-  // fetch a larger window to compensate.
+  // In multi_custody mode, only show packages at central location for pending
+  if (centralLocationId && status === 'pending') {
+    query = query.eq('current_location_id', centralLocationId);
+  }
+
   const { data, count, error } = await query;
 
   if (error) throw error;
@@ -76,10 +80,29 @@ export default function Packages() {
   const [searchTerm, setSearchTerm] = useState('');
   const [pendingCount, setPendingCount] = useState(0);
   const [pickedUpTodayCount, setPickedUpTodayCount] = useState(0);
+  const [centralLocationId, setCentralLocationId] = useState<string | null>(null);
+
+  // Fetch central location for multi_custody mode
+  useEffect(() => {
+    if (!condominium?.id || condominium.custody_mode !== 'multi_custody') {
+      setCentralLocationId(null);
+      return;
+    }
+    (async () => {
+      const { data: central } = await supabase
+        .from('locations')
+        .select('id')
+        .eq('condominium_id', condominium.id)
+        .eq('type', 'central')
+        .limit(1)
+        .single();
+      setCentralLocationId(central?.id || null);
+    })();
+  }, [condominium?.id, condominium?.custody_mode]);
 
   useEffect(() => {
     fetchCounts();
-  }, [condominium?.id]);
+  }, [condominium?.id, centralLocationId]);
 
   const fetchCounts = async () => {
     if (!condominium?.id) {
@@ -88,12 +111,18 @@ export default function Packages() {
       return;
     }
 
+    let pendingQuery = supabase
+      .from('packages')
+      .select('id', { count: 'exact', head: true })
+      .eq('status', 'pending')
+      .eq('condominium_id', condominium.id);
+
+    if (centralLocationId) {
+      pendingQuery = pendingQuery.eq('current_location_id', centralLocationId);
+    }
+
     const [pendingRes, pickedUpRes] = await Promise.all([
-      supabase
-        .from('packages')
-        .select('id', { count: 'exact', head: true })
-        .eq('status', 'pending')
-        .eq('condominium_id', condominium.id),
+      pendingQuery,
       supabase
         .from('packages')
         .select('id', { count: 'exact', head: true })
@@ -113,12 +142,13 @@ export default function Packages() {
     isFetchingNextPage,
     isLoading,
   } = useInfiniteQuery({
-    queryKey: ['packages', condominium?.id, filter],
+    queryKey: ['packages', condominium?.id, filter, centralLocationId],
     queryFn: ({ pageParam }) =>
       fetchPackagesPage({
         condominiumId: condominium!.id,
         status: filter,
         search: searchTerm,
+        centralLocationId,
         pageParam: pageParam as number,
       }),
     initialPageParam: 0,

@@ -18,6 +18,7 @@ export interface Condominium {
   groups: string[];
   setup_completed: boolean;
   admin_user_id: string;
+  custody_mode: string;
   created_at: string;
   updated_at: string;
 }
