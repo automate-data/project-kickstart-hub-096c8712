@@ -79,6 +79,14 @@ function AppRoutes() {
         }
       />
       <Route
+        path="/tower-collect"
+        element={
+          <ProtectedRoute>
+            <TowerCollect />
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/receive"
         element={
           <ProtectedRoute>
