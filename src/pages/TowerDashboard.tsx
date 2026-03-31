@@ -219,6 +219,71 @@ export default function TowerDashboard() {
     fetchPackages();
   };
 
+  // Handle locker allocation
+  const handleLockerConfirm = async (lockerReference: string, sendWhatsApp: boolean) => {
+    if (!lockerPkg || !user || !towerLocationId) return;
+
+    // Find the locker location under this tower
+    const { data: lockerLocs } = await supabase
+      .from('locations')
+      .select('id')
+      .eq('parent_id', towerLocationId)
+      .eq('type', 'locker')
+      .limit(1);
+
+    const lockerId = lockerLocs?.[0]?.id || null;
+
+    // Insert package_event
+    const { error: eventErr } = await supabase.from('package_events').insert({
+      package_id: lockerPkg.id,
+      from_location_id: towerLocationId,
+      to_location_id: lockerId,
+      transferred_by: user.id,
+      notes: `locker_reference:${lockerReference}`,
+    });
+
+    if (eventErr) {
+      toast.error('Erro ao registrar alocação no armário');
+      throw eventErr;
+    }
+
+    // Send WhatsApp notification if enabled
+    if (sendWhatsApp && lockerPkg.resident?.phone && lockerPkg.resident?.whatsapp_enabled) {
+      try {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('full_name')
+          .eq('id', user.id)
+          .single();
+
+        const now = new Date();
+        const datetime = now.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
+
+        const { data: result, error: fnErr } = await supabase.functions.invoke('send-locker-notification', {
+          body: {
+            resident_phone: lockerPkg.resident.phone,
+            resident_name: lockerPkg.resident.full_name,
+            tower_name: towerName,
+            locker_reference: lockerReference,
+            registered_by: profile?.full_name || 'Portaria',
+            datetime,
+          },
+        });
+
+        if (fnErr || result?.error) {
+          console.error('[TowerDashboard] Locker WhatsApp failed:', fnErr?.message || result?.error);
+        }
+      } catch (e: any) {
+        console.error('[TowerDashboard] Locker WhatsApp error:', e);
+      }
+    }
+
+    toast.success(`Encomenda alocada no armário ${lockerReference}`);
+    setLockerOpen(false);
+    setLockerPkg(null);
+    fetchPackages();
+  };
+
   return (
     <AppLayout>
       <div className="space-y-6">

@@ -59,7 +59,7 @@ serve(async (req) => {
     const body = new URLSearchParams({
       To: toNumber,
       From: fromNumber,
-      ContentSid: "HXlocker_placeholder",
+      ContentSid: "HXc204f9f00578f2992b04646e8482f2bd",
       ContentVariables: contentVariables,
     });
 
