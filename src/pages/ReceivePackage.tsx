@@ -54,6 +54,7 @@ export default function ReceivePackage() {
   const [visibleRegions, setVisibleRegions] = useState<VisibleRegion[]>([]);
   const [redactedPreview, setRedactedPreview] = useState<string | null>(null);
   const [showRedactedPreview, setShowRedactedPreview] = useState(false);
+  const [centralLocationId, setCentralLocationId] = useState<string | null>(null);
 
   useEffect(() => {
     return () => {
@@ -62,6 +63,20 @@ export default function ReceivePackage() {
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (condominium?.id && condominium?.custody_mode === 'multi_custody') {
+      supabase
+        .from('locations')
+        .select('id')
+        .eq('condominium_id', condominium.id)
+        .eq('type', 'central')
+        .single()
+        .then(({ data }) => {
+          if (data) setCentralLocationId(data.id);
+        });
+    }
+  }, [condominium?.id, condominium?.custody_mode]);
 
   const fetchResidents = useCallback(async (): Promise<Resident[]> => {
     if (!condominium?.id) {
@@ -290,6 +305,7 @@ export default function ReceivePackage() {
           notes: notes || null,
           received_by: user.id,
           condominium_id: condominium?.id || null,
+          current_location_id: centralLocationId,
         }]);
 
       if (insertError) throw insertError;
