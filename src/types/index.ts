@@ -95,3 +95,25 @@ export interface AISuggestion {
   logistics_origin?: string;
   confidence?: number;
 }
+
+// ─── Multi-Custody Mode (Advanced) ───────────────────────────────────────────
+
+export type CustodyMode = 'simple' | 'multi_custody';
+
+export type LocationType = 'central' | 'tower' | 'locker';
+
+export interface Location {
+  id: string;
+  condominium_id: string;
+  type: LocationType;
+  name: string;
+  parent_id: string | null;
+  position: number;
+  created_at: string;
+  updated_at: string;
+}
+
+// Location with nested children (for tree rendering)
+export interface LocationWithChildren extends Location {
+  children: LocationWithChildren[];
+}
