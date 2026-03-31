@@ -252,6 +252,7 @@ export type Database = {
           city: string | null
           cnpj: string | null
           created_at: string
+          custody_mode: string
           email: string | null
           group_label: string
           groups: Json
@@ -271,6 +272,7 @@ export type Database = {
           city?: string | null
           cnpj?: string | null
           created_at?: string
+          custody_mode?: string
           email?: string | null
           group_label?: string
           groups?: Json
@@ -290,6 +292,7 @@ export type Database = {
           city?: string | null
           cnpj?: string | null
           created_at?: string
+          custody_mode?: string
           email?: string | null
           group_label?: string
           groups?: Json
@@ -346,6 +349,61 @@ export type Database = {
           whatsapp_token?: string | null
         }
         Relationships: []
+      }
+      locations: {
+        Row: {
+          condominium_id: string
+          created_at: string | null
+          id: string
+          name: string
+          parent_id: string | null
+          position: number | null
+          type: string
+          updated_at: string | null
+        }
+        Insert: {
+          condominium_id: string
+          created_at?: string | null
+          id?: string
+          name: string
+          parent_id?: string | null
+          position?: number | null
+          type: string
+          updated_at?: string | null
+        }
+        Update: {
+          condominium_id?: string
+          created_at?: string | null
+          id?: string
+          name?: string
+          parent_id?: string | null
+          position?: number | null
+          type?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "locations_condominium_id_fkey"
+            columns: ["condominium_id"]
+            isOneToOne: false
+            referencedRelation: "condominium_stats"
+            referencedColumns: ["condominium_id"]
+          },
+          {
+            foreignKeyName: "locations_condominium_id_fkey"
+            columns: ["condominium_id"]
+            isOneToOne: false
+            referencedRelation: "condominiums"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "locations_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       packages: {
         Row: {
