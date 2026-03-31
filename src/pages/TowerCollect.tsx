@@ -169,20 +169,28 @@ export default function TowerCollect() {
 
       if (evErr) throw evErr;
 
-      // Send WhatsApp notification to each resident
+      // Send WhatsApp notification to each resident with a phone
       const selectedPkgs = packages.filter(p => ids.includes(p.id));
       for (const pkg of selectedPkgs) {
-        if (pkg.resident?.full_name) {
+        if (pkg.resident_id) {
           try {
-            await supabase.functions.invoke('send-transfer-notification', {
-              body: {
-                resident_phone: '', // will be fetched below
-                resident_name: pkg.resident.full_name,
-                tower_name: towerName,
-              },
-            });
+            const { data: residentData } = await supabase
+              .from('residents')
+              .select('phone, full_name, whatsapp_enabled')
+              .eq('id', pkg.resident_id)
+              .single();
+
+            if (residentData?.phone && residentData.whatsapp_enabled) {
+              await supabase.functions.invoke('send-transfer-notification', {
+                body: {
+                  resident_phone: residentData.phone,
+                  resident_name: residentData.full_name,
+                  tower_name: towerName,
+                },
+              });
+            }
           } catch (notifErr) {
-            console.error('Transfer notification error for', pkg.resident.full_name, notifErr);
+            console.error('Transfer notification error:', notifErr);
           }
         }
       }
