@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useCondominium } from '@/hooks/useCondominium';
 import { Button } from '@/components/ui/button';
-import { Package, Users, UserCog, ClipboardList, LogOut, Menu, X, Building2, BarChart2, Settings2 } from 'lucide-react';
+import { Package, Users, UserCog, ClipboardList, LogOut, Menu, X, Building2, BarChart2, Settings2, Home } from 'lucide-react';
 import { useState } from 'react';
 
 interface AppLayoutProps {
@@ -20,16 +20,22 @@ export default function AppLayout({ children }: AppLayoutProps) {
 
   const isAdmin = role === 'admin' || role === 'superadmin';
   const isSuperAdmin = role === 'superadmin';
+  const isTowerDoorman = role === 'tower_doorman';
 
-  const navItems = [
-    { path: '/', label: 'Receber', icon: Package, show: true },
-    { path: '/packages', label: 'Encomendas', icon: ClipboardList, show: true },
-    { path: '/residents', label: 'Moradores', icon: Users, show: isAdmin },
-    { path: '/staff', label: 'Equipe', icon: UserCog, show: isAdmin },
-    { path: '/reports', label: 'Relatórios', icon: BarChart2, show: isAdmin },
-    { path: '/advanced-settings', label: 'Configurações Avançadas', icon: Settings2, show: isAdmin },
-    { path: '/superadmin', label: 'Super Admin', icon: BarChart2, show: isSuperAdmin, highlight: true },
-  ].filter(item => item.show);
+  const navItems = isTowerDoorman
+    ? [
+        { path: '/tower-dashboard', label: 'Início', icon: Home, show: true },
+        { path: '/packages', label: 'Encomendas', icon: ClipboardList, show: true },
+      ]
+    : [
+        { path: '/', label: 'Receber', icon: Package, show: true },
+        { path: '/packages', label: 'Encomendas', icon: ClipboardList, show: true },
+        { path: '/residents', label: 'Moradores', icon: Users, show: isAdmin },
+        { path: '/staff', label: 'Equipe', icon: UserCog, show: isAdmin },
+        { path: '/reports', label: 'Relatórios', icon: BarChart2, show: isAdmin },
+        { path: '/advanced-settings', label: 'Configurações Avançadas', icon: Settings2, show: isAdmin },
+        { path: '/superadmin', label: 'Super Admin', icon: BarChart2, show: isSuperAdmin, highlight: true },
+      ].filter(item => item.show);
 
   const isActive = (path: string) => location.pathname === path;
 
