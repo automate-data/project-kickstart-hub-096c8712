@@ -35,6 +35,7 @@ function AppRoutes() {
 
   // If admin and needs setup, redirect to /setup
   const shouldRedirectToSetup = user && role === 'admin' && needsSetup;
+  const shouldRedirectToTower = user && role === 'tower_doorman';
 
   return (
     <Routes>
