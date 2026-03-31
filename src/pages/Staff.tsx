@@ -121,7 +121,7 @@ export default function Staff() {
 
     try {
       const { data, error } = await supabase.functions.invoke('invite-staff', {
-        body: { role, full_name: fullName, username, rg, condominium_id: condominium?.id, location_id: role === 'tower_doorman' ? locationId : null },
+        body: { role, full_name: fullName, username, rg, condominium_id: condominium?.id, location_id: (role === 'tower_doorman' || role === 'tower_admin') ? locationId : null },
       });
 
       if (error) throw error;
@@ -245,6 +245,7 @@ export default function Staff() {
       case 'admin': return <Badge variant="default">Administrador</Badge>;
       case 'doorman': return <Badge variant="secondary">Porteiro</Badge>;
       case 'tower_doorman': return <Badge className="bg-amber-500/15 text-amber-700 border-amber-300">Porteiro de Torre</Badge>;
+      case 'tower_admin': return <Badge className="bg-purple-500/15 text-purple-700 border-purple-300">Admin de Bloco</Badge>;
     }
   };
 
@@ -279,14 +280,15 @@ export default function Staff() {
                 <Label htmlFor="role">Papel</Label>
                 <Select value={role} onValueChange={(v) => setRole(v as AppRole)}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
+                   <SelectContent>
                     <SelectItem value="doorman">Porteiro</SelectItem>
                     <SelectItem value="admin">Administrador</SelectItem>
                     <SelectItem value="tower_doorman">Porteiro de Torre</SelectItem>
+                    <SelectItem value="tower_admin">Administrador de Bloco</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
-              {role === 'tower_doorman' && (
+              {(role === 'tower_doorman' || role === 'tower_admin') && (
               <div className="space-y-2">
                 <Label htmlFor="locationId">Torre vinculada</Label>
                 <Select value={locationId || ''} onValueChange={(v) => setLocationId(v)}>
@@ -338,6 +340,9 @@ export default function Staff() {
                     <p className="text-sm text-muted-foreground truncate">RG: {member.rg || '—'}</p>
                     {member.role === 'tower_doorman' && member.tower_name && (
                       <p className="text-xs text-amber-600 truncate">Torre: {member.tower_name}</p>
+                    )}
+                    {member.role === 'tower_admin' && member.tower_name && (
+                      <p className="text-xs text-purple-600 truncate">Bloco: {member.tower_name}</p>
                     )}
                   </div>
                   <div className="flex gap-1">
@@ -405,6 +410,7 @@ export default function Staff() {
                   <SelectItem value="doorman">Porteiro</SelectItem>
                   <SelectItem value="admin">Administrador</SelectItem>
                   <SelectItem value="tower_doorman">Porteiro de Torre</SelectItem>
+                  <SelectItem value="tower_admin">Administrador de Bloco</SelectItem>
                 </SelectContent>
               </Select>
             </div>
