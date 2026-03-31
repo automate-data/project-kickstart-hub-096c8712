@@ -64,6 +64,20 @@ export default function ReceivePackage() {
     };
   }, []);
 
+  useEffect(() => {
+    if (condominium?.id && condominium?.custody_mode === 'multi_custody') {
+      supabase
+        .from('locations')
+        .select('id')
+        .eq('condominium_id', condominium.id)
+        .eq('type', 'central')
+        .single()
+        .then(({ data }) => {
+          if (data) setCentralLocationId(data.id);
+        });
+    }
+  }, [condominium?.id, condominium?.custody_mode]);
+
   const fetchResidents = useCallback(async (): Promise<Resident[]> => {
     if (!condominium?.id) {
       setResidents([]);
