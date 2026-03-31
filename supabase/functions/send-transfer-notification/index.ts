@@ -20,7 +20,7 @@ serve(async (req) => {
       throw new Error("Twilio credentials not configured");
     }
 
-    const { resident_phone, resident_name, tower_name, locker_reference, registered_by, datetime } = await req.json();
+    const { resident_phone, resident_name, tower_name } = await req.json();
 
     if (!resident_phone) {
       return new Response(
@@ -49,7 +49,6 @@ serve(async (req) => {
     const contentVariables = JSON.stringify({
       "1": resident_name || "Morador",
       "2": tower_name || "",
-      "3": locker_reference || "",
     });
 
     console.log("ContentVariables:", contentVariables);
@@ -59,7 +58,7 @@ serve(async (req) => {
     const body = new URLSearchParams({
       To: toNumber,
       From: fromNumber,
-      ContentSid: "HXfe32e7f4dcfef8eed3e5ef677df35606",
+      ContentSid: "HXb7e807cb6c329ed3da2f9d5bae607783",
       ContentVariables: contentVariables,
     });
 
@@ -82,14 +81,14 @@ serve(async (req) => {
       );
     }
 
-    console.log("Locker notification sent successfully, SID:", data.sid);
+    console.log("Transfer notification sent successfully, SID:", data.sid);
 
     return new Response(
       JSON.stringify({ success: true }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
-    console.error("send-locker-notification error:", error);
+    console.error("send-transfer-notification error:", error);
     const msg = error instanceof Error ? error.message : "Unknown error";
     return new Response(
       JSON.stringify({ success: false, error: msg }),
