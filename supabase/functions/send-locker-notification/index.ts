@@ -50,8 +50,6 @@ serve(async (req) => {
       "1": resident_name || "Morador",
       "2": tower_name || "",
       "3": locker_reference || "",
-      "4": registered_by || "Portaria",
-      "5": datetime || "",
     });
 
     console.log("ContentVariables:", contentVariables);
