@@ -405,12 +405,68 @@ export type Database = {
           },
         ]
       }
+      package_events: {
+        Row: {
+          created_at: string | null
+          from_location_id: string | null
+          id: string
+          notes: string | null
+          package_id: string
+          signature_data: string | null
+          to_location_id: string | null
+          transferred_by: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          from_location_id?: string | null
+          id?: string
+          notes?: string | null
+          package_id: string
+          signature_data?: string | null
+          to_location_id?: string | null
+          transferred_by?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          from_location_id?: string | null
+          id?: string
+          notes?: string | null
+          package_id?: string
+          signature_data?: string | null
+          to_location_id?: string | null
+          transferred_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "package_events_from_location_id_fkey"
+            columns: ["from_location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "package_events_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "packages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "package_events_to_location_id_fkey"
+            columns: ["to_location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       packages: {
         Row: {
           ai_suggestion: Json | null
           carrier: string | null
           condominium_id: string | null
           created_at: string
+          current_location_id: string | null
           id: string
           notes: string | null
           ocr_raw_text: string | null
@@ -431,6 +487,7 @@ export type Database = {
           carrier?: string | null
           condominium_id?: string | null
           created_at?: string
+          current_location_id?: string | null
           id?: string
           notes?: string | null
           ocr_raw_text?: string | null
@@ -451,6 +508,7 @@ export type Database = {
           carrier?: string | null
           condominium_id?: string | null
           created_at?: string
+          current_location_id?: string | null
           id?: string
           notes?: string | null
           ocr_raw_text?: string | null
@@ -479,6 +537,13 @@ export type Database = {
             columns: ["condominium_id"]
             isOneToOne: false
             referencedRelation: "condominiums"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "packages_current_location_id_fkey"
+            columns: ["current_location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
             referencedColumns: ["id"]
           },
           {
@@ -700,6 +765,7 @@ export type Database = {
           condominium_id: string | null
           deleted_at: string | null
           id: string
+          location_id: string | null
           role: Database["public"]["Enums"]["app_role"]
           user_id: string
         }
@@ -707,6 +773,7 @@ export type Database = {
           condominium_id?: string | null
           deleted_at?: string | null
           id?: string
+          location_id?: string | null
           role: Database["public"]["Enums"]["app_role"]
           user_id: string
         }
@@ -714,6 +781,7 @@ export type Database = {
           condominium_id?: string | null
           deleted_at?: string | null
           id?: string
+          location_id?: string | null
           role?: Database["public"]["Enums"]["app_role"]
           user_id?: string
         }
@@ -730,6 +798,13 @@ export type Database = {
             columns: ["condominium_id"]
             isOneToOne: false
             referencedRelation: "condominiums"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_roles_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
             referencedColumns: ["id"]
           },
         ]
@@ -805,7 +880,7 @@ export type Database = {
       }
     }
     Enums: {
-      app_role: "admin" | "doorman" | "superadmin"
+      app_role: "admin" | "doorman" | "superadmin" | "tower_doorman"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -933,7 +1008,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "doorman", "superadmin"],
+      app_role: ["admin", "doorman", "superadmin", "tower_doorman"],
     },
   },
 } as const
