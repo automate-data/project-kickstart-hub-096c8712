@@ -405,6 +405,7 @@ export default function Staff() {
                 <SelectContent>
                   <SelectItem value="doorman">Porteiro</SelectItem>
                   <SelectItem value="admin">Administrador</SelectItem>
+                  <SelectItem value="tower_doorman">Porteiro de Torre</SelectItem>
                 </SelectContent>
               </Select>
             </div>
