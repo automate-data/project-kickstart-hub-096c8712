@@ -20,6 +20,7 @@ import ChangePassword from "./pages/ChangePassword";
 import Reports from "./pages/Reports";
 import AdvancedSettings from "./pages/AdvancedSettings";
 import SuperAdmin from "./pages/SuperAdmin";
+import TowerDashboard from "./pages/TowerDashboard";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -34,6 +35,7 @@ function AppRoutes() {
 
   // If admin and needs setup, redirect to /setup
   const shouldRedirectToSetup = user && role === 'admin' && needsSetup;
+  const shouldRedirectToTower = user && role === 'tower_doorman';
 
   return (
     <Routes>
@@ -60,9 +62,18 @@ function AppRoutes() {
         path="/"
         element={
           <ProtectedRoute>
-            {shouldRedirectToSetup ? <Navigate to="/setup" replace /> : (
+            {shouldRedirectToSetup ? <Navigate to="/setup" replace /> : 
+             shouldRedirectToTower ? <Navigate to="/tower-dashboard" replace /> : (
               <AppLayout><Dashboard /></AppLayout>
             )}
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/tower-dashboard"
+        element={
+          <ProtectedRoute>
+            <TowerDashboard />
           </ProtectedRoute>
         }
       />
