@@ -121,7 +121,7 @@ export default function Staff() {
 
     try {
       const { data, error } = await supabase.functions.invoke('invite-staff', {
-        body: { role, full_name: fullName, username, rg, condominium_id: condominium?.id },
+        body: { role, full_name: fullName, username, rg, condominium_id: condominium?.id, location_id: role === 'tower_doorman' ? locationId : null },
       });
 
       if (error) throw error;
