@@ -147,6 +147,7 @@ export default function Staff() {
       setUsername('');
       setRg('');
       setRole('doorman');
+      setLocationId(null);
       fetchStaff();
     } catch (error) {
       console.error(error);
