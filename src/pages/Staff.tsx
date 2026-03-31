@@ -59,6 +59,16 @@ export default function Staff() {
 
   useEffect(() => { fetchStaff(); fetchTowers(); }, [condominium?.id]);
 
+  const fetchTowers = async () => {
+    if (!condominium) { setTowers([]); return; }
+    const { data } = await supabase
+      .from('locations')
+      .select('*')
+      .eq('condominium_id', condominium.id)
+      .eq('type', 'tower');
+    setTowers((data as unknown as Location[]) || []);
+  };
+
   const fetchStaff = async () => {
     if (!condominium) {
       setStaff([]);
@@ -74,15 +84,27 @@ export default function Staff() {
 
     if (rolesData && rolesData.length > 0) {
       const userIds = rolesData.map(r => r.user_id);
-      const { data: profilesData } = await supabase.from('profiles').select('*').in('id', userIds);
+      const locationIds = rolesData.map(r => (r as any).location_id).filter(Boolean);
+
+      const [{ data: profilesData }, locationsResult] = await Promise.all([
+        supabase.from('profiles').select('*').in('id', userIds),
+        locationIds.length > 0
+          ? supabase.from('locations').select('*').in('id', locationIds)
+          : Promise.resolve({ data: [] }),
+      ]);
+
+      const locationsMap = new Map((locationsResult.data || []).map((l: any) => [l.id, l.name]));
 
       if (profilesData) {
         const staffWithRoles = profilesData.map(profile => {
           const roleEntry = rolesData.find(r => r.user_id === profile.id);
+          const locId = (roleEntry as any)?.location_id;
           return {
             ...profile,
             role: roleEntry?.role as AppRole,
             role_id: roleEntry?.id,
+            location_id: locId || null,
+            tower_name: locId ? (locationsMap.get(locId) || '') : undefined,
           };
         });
         setStaff(staffWithRoles);
