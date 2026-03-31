@@ -31,6 +31,7 @@ interface CentralPackage {
   photo_url: string;
   carrier: string | null;
   created_at: string;
+  resident_id: string | null;
   resident?: {
     full_name: string;
     block: string;
@@ -98,7 +99,7 @@ export default function TowerCollect() {
 
     const { data, error } = await supabase
       .from('packages')
-      .select('id, photo_url, carrier, created_at, resident:residents(full_name, block, apartment)')
+      .select('id, photo_url, carrier, created_at, resident_id, resident:residents(full_name, block, apartment)')
       .eq('current_location_id', centralLocationId)
       .eq('status', 'pending')
       .order('created_at', { ascending: true });
@@ -168,6 +169,32 @@ export default function TowerCollect() {
         .insert(events);
 
       if (evErr) throw evErr;
+
+      // Send WhatsApp notification to each resident with a phone
+      const selectedPkgs = packages.filter(p => ids.includes(p.id));
+      for (const pkg of selectedPkgs) {
+        if (pkg.resident_id) {
+          try {
+            const { data: residentData } = await supabase
+              .from('residents')
+              .select('phone, full_name, whatsapp_enabled')
+              .eq('id', pkg.resident_id)
+              .single();
+
+            if (residentData?.phone && residentData.whatsapp_enabled) {
+              await supabase.functions.invoke('send-transfer-notification', {
+                body: {
+                  resident_phone: residentData.phone,
+                  resident_name: residentData.full_name,
+                  tower_name: towerName,
+                },
+              });
+            }
+          } catch (notifErr) {
+            console.error('Transfer notification error:', notifErr);
+          }
+        }
+      }
 
       toast.success(`${ids.length} encomenda(s) transferida(s) para ${towerName}`);
       setDialogOpen(false);
