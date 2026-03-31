@@ -50,8 +50,6 @@ serve(async (req) => {
       "1": resident_name || "Morador",
       "2": tower_name || "",
       "3": locker_reference || "",
-      "4": registered_by || "Portaria",
-      "5": datetime || "",
     });
 
     console.log("ContentVariables:", contentVariables);
@@ -61,7 +59,7 @@ serve(async (req) => {
     const body = new URLSearchParams({
       To: toNumber,
       From: fromNumber,
-      ContentSid: "HXlocker_placeholder",
+      ContentSid: "HXc204f9f00578f2992b04646e8482f2bd",
       ContentVariables: contentVariables,
     });
 
