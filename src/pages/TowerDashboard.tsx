@@ -42,6 +42,10 @@ export default function TowerDashboard() {
   const [pickupPkg, setPickupPkg] = useState<PackageType | null>(null);
   const [pickupOpen, setPickupOpen] = useState(false);
 
+  // Locker dialog
+  const [lockerPkg, setLockerPkg] = useState<PackageType | null>(null);
+  const [lockerOpen, setLockerOpen] = useState(false);
+
   // Counters
   const towerCount = packages.length;
   const lockerCount = packages.filter(p => p.locker_reference).length;
