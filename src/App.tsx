@@ -140,7 +140,7 @@ function AppRoutes() {
       <Route
         path="/reports"
         element={
-          <ProtectedRoute requiredRole="admin">
+          <ProtectedRoute>
             {shouldRedirectToSetup ? <Navigate to="/setup" replace /> : (
               <AppLayout><Reports /></AppLayout>
             )}
