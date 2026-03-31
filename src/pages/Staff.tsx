@@ -57,7 +57,7 @@ export default function Staff() {
   const [editRg, setEditRg] = useState('');
   const [editRole, setEditRole] = useState<AppRole>('doorman');
 
-  useEffect(() => { fetchStaff(); }, [condominium?.id]);
+  useEffect(() => { fetchStaff(); fetchTowers(); }, [condominium?.id]);
 
   const fetchStaff = async () => {
     if (!condominium) {
