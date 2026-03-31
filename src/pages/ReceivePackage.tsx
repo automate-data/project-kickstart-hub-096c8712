@@ -54,6 +54,7 @@ export default function ReceivePackage() {
   const [visibleRegions, setVisibleRegions] = useState<VisibleRegion[]>([]);
   const [redactedPreview, setRedactedPreview] = useState<string | null>(null);
   const [showRedactedPreview, setShowRedactedPreview] = useState(false);
+  const [centralLocationId, setCentralLocationId] = useState<string | null>(null);
 
   useEffect(() => {
     return () => {
