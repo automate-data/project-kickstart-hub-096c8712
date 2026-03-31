@@ -1,4 +1,4 @@
-export type AppRole = 'admin' | 'doorman' | 'tower_doorman' | 'superadmin';
+export type AppRole = 'admin' | 'doorman' | 'tower_doorman' | 'tower_admin' | 'superadmin';
 
 export interface SensitiveRegion {
   label: string;
