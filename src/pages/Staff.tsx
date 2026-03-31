@@ -24,6 +24,8 @@ import { useAuth } from '@/hooks/useAuth';
 interface StaffMember extends Profile {
   role?: AppRole;
   role_id?: string;
+  location_id?: string | null;
+  tower_name?: string;
 }
 
 export default function Staff() {
