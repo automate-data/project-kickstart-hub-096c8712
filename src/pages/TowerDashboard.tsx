@@ -362,6 +362,14 @@ export default function TowerDashboard() {
         pkg={pickupPkg}
         onConfirm={handlePickup}
       />
+
+      <LockerDialog
+        open={lockerOpen}
+        onOpenChange={setLockerOpen}
+        pkg={lockerPkg}
+        towerName={towerName}
+        onConfirm={handleLockerConfirm}
+      />
     </AppLayout>
   );
 }
