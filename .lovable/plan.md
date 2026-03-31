@@ -1,39 +1,38 @@
 
 
-## Plano: Corrigir normalização de telefone no envio de WhatsApp
+## Integração do LockerDialog no TowerDashboard
 
-### Problema
-O Twilio retorna erro **21211** (número inválido) porque a normalização E.164 atual não remove todos os caracteres problemáticos. O número chega como algo tipo `11 98843-4320` ou `+55 11988434320` e, após a limpeza, ainda pode conter espaços ou ter formato incorreto (ex: faltando o 9° dígito).
-
-Na imagem do Twilio, o "To" mostra `whatsapp: +55 11988434320` — um espaço residual entre `+55` e `11`.
-
-### Causa raiz
-1. O regex `[\s\-\(\)]` deveria remover espaços, mas pode haver caracteres Unicode de espaço (non-breaking space, etc.) que não são capturados por `\s`
-2. Não há validação do comprimento final do número (celular BR = 13 dígitos: +55 + 2 DDD + 9 dígitos)
+### Objetivo
+Conectar o botão "Alocar em Armário" ao `LockerDialog`, registrar o evento no banco e enviar notificação WhatsApp com o template correto.
 
 ### Alterações
 
-**1. `supabase/functions/send-whatsapp/index.ts`** — Melhorar normalização:
-- Remover TODOS os caracteres não-numéricos (exceto `+` inicial) com regex mais agressivo
-- Adicionar validação de comprimento (mínimo 12, máximo 15 dígitos)
-- Log do número original e normalizado para debug
+**1. `src/pages/TowerDashboard.tsx`** (único arquivo modificado)
 
-**2. `src/pages/Residents.tsx`** — Sanitizar telefone no cadastro:
-- Ao salvar/atualizar morador, limpar o telefone removendo caracteres não-numéricos e normalizando para formato E.164 antes de gravar no banco
+- Importar `LockerDialog` de `@/components/custody/CustodyDialogs`
+- Adicionar estado `lockerPkg` para o pacote selecionado e `lockerOpen` para o dialog
+- Substituir o `toast.info('Funcionalidade de armário em breve')` por abertura do `LockerDialog` com o pacote clicado
+- Implementar `handleLockerConfirm(lockerReference, sendWhatsApp)`:
+  1. Buscar o primeiro locker (`locations` com `parent_id = towerLocationId` e `type = 'locker'`)
+  2. Inserir `package_event` com `package_id`, `from_location_id = towerLocationId`, `to_location_id = lockerId`, `transferred_by = user.id`, `notes = "locker_reference:{ref}"`
+  3. Se `sendWhatsApp` ativado, invocar `send-locker-notification` com `resident_phone`, `resident_name`, `tower_name`, `locker_reference`, `registered_by` (nome do perfil do porteiro), `datetime`
+  4. Toast de sucesso, fechar dialog, recarregar pacotes
+- Renderizar `<LockerDialog>` passando `towerName`, `lockerPkg`, `open`, `onOpenChange`, `onConfirm`
 
-### Detalhes técnicos
+**2. `supabase/functions/send-locker-notification/index.ts`**
 
-```typescript
-// Nova normalização no edge function
-let cleanPhone = phone.replace(/[^\d]/g, ""); // remove TUDO que não é dígito
-if (cleanPhone.startsWith("55") && cleanPhone.length >= 12) {
-  cleanPhone = `+${cleanPhone}`;
-} else if (cleanPhone.length === 11 || cleanPhone.length === 10) {
-  cleanPhone = `+55${cleanPhone}`;
-} else {
-  // número já pode ter + na frente, re-tentar
-  cleanPhone = phone.replace(/[^\d+]/g, "");
-  if (!cleanPhone.startsWith("+")) cleanPhone = `+55${cleanPhone.replace(/[^\d]/g, "")}`;
-}
+- Atualizar `ContentSid` de `"HXlocker_placeholder"` para `"HXc204f9f00578f2992b04646e8482f2bd"` (template real do Twilio)
+- O template espera 3 variáveis: `{{1}}` = nome morador, `{{2}}` = nome torre, `{{3}}` = referência armário
+- Ajustar `ContentVariables` para enviar apenas as 3 variáveis necessárias
+
+### Fluxo
+```text
+Botão "Alocar em Armário" → LockerDialog abre
+  → Porteiro digita referência (ex: "A7")
+  → Toggle WhatsApp (on/off)
+  → Confirmar
+    → INSERT package_event (locker_reference no notes)
+    → Se WhatsApp on: invoke send-locker-notification
+    → Refresh lista
 ```
 
