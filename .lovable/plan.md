@@ -1,37 +1,33 @@
 
 
-## Plano: Retirada simplificada para encomendas em armário
+## Plano: Usar template de confirmação de retirada do armário
 
-### Contexto
-Atualmente, todas as retiradas exigem assinatura digital via `PickupDialog`. Para encomendas alocadas em armário, o fluxo deve ser diferente: o porteiro do bloco verifica que o armário está vazio e clica em "Confirmar Retirada" (botão azul), sem assinatura. Uma notificação WhatsApp é enviada confirmando a retirada.
+### O que muda
 
-### Mudanças
+**1. Edge Function `send-pickup-confirmation/index.ts`**
+- Aceitar novo parâmetro `locker_reference` no body da requisição
+- Quando `locker_reference` estiver presente, usar o ContentSid do template de armário (`HXbc5c4ecef860c73987e24a09c8392275`) com 2 variáveis: `{{1}}` = nome do morador, `{{2}}` = referência do armário
+- Quando `locker_reference` NÃO estiver presente, manter o ContentSid atual (`HXfd32c526e2f3c8209d014dd2c2f27120`) com as variáveis existentes (nome + data/hora)
+- Atualizar o log context para distinguir `"pickup_confirmation"` vs `"locker_pickup_confirmation"`
 
-**1. `src/pages/TowerDashboard.tsx`**
-- Para pacotes com `locker_reference`, trocar o botão "Retirar" (que abre `PickupDialog`) por um botão azul "Confirmar Retirada" que chama uma nova função `handleLockerPickup`.
-- `handleLockerPickup`: atualiza o pacote como `picked_up` (sem `signature_data`), envia a confirmação WhatsApp via `send-pickup-confirmation`, e atualiza a lista.
-- Manter o botão "Retirar" com assinatura apenas para pacotes **sem** `locker_reference`.
-
-**2. Botão visual**
-- Botão azul com ícone `CheckCircle2` e texto "Confirmar Retirada".
-- Sem dialog de assinatura — ação direta com um estado de loading no próprio botão.
-- Opcionalmente, um `confirm()` nativo do browser ou um pequeno dialog de confirmação simples (sem assinatura) para evitar cliques acidentais.
-
-**3. Nenhuma mudança na Edge Function**
-- A função `send-pickup-confirmation` já funciona sem depender de assinatura. Será reutilizada como está.
+**2. Frontend `src/pages/TowerDashboard.tsx`**
+- No `handleLockerPickup`, adicionar `locker_reference: pkg.locker_reference` ao body enviado para a Edge Function
 
 ### Detalhes técnicos
 
 ```text
-Pacote sem armário:
-  [Retirar] → PickupDialog (assinatura) → handlePickup()
+Edge Function — lógica condicional:
 
-Pacote em armário:
-  [Confirmar Retirada] (azul) → confirm dialog simples → handleLockerPickup()
-    ├─ UPDATE packages SET status='picked_up', picked_up_at, picked_up_by (sem signature_data)
-    ├─ supabase.functions.invoke('send-pickup-confirmation')
-    └─ toast + refresh
+if (locker_reference) {
+  ContentSid = "HXbc5c4ecef860c73987e24a09c8392275"
+  contentVariables = { "1": resident_name, "2": locker_reference }
+} else {
+  ContentSid = "HXfd32c526e2f3c8209d014dd2c2f27120"
+  contentVariables = { "1": resident_name, "2": dateTimeBR }
+}
 ```
 
-Arquivos modificados: apenas `src/pages/TowerDashboard.tsx`.
+Arquivos modificados:
+- `supabase/functions/send-pickup-confirmation/index.ts`
+- `src/pages/TowerDashboard.tsx` (1 linha — adicionar `locker_reference` ao body)
 
