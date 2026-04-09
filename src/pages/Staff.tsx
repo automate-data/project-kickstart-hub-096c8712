@@ -335,6 +335,11 @@ export default function Staff() {
                     <div className="flex items-center gap-2 flex-wrap">
                       <p className="font-medium truncate">{member.full_name}</p>
                       {member.role && getRoleBadge(member.role)}
+                      {member.role === 'doorman' && (
+                        <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-300 text-xs">
+                          🏢 Portaria Central
+                        </Badge>
+                      )}
                       {member.role === 'tower_doorman' && member.tower_name && (
                         <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-300 text-xs">
                           🏢 {member.tower_name}
