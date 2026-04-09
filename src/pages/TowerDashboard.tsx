@@ -445,31 +445,49 @@ export default function TowerDashboard() {
                           </span>
                         </div>
                         <div className="flex items-center gap-2 pt-1">
-                          <Button
-                            size="sm"
-                            variant="default"
-                            className="gap-1.5"
-                            onClick={() => {
-                              setPickupPkg(pkg);
-                              setPickupOpen(true);
-                            }}
-                          >
-                            <CheckCircle2 className="w-3.5 h-3.5" />
-                            Retirar
-                          </Button>
-                          {hasLockers && !pkg.locker_reference && (
+                          {pkg.locker_reference ? (
                             <Button
                               size="sm"
-                              variant="outline"
-                              className="gap-1.5"
-                              onClick={() => {
-                                setLockerPkg(pkg);
-                                setLockerOpen(true);
-                              }}
+                              className="gap-1.5 bg-blue-600 hover:bg-blue-700 text-white"
+                              disabled={lockerPickupLoading === pkg.id}
+                              onClick={() => handleLockerPickup(pkg)}
                             >
-                              <LocateFixed className="w-3.5 h-3.5" />
-                              Alocar em Armário
+                              {lockerPickupLoading === pkg.id ? (
+                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                              ) : (
+                                <CheckCircle2 className="w-3.5 h-3.5" />
+                              )}
+                              Confirmar Retirada
                             </Button>
+                          ) : (
+                            <>
+                              <Button
+                                size="sm"
+                                variant="default"
+                                className="gap-1.5"
+                                onClick={() => {
+                                  setPickupPkg(pkg);
+                                  setPickupOpen(true);
+                                }}
+                              >
+                                <CheckCircle2 className="w-3.5 h-3.5" />
+                                Retirar
+                              </Button>
+                              {hasLockers && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="gap-1.5"
+                                  onClick={() => {
+                                    setLockerPkg(pkg);
+                                    setLockerOpen(true);
+                                  }}
+                                >
+                                  <LocateFixed className="w-3.5 h-3.5" />
+                                  Alocar em Armário
+                                </Button>
+                              )}
+                            </>
                           )}
                         </div>
                       </div>
