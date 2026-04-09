@@ -107,17 +107,23 @@ serve(async (req) => {
       minute: "2-digit",
     });
 
-    const contentVariables = JSON.stringify({
-      "1": resident_name || "Morador",
-      "2": dateTimeBR,
-    });
+    const isLockerPickup = !!locker_reference;
+    const contentSid = isLockerPickup
+      ? "HXbc5c4ecef860c73987e24a09c8392275"
+      : "HXfd32c526e2f3c8209d014dd2c2f27120";
+
+    const contentVariables = isLockerPickup
+      ? JSON.stringify({ "1": resident_name || "Morador", "2": locker_reference })
+      : JSON.stringify({ "1": resident_name || "Morador", "2": dateTimeBR });
+
+    const logContext = isLockerPickup ? "locker_pickup_confirmation" : "pickup_confirmation";
 
     const url = `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Messages.json`;
 
     const body = new URLSearchParams({
       To: toNumber,
       From: fromNumber,
-      ContentSid: "HXfd32c526e2f3c8209d014dd2c2f27120",
+      ContentSid: contentSid,
       ContentVariables: contentVariables,
     });
 
