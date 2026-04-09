@@ -291,7 +291,7 @@ export default function TowerDashboard() {
         {/* Header */}
         <div>
           <h1 className="text-2xl font-bold text-foreground">{towerName || 'Painel da Torre'}</h1>
-          <p className="text-muted-foreground text-sm">Gerencie as encomendas da sua torre</p>
+          <p className="text-muted-foreground text-sm">Gerencie as encomendas do seu Bloco</p>
         </div>
 
         {/* Section 1 — Counter cards */}
@@ -300,7 +300,7 @@ export default function TowerDashboard() {
             <CardContent className="pt-6 flex flex-col items-center gap-2">
               <Package className="w-8 h-8 text-primary" />
               <span className="text-3xl font-bold text-foreground">{towerCount}</span>
-              <span className="text-sm text-muted-foreground">Na Torre</span>
+              <span className="text-sm text-muted-foreground">No Bloco</span>
             </CardContent>
           </Card>
           <Card>
@@ -324,14 +324,14 @@ export default function TowerDashboard() {
               Coletar Encomendas da Central
             </Button>
             <p className="text-sm text-muted-foreground text-center">
-              Transfira encomendas aguardando na portaria central para sua torre
+              Transfira encomendas aguardando na portaria central para seu Bloco
             </p>
           </CardContent>
         </Card>
 
         {/* Section 3 — Package list */}
         <div className="space-y-3">
-          <h2 className="text-lg font-semibold text-foreground">Encomendas na Torre</h2>
+          <h2 className="text-lg font-semibold text-foreground">Encomendas no Bloco</h2>
 
           {isLoading ? (
             <div className="flex justify-center py-12">
@@ -371,7 +371,7 @@ export default function TowerDashboard() {
                             </Badge>
                           ) : (
                             <Badge variant="secondary" className="bg-blue-100 text-blue-800 border-blue-200 flex-shrink-0">
-                              Na Torre
+                              No Bloco
                             </Badge>
                           )}
                         </div>
