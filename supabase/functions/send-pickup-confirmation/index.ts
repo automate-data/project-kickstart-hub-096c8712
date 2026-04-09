@@ -141,7 +141,7 @@ serve(async (req) => {
     if (!response.ok) {
       console.error("Twilio error:", JSON.stringify(data));
       await logWhatsappEvent("whatsapp_failed", {
-        context: "pickup_confirmation",
+        context: logContext,
         resident_name: resident_name || null,
         error_message: data.message || JSON.stringify(data),
       });
@@ -153,7 +153,7 @@ serve(async (req) => {
 
     console.log("Pickup confirmation sent, SID:", data.sid);
     await logWhatsappEvent("whatsapp_sent", {
-      context: "pickup_confirmation",
+      context: logContext,
       resident_name: resident_name || null,
       sid: data.sid,
     });
