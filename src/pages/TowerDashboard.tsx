@@ -38,6 +38,7 @@ export default function TowerDashboard() {
   const [hasLockers, setHasLockers] = useState(false);
   const [packages, setPackages] = useState<TowerPackage[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [lockerPickupLoading, setLockerPickupLoading] = useState<string | null>(null);
 
   // Pickup dialog
   const [pickupPkg, setPickupPkg] = useState<PackageType | null>(null);
