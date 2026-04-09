@@ -360,7 +360,7 @@ export default function TowerDashboard() {
           <Card>
             <CardContent className="pt-6 flex flex-col items-center gap-2">
               <Package className="w-8 h-8 text-primary" />
-              <span className="text-3xl font-bold text-foreground">{towerCount}</span>
+              <span className="text-3xl font-bold text-foreground">{blockCount}</span>
               <span className="text-sm text-muted-foreground">No Bloco</span>
             </CardContent>
           </Card>
