@@ -332,18 +332,22 @@ export default function Staff() {
                     <UserCog className="w-6 h-6 text-primary" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <p className="font-medium truncate">{member.full_name}</p>
                       {member.role && getRoleBadge(member.role)}
+                      {member.role === 'tower_doorman' && member.tower_name && (
+                        <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-300 text-xs">
+                          🏢 {member.tower_name}
+                        </Badge>
+                      )}
+                      {member.role === 'tower_admin' && member.tower_name && (
+                        <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-300 text-xs">
+                          🏢 {member.tower_name}
+                        </Badge>
+                      )}
                     </div>
                     <p className="text-sm text-muted-foreground truncate">Usuário: {member.email?.replace('@cond.internal', '') || '—'}</p>
                     <p className="text-sm text-muted-foreground truncate">RG: {member.rg || '—'}</p>
-                    {member.role === 'tower_doorman' && member.tower_name && (
-                      <p className="text-xs text-amber-600 truncate">Torre: {member.tower_name}</p>
-                    )}
-                    {member.role === 'tower_admin' && member.tower_name && (
-                      <p className="text-xs text-purple-600 truncate">Bloco: {member.tower_name}</p>
-                    )}
                   </div>
                   <div className="flex gap-1">
                     <Button variant="ghost" size="icon" onClick={() => handleEditStaff(member)} title="Editar">
