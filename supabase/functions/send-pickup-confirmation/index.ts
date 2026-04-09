@@ -52,7 +52,7 @@ serve(async (req) => {
       },
     });
 
-    const { phone, resident_name: parsedResidentName, picked_up_at, condominium_id: parsedCondominiumId, package_id: parsedPackageId } = await req.json();
+    const { phone, resident_name: parsedResidentName, picked_up_at, condominium_id: parsedCondominiumId, package_id: parsedPackageId, locker_reference } = await req.json();
     resident_name = parsedResidentName;
     condominium_id = parsedCondominiumId ?? null;
     package_id = parsedPackageId ?? null;

@@ -258,6 +258,7 @@ export default function TowerDashboard() {
               picked_up_at: pickedUpAt,
               package_id: pkg.id,
               condominium_id: condominium?.id,
+              locker_reference: pkg.locker_reference,
             },
           });
 
