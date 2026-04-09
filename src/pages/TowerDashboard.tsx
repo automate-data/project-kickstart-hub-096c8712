@@ -49,8 +49,8 @@ export default function TowerDashboard() {
   const [lockerOpen, setLockerOpen] = useState(false);
 
   // Counters
-  const towerCount = packages.length;
   const lockerCount = packages.filter(p => p.locker_reference).length;
+  const blockCount = packages.length - lockerCount;
 
   // Fetch user's tower location
   useEffect(() => {
