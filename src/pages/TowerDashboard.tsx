@@ -221,7 +221,66 @@ export default function TowerDashboard() {
     fetchPackages();
   };
 
-  // Handle locker allocation
+  // Handle locker pickup (no signature needed)
+  const handleLockerPickup = async (pkg: TowerPackage) => {
+    if (!user) return;
+
+    const confirmed = window.confirm(
+      `Confirmar que a encomenda de ${pkg.resident?.full_name || 'morador'} foi retirada do armário ${pkg.locker_reference}?`
+    );
+    if (!confirmed) return;
+
+    setLockerPickupLoading(pkg.id);
+    const pickedUpAt = new Date().toISOString();
+
+    try {
+      const { error } = await supabase
+        .from('packages')
+        .update({
+          status: 'picked_up',
+          picked_up_at: pickedUpAt,
+          picked_up_by: pkg.resident?.full_name || 'Morador',
+        })
+        .eq('id', pkg.id);
+
+      if (error) {
+        toast.error('Erro ao registrar retirada');
+        return;
+      }
+
+      // Send WhatsApp pickup confirmation
+      if (pkg.resident?.phone) {
+        try {
+          const { data: confirmResult, error: confirmError } = await supabase.functions.invoke('send-pickup-confirmation', {
+            body: {
+              phone: pkg.resident.phone,
+              resident_name: pkg.resident.full_name,
+              picked_up_at: pickedUpAt,
+              package_id: pkg.id,
+              condominium_id: condominium?.id,
+            },
+          });
+
+          if (confirmError || confirmResult?.error) {
+            console.error('[TowerDashboard] WhatsApp pickup confirmation failed:', confirmError?.message || confirmResult?.error);
+          } else {
+            await supabase
+              .from('packages')
+              .update({ pickup_confirmation_sent: confirmResult?.success || false })
+              .eq('id', pkg.id);
+          }
+        } catch (e: any) {
+          console.error('[TowerDashboard] WhatsApp pickup confirmation error:', e);
+        }
+      }
+
+      toast.success('Retirada confirmada com sucesso!');
+      fetchPackages();
+    } finally {
+      setLockerPickupLoading(null);
+    }
+  };
+
   const handleLockerConfirm = async (lockerReference: string, sendWhatsApp: boolean) => {
     if (!lockerPkg || !user || !towerLocationId) return;
 
