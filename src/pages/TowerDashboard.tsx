@@ -38,6 +38,7 @@ export default function TowerDashboard() {
   const [hasLockers, setHasLockers] = useState(false);
   const [packages, setPackages] = useState<TowerPackage[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [lockerPickupLoading, setLockerPickupLoading] = useState<string | null>(null);
 
   // Pickup dialog
   const [pickupPkg, setPickupPkg] = useState<PackageType | null>(null);
@@ -220,7 +221,66 @@ export default function TowerDashboard() {
     fetchPackages();
   };
 
-  // Handle locker allocation
+  // Handle locker pickup (no signature needed)
+  const handleLockerPickup = async (pkg: TowerPackage) => {
+    if (!user) return;
+
+    const confirmed = window.confirm(
+      `Confirmar que a encomenda de ${pkg.resident?.full_name || 'morador'} foi retirada do armário ${pkg.locker_reference}?`
+    );
+    if (!confirmed) return;
+
+    setLockerPickupLoading(pkg.id);
+    const pickedUpAt = new Date().toISOString();
+
+    try {
+      const { error } = await supabase
+        .from('packages')
+        .update({
+          status: 'picked_up',
+          picked_up_at: pickedUpAt,
+          picked_up_by: pkg.resident?.full_name || 'Morador',
+        })
+        .eq('id', pkg.id);
+
+      if (error) {
+        toast.error('Erro ao registrar retirada');
+        return;
+      }
+
+      // Send WhatsApp pickup confirmation
+      if (pkg.resident?.phone) {
+        try {
+          const { data: confirmResult, error: confirmError } = await supabase.functions.invoke('send-pickup-confirmation', {
+            body: {
+              phone: pkg.resident.phone,
+              resident_name: pkg.resident.full_name,
+              picked_up_at: pickedUpAt,
+              package_id: pkg.id,
+              condominium_id: condominium?.id,
+            },
+          });
+
+          if (confirmError || confirmResult?.error) {
+            console.error('[TowerDashboard] WhatsApp pickup confirmation failed:', confirmError?.message || confirmResult?.error);
+          } else {
+            await supabase
+              .from('packages')
+              .update({ pickup_confirmation_sent: confirmResult?.success || false })
+              .eq('id', pkg.id);
+          }
+        } catch (e: any) {
+          console.error('[TowerDashboard] WhatsApp pickup confirmation error:', e);
+        }
+      }
+
+      toast.success('Retirada confirmada com sucesso!');
+      fetchPackages();
+    } finally {
+      setLockerPickupLoading(null);
+    }
+  };
+
   const handleLockerConfirm = async (lockerReference: string, sendWhatsApp: boolean) => {
     if (!lockerPkg || !user || !towerLocationId) return;
 
@@ -385,31 +445,49 @@ export default function TowerDashboard() {
                           </span>
                         </div>
                         <div className="flex items-center gap-2 pt-1">
-                          <Button
-                            size="sm"
-                            variant="default"
-                            className="gap-1.5"
-                            onClick={() => {
-                              setPickupPkg(pkg);
-                              setPickupOpen(true);
-                            }}
-                          >
-                            <CheckCircle2 className="w-3.5 h-3.5" />
-                            Retirar
-                          </Button>
-                          {hasLockers && !pkg.locker_reference && (
+                          {pkg.locker_reference ? (
                             <Button
                               size="sm"
-                              variant="outline"
-                              className="gap-1.5"
-                              onClick={() => {
-                                setLockerPkg(pkg);
-                                setLockerOpen(true);
-                              }}
+                              className="gap-1.5 bg-blue-600 hover:bg-blue-700 text-white"
+                              disabled={lockerPickupLoading === pkg.id}
+                              onClick={() => handleLockerPickup(pkg)}
                             >
-                              <LocateFixed className="w-3.5 h-3.5" />
-                              Alocar em Armário
+                              {lockerPickupLoading === pkg.id ? (
+                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                              ) : (
+                                <CheckCircle2 className="w-3.5 h-3.5" />
+                              )}
+                              Confirmar Retirada
                             </Button>
+                          ) : (
+                            <>
+                              <Button
+                                size="sm"
+                                variant="default"
+                                className="gap-1.5"
+                                onClick={() => {
+                                  setPickupPkg(pkg);
+                                  setPickupOpen(true);
+                                }}
+                              >
+                                <CheckCircle2 className="w-3.5 h-3.5" />
+                                Retirar
+                              </Button>
+                              {hasLockers && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="gap-1.5"
+                                  onClick={() => {
+                                    setLockerPkg(pkg);
+                                    setLockerOpen(true);
+                                  }}
+                                >
+                                  <LocateFixed className="w-3.5 h-3.5" />
+                                  Alocar em Armário
+                                </Button>
+                              )}
+                            </>
                           )}
                         </div>
                       </div>
