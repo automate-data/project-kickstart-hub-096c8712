@@ -252,11 +252,25 @@ export default function Packages() {
   };
 
   const PackageCard = ({ pkg }: { pkg: Package }) => {
+    const events = (pkg as any).events as Array<any> | undefined;
+    // Transferred-away = pending but not in central anymore (only meaningful in multi_custody)
+    const isTransferredAway =
+      pkg.status === 'pending' &&
+      !!centralLocationId &&
+      pkg.current_location_id !== centralLocationId;
     const isPickedUp = pkg.status === 'picked_up';
+    const isClickable = isPickedUp || isTransferredAway;
+
+    // Last transfer event leaving the central
+    const transferEvent = events
+      ?.filter((e) => e.from_location_id === centralLocationId)
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0];
+    const transferredToName = transferEvent?.to_location?.name;
+
     return (
       <Card
-        className={`overflow-hidden ${isPickedUp ? 'cursor-pointer hover:bg-accent/50 transition-colors' : ''}`}
-        onClick={isPickedUp ? () => { setDetailsPackage(pkg); setDetailsDialogOpen(true); } : undefined}
+        className={`overflow-hidden ${isClickable ? 'cursor-pointer hover:bg-accent/50 transition-colors' : ''}`}
+        onClick={isClickable ? () => { setDetailsPackage(pkg); setDetailsDialogOpen(true); } : undefined}
       >
         <CardContent className="p-0">
           <div className="flex">
@@ -274,7 +288,7 @@ export default function Packages() {
                       {pkg.resident ? `${pkg.resident.block}/${pkg.resident.apartment}` : '—'}
                     </p>
                   </div>
-                  {!isPickedUp && pkg.resident?.whatsapp_enabled === false && (
+                  {!isClickable && pkg.resident?.whatsapp_enabled === false && (
                     <span title="Morador não notificado" className="mt-0.5">
                       <BellOff className="w-4 h-4 text-amber-500 flex-shrink-0" />
                     </span>
@@ -287,12 +301,16 @@ export default function Packages() {
               {pkg.tracking_code && (
                 <p className="text-xs text-muted-foreground mt-0.5 truncate">{pkg.tracking_code}</p>
               )}
-              <div className="flex items-center justify-between mt-2">
+              <div className="flex items-center justify-between mt-2 gap-2 flex-wrap">
                 <Badge variant="outline" className="text-xs gap-1">
                   <Timer className="w-3 h-3" />
                   {formatStayDuration(pkg.received_at, pkg.picked_up_at)}
                 </Badge>
-                {pkg.status === 'pending' && (
+                {isTransferredAway ? (
+                  <Badge className="text-xs gap-1 bg-primary/10 text-primary hover:bg-primary/20 border-primary/20">
+                    Transferido{transferredToName ? ` para ${transferredToName}` : ''}
+                  </Badge>
+                ) : pkg.status === 'pending' ? (
                   <Button
                     size="sm"
                     variant="outline"
@@ -305,7 +323,7 @@ export default function Packages() {
                     <CheckCircle2 className="w-4 h-4 mr-1" />
                     Retirar
                   </Button>
-                )}
+                ) : null}
               </div>
             </div>
           </div>
