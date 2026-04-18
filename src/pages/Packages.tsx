@@ -47,15 +47,24 @@ async function fetchPackagesPage({
 
   let query = supabase
     .from('packages')
-    .select(`*, resident:residents(*)`, { count: 'exact' })
-    .eq('status', status)
+    .select(
+      `*, resident:residents(*), events:package_events(*, from_location:locations!from_location_id(name), to_location:locations!to_location_id(name), transferred_by_profile:profiles!transferred_by(full_name))`,
+      { count: 'exact' }
+    )
     .eq('condominium_id', condominiumId)
     .order('received_at', { ascending: false })
     .range(from, to);
 
-  // In multi_custody mode, only show packages at central location for pending
   if (centralLocationId && status === 'pending') {
-    query = query.eq('current_location_id', centralLocationId);
+    // Aguardando na central: pendentes ainda fisicamente na central
+    query = query.eq('status', 'pending').eq('current_location_id', centralLocationId);
+  } else if (centralLocationId && status === 'picked_up') {
+    // "Retiradas" da central = saiu da minha custódia (retirado pelo morador OU transferido para bloco)
+    query = query.or(
+      `status.eq.picked_up,and(status.eq.pending,current_location_id.neq.${centralLocationId})`
+    );
+  } else {
+    query = query.eq('status', status);
   }
 
   const { data, count, error } = await query;
@@ -121,15 +130,24 @@ export default function Packages() {
       pendingQuery = pendingQuery.eq('current_location_id', centralLocationId);
     }
 
-    const [pendingRes, pickedUpRes] = await Promise.all([
-      pendingQuery,
-      supabase
-        .from('packages')
-        .select('id', { count: 'exact', head: true })
-        .eq('status', 'picked_up')
-        .eq('condominium_id', condominium.id)
-        .gte('picked_up_at', startOfDay(new Date()).toISOString()),
-    ]);
+    const todayIso = startOfDay(new Date()).toISOString();
+
+    const pickedUpQuery = centralLocationId
+      ? supabase
+          .from('packages')
+          .select('id', { count: 'exact', head: true })
+          .eq('condominium_id', condominium.id)
+          .or(
+            `and(status.eq.picked_up,picked_up_at.gte.${todayIso}),and(status.eq.pending,current_location_id.neq.${centralLocationId},updated_at.gte.${todayIso})`
+          )
+      : supabase
+          .from('packages')
+          .select('id', { count: 'exact', head: true })
+          .eq('status', 'picked_up')
+          .eq('condominium_id', condominium.id)
+          .gte('picked_up_at', todayIso);
+
+    const [pendingRes, pickedUpRes] = await Promise.all([pendingQuery, pickedUpQuery]);
 
     setPendingCount(pendingRes.count ?? 0);
     setPickedUpTodayCount(pickedUpRes.count ?? 0);
@@ -234,11 +252,25 @@ export default function Packages() {
   };
 
   const PackageCard = ({ pkg }: { pkg: Package }) => {
+    const events = (pkg as any).events as Array<any> | undefined;
+    // Transferred-away = pending but not in central anymore (only meaningful in multi_custody)
+    const isTransferredAway =
+      pkg.status === 'pending' &&
+      !!centralLocationId &&
+      (pkg as any).current_location_id !== centralLocationId;
     const isPickedUp = pkg.status === 'picked_up';
+    const isClickable = isPickedUp || isTransferredAway;
+
+    // Last transfer event leaving the central
+    const transferEvent = events
+      ?.filter((e) => e.from_location_id === centralLocationId)
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0];
+    const transferredToName = transferEvent?.to_location?.name;
+
     return (
       <Card
-        className={`overflow-hidden ${isPickedUp ? 'cursor-pointer hover:bg-accent/50 transition-colors' : ''}`}
-        onClick={isPickedUp ? () => { setDetailsPackage(pkg); setDetailsDialogOpen(true); } : undefined}
+        className={`overflow-hidden ${isClickable ? 'cursor-pointer hover:bg-accent/50 transition-colors' : ''}`}
+        onClick={isClickable ? () => { setDetailsPackage(pkg); setDetailsDialogOpen(true); } : undefined}
       >
         <CardContent className="p-0">
           <div className="flex">
@@ -256,7 +288,7 @@ export default function Packages() {
                       {pkg.resident ? `${pkg.resident.block}/${pkg.resident.apartment}` : '—'}
                     </p>
                   </div>
-                  {!isPickedUp && pkg.resident?.whatsapp_enabled === false && (
+                  {!isClickable && pkg.resident?.whatsapp_enabled === false && (
                     <span title="Morador não notificado" className="mt-0.5">
                       <BellOff className="w-4 h-4 text-amber-500 flex-shrink-0" />
                     </span>
@@ -269,12 +301,16 @@ export default function Packages() {
               {pkg.tracking_code && (
                 <p className="text-xs text-muted-foreground mt-0.5 truncate">{pkg.tracking_code}</p>
               )}
-              <div className="flex items-center justify-between mt-2">
+              <div className="flex items-center justify-between mt-2 gap-2 flex-wrap">
                 <Badge variant="outline" className="text-xs gap-1">
                   <Timer className="w-3 h-3" />
                   {formatStayDuration(pkg.received_at, pkg.picked_up_at)}
                 </Badge>
-                {pkg.status === 'pending' && (
+                {isTransferredAway ? (
+                  <Badge className="text-xs gap-1 bg-primary/10 text-primary hover:bg-primary/20 border-primary/20">
+                    Transferido{transferredToName ? ` para ${transferredToName}` : ''}
+                  </Badge>
+                ) : pkg.status === 'pending' ? (
                   <Button
                     size="sm"
                     variant="outline"
@@ -287,7 +323,7 @@ export default function Packages() {
                     <CheckCircle2 className="w-4 h-4 mr-1" />
                     Retirar
                   </Button>
-                )}
+                ) : null}
               </div>
             </div>
           </div>
@@ -405,6 +441,7 @@ export default function Packages() {
         open={detailsDialogOpen}
         onOpenChange={setDetailsDialogOpen}
         pkg={detailsPackage}
+        centralLocationId={centralLocationId}
       />
     </div>
   );
