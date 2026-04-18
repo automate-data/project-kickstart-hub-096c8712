@@ -137,9 +137,9 @@ export function PackageDetailsDialog({ open, onOpenChange, pkg, centralLocationI
 
             {isTransferredAway ? (
               <>
-                {transferEvent?.transferred_by_profile?.full_name && (
+                {transferredByName && (
                   <p className="text-xs text-muted-foreground">
-                    Assinado por: <span className="font-medium text-foreground">{transferEvent.transferred_by_profile.full_name}</span>
+                    Assinado por: <span className="font-medium text-foreground">{transferredByName}</span>
                   </p>
                 )}
                 {transferEvent?.signature_data ? (
