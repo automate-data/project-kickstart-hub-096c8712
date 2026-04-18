@@ -310,6 +310,10 @@ export default function Packages() {
                   <Badge className="text-xs gap-1 bg-primary/10 text-primary hover:bg-primary/20 border-primary/20">
                     Transferido{transferredToName ? ` para ${transferredToName}` : ''}
                   </Badge>
+                ) : isPickedUp ? (
+                  <Badge className="text-xs gap-1 bg-green-500/10 text-green-700 dark:text-green-400 hover:bg-green-500/20 border-green-500/20">
+                    Retirada pelo morador
+                  </Badge>
                 ) : pkg.status === 'pending' ? (
                   <Button
                     size="sm"
