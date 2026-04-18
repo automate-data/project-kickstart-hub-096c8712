@@ -525,6 +525,71 @@ export default function TowerDashboard() {
         towerName={towerName}
         onConfirm={handleLockerConfirm}
       />
+
+      <AlertDialog
+        open={!!lockerPickupTarget}
+        onOpenChange={(open) => {
+          if (!open && !lockerPickupLoading) setLockerPickupTarget(null);
+        }}
+      >
+        <AlertDialogContent className="max-w-sm mx-auto rounded-2xl">
+          <AlertDialogHeader className="items-center text-center space-y-3">
+            <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center">
+              <Archive className="w-7 h-7 text-primary" />
+            </div>
+            <AlertDialogTitle className="text-center text-xl">
+              Confirmar retirada do armário
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3 pt-2">
+                <p className="text-center text-sm text-muted-foreground">
+                  O morador retirou a encomenda do armário?
+                </p>
+                {lockerPickupTarget && (
+                  <div className="rounded-xl bg-muted/60 p-4 space-y-1.5 text-center">
+                    <p className="font-semibold text-foreground text-base">
+                      {lockerPickupTarget.resident?.full_name || 'Morador'}
+                    </p>
+                    {lockerPickupTarget.resident && (
+                      <p className="text-sm text-muted-foreground">
+                        {condominium?.group_label || 'Bloco'} {lockerPickupTarget.resident.block} — {condominium?.unit_label || 'Apto'} {lockerPickupTarget.resident.apartment}
+                      </p>
+                    )}
+                    <div className="pt-2">
+                      <Badge className="bg-amber-100 text-amber-800 border-amber-200 text-sm px-3 py-1">
+                        Armário {lockerPickupTarget.locker_reference}
+                      </Badge>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-col-reverse sm:flex-col-reverse gap-2 sm:gap-2 sm:space-x-0">
+            <AlertDialogCancel
+              className="w-full mt-0 rounded-xl"
+              disabled={!!lockerPickupLoading}
+            >
+              Cancelar
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className="w-full rounded-xl gap-2"
+              disabled={!!lockerPickupLoading}
+              onClick={(e) => {
+                e.preventDefault();
+                confirmLockerPickup();
+              }}
+            >
+              {lockerPickupLoading ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <CheckCircle2 className="w-4 h-4" />
+              )}
+              Confirmar Retirada
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </AppLayout>
   );
 }
