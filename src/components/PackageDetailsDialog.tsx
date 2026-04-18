@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Timer, Calendar, Truck, User, PenTool, ArrowRightLeft } from 'lucide-react';
@@ -6,6 +7,7 @@ import { ptBR } from 'date-fns/locale';
 import { differenceInMinutes, differenceInHours, differenceInDays } from 'date-fns';
 import { Package } from '@/types';
 import { PackagePhoto } from '@/components/PackagePhoto';
+import { supabase } from '@/integrations/supabase/client';
 
 interface PackageDetailsDialogProps {
   open: boolean;
@@ -26,12 +28,13 @@ function formatStayDuration(receivedAt: string, pickedUpAt?: string | null): str
 }
 
 export function PackageDetailsDialog({ open, onOpenChange, pkg, centralLocationId }: PackageDetailsDialogProps) {
-  if (!pkg) return null;
+  const [transferredByName, setTransferredByName] = useState<string | null>(null);
 
-  const events = (pkg as any).events as Array<any> | undefined;
-  const currentLocationId = (pkg as any).current_location_id as string | null | undefined;
+  const events = (pkg as any)?.events as Array<any> | undefined;
+  const currentLocationId = (pkg as any)?.current_location_id as string | null | undefined;
 
   const isTransferredAway =
+    !!pkg &&
     pkg.status === 'pending' &&
     !!centralLocationId &&
     currentLocationId !== centralLocationId;
@@ -42,6 +45,24 @@ export function PackageDetailsDialog({ open, onOpenChange, pkg, centralLocationI
         ?.filter((e) => e.from_location_id === centralLocationId)
         .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0]
     : null;
+
+  useEffect(() => {
+    let cancelled = false;
+    setTransferredByName(null);
+    const uid = transferEvent?.transferred_by;
+    if (!open || !uid) return;
+    (async () => {
+      const { data } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('id', uid)
+        .maybeSingle();
+      if (!cancelled) setTransferredByName(data?.full_name ?? null);
+    })();
+    return () => { cancelled = true; };
+  }, [open, transferEvent?.transferred_by]);
+
+  if (!pkg) return null;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -116,9 +137,9 @@ export function PackageDetailsDialog({ open, onOpenChange, pkg, centralLocationI
 
             {isTransferredAway ? (
               <>
-                {transferEvent?.transferred_by_profile?.full_name && (
+                {transferredByName && (
                   <p className="text-xs text-muted-foreground">
-                    Assinado por: <span className="font-medium text-foreground">{transferEvent.transferred_by_profile.full_name}</span>
+                    Assinado por: <span className="font-medium text-foreground">{transferredByName}</span>
                   </p>
                 )}
                 {transferEvent?.signature_data ? (

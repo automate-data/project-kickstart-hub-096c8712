@@ -48,7 +48,7 @@ async function fetchPackagesPage({
   let query = supabase
     .from('packages')
     .select(
-      `*, resident:residents(*), events:package_events(*, from_location:locations!from_location_id(name), to_location:locations!to_location_id(name), transferred_by_profile:profiles!package_events_transferred_by_fkey(full_name))`,
+      `*, resident:residents(*), events:package_events(*, from_location:locations!from_location_id(name), to_location:locations!to_location_id(name))`,
       { count: 'exact' }
     )
     .eq('condominium_id', condominiumId)
