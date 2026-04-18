@@ -130,15 +130,24 @@ export default function Packages() {
       pendingQuery = pendingQuery.eq('current_location_id', centralLocationId);
     }
 
-    const [pendingRes, pickedUpRes] = await Promise.all([
-      pendingQuery,
-      supabase
-        .from('packages')
-        .select('id', { count: 'exact', head: true })
-        .eq('status', 'picked_up')
-        .eq('condominium_id', condominium.id)
-        .gte('picked_up_at', startOfDay(new Date()).toISOString()),
-    ]);
+    const todayIso = startOfDay(new Date()).toISOString();
+
+    const pickedUpQuery = centralLocationId
+      ? supabase
+          .from('packages')
+          .select('id', { count: 'exact', head: true })
+          .eq('condominium_id', condominium.id)
+          .or(
+            `and(status.eq.picked_up,picked_up_at.gte.${todayIso}),and(status.eq.pending,current_location_id.neq.${centralLocationId},updated_at.gte.${todayIso})`
+          )
+      : supabase
+          .from('packages')
+          .select('id', { count: 'exact', head: true })
+          .eq('status', 'picked_up')
+          .eq('condominium_id', condominium.id)
+          .gte('picked_up_at', todayIso);
+
+    const [pendingRes, pickedUpRes] = await Promise.all([pendingQuery, pickedUpQuery]);
 
     setPendingCount(pendingRes.count ?? 0);
     setPickedUpTodayCount(pickedUpRes.count ?? 0);
