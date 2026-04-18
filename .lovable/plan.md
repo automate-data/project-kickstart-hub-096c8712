@@ -1,49 +1,50 @@
 
 
-## Plano: Ocultar barra de navegação do browser no PWA Android
+## Diagnóstico
 
-### Diagnóstico
+Você esclareceu que o que aparece são os **botões do Android** (barra de navegação do sistema: voltar, home, recentes) — não a barra do Chrome. Ou seja, o ajuste anterior (`display_override: ["standalone"]`) já funcionou para esconder o navegador. Agora falta esconder a UI do **sistema operacional** para virar fullscreen real.
 
-No `public/site.webmanifest` atual:
-```json
-"display": "standalone"
-```
+Como você confirmou que pode esconder tudo (inclusive status bar), a solução é escalar para `fullscreen`.
 
-No Android, `standalone` ainda mostra a barra de status do sistema e, em alguns launchers/versões do Chrome, pode exibir controles do browser quando o usuário navega entre rotas. O iOS ignora `display` e sempre roda fullscreen-ish quando instalado via "Adicionar à Tela de Início" — por isso lá está limpo.
+## Mudanças
 
-A solução padrão é usar **`display_override`** (suportado pelo Chrome/Android) com fallback para `display`:
-
+**`public/site.webmanifest`** — escalar display para fullscreen:
 ```json
 "display_override": ["fullscreen", "standalone"],
-"display": "standalone"
+"display": "fullscreen",
 ```
 
-- `fullscreen`: oculta barra de status + qualquer chrome do navegador (comportamento de app nativo)
-- Fallback para `standalone` em browsers que não suportam `display_override`
-- iOS continua igual (ignora ambos os campos, usa meta tags já presentes no `index.html`)
+- `fullscreen`: oculta status bar (relógio/bateria) **e** barra de navegação do Android
+- Fallback `standalone` para browsers que não suportarem fullscreen
+- iOS continua igual (ignora estes campos)
 
-### Alternativa considerada
-
-`"display": "fullscreen"` direto — mas isso esconde também a barra de status do sistema (relógio, bateria), o que costuma incomodar em apps de produtividade. Por isso `display_override: ["fullscreen", "standalone"]` é mais conservador? **Não** — `fullscreen` esconde a status bar também. 
-
-Opção mais equilibrada: usar **`"display_override": ["standalone"]`** com `theme_color` correto (já tem `#0f766e`) — isso garante standalone "puro" no Android, sem chrome do browser, mas mantém status bar.
-
-### Decisão recomendada
-
-Usar `display_override: ["standalone"]` (mantém status bar do Android, oculta toda UI do Chrome). Se mesmo assim aparecer chrome, escalar para `["fullscreen", "standalone"]`.
-
-### Mudança
-
-**`public/site.webmanifest`** — adicionar 1 linha:
-```json
-"display_override": ["standalone"],
-"display": "standalone",
+**`index.html`** — reforçar fullscreen no Android com meta tag e ajustar viewport para considerar safe-areas:
+```html
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<meta name="mobile-web-app-capable" content="yes" />
+<!-- Status bar translúcida no Android (caso fullscreen caia para standalone) -->
+<meta name="theme-color" content="#0f766e" />
 ```
 
-### Validação
+`viewport-fit=cover` garante que o conteúdo use a tela inteira em telas com notch/safe-area, evitando faixas pretas quando o sistema fica fullscreen.
 
-Usuário precisa **desinstalar e reinstalar** o PWA no Android (manifest é cacheado pelo Chrome na instalação — não atualiza sozinho). Após reinstalar, a barra do Chrome deve sumir.
+**`src/index.css`** (mínimo) — aplicar `env(safe-area-inset-*)` nos paddings principais para conteúdo não ficar embaixo do notch quando o Android entra em modo imersivo.
 
-### Arquivo modificado
-- `public/site.webmanifest` (1 linha adicionada)
+## Comportamento esperado no Android
+
+- App abre ocupando tela inteira (sem status bar nem barra de navegação)
+- Para acessar voltar/home, usuário faz swipe da borda inferior (gesto padrão do Android imersivo)
+- iOS: sem mudança (já estava bom)
+
+## Validação
+
+Como manifest é cacheado pelo Chrome no momento da instalação:
+1. Desinstalar PWA atual
+2. Limpar dados do site no Chrome (Configurações → Apps → Chrome → Armazenamento → Gerenciar Espaço → "good-start-code" / "cheguei.automatedata.com.br")
+3. Reinstalar via "Adicionar à tela inicial"
+
+## Arquivos modificados
+- `public/site.webmanifest`
+- `index.html`
+- `src/index.css` (ajuste mínimo de safe-area)
 
