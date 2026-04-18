@@ -28,12 +28,13 @@ function formatStayDuration(receivedAt: string, pickedUpAt?: string | null): str
 }
 
 export function PackageDetailsDialog({ open, onOpenChange, pkg, centralLocationId }: PackageDetailsDialogProps) {
-  if (!pkg) return null;
+  const [transferredByName, setTransferredByName] = useState<string | null>(null);
 
-  const events = (pkg as any).events as Array<any> | undefined;
-  const currentLocationId = (pkg as any).current_location_id as string | null | undefined;
+  const events = (pkg as any)?.events as Array<any> | undefined;
+  const currentLocationId = (pkg as any)?.current_location_id as string | null | undefined;
 
   const isTransferredAway =
+    !!pkg &&
     pkg.status === 'pending' &&
     !!centralLocationId &&
     currentLocationId !== centralLocationId;
@@ -44,6 +45,24 @@ export function PackageDetailsDialog({ open, onOpenChange, pkg, centralLocationI
         ?.filter((e) => e.from_location_id === centralLocationId)
         .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0]
     : null;
+
+  useEffect(() => {
+    let cancelled = false;
+    setTransferredByName(null);
+    const uid = transferEvent?.transferred_by;
+    if (!open || !uid) return;
+    (async () => {
+      const { data } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('id', uid)
+        .maybeSingle();
+      if (!cancelled) setTransferredByName(data?.full_name ?? null);
+    })();
+    return () => { cancelled = true; };
+  }, [open, transferEvent?.transferred_by]);
+
+  if (!pkg) return null;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
