@@ -455,11 +455,11 @@ export default function TowerDashboard() {
                             })}
                           </span>
                         </div>
-                        <div className="flex items-center gap-2 pt-1">
+                        <div className="grid grid-cols-2 gap-2 pt-2">
                           {pkg.locker_reference ? (
                             <Button
                               size="sm"
-                              className="gap-1.5 bg-blue-600 hover:bg-blue-700 text-white"
+                              className="col-span-2 w-full justify-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white"
                               disabled={lockerPickupLoading === pkg.id}
                               onClick={() => setLockerPickupTarget(pkg)}
                             >
@@ -475,7 +475,7 @@ export default function TowerDashboard() {
                               <Button
                                 size="sm"
                                 variant="default"
-                                className="gap-1.5"
+                                className={`${hasLockers ? '' : 'col-span-2'} w-full justify-center gap-1.5`}
                                 onClick={() => {
                                   setPickupPkg(pkg);
                                   setPickupOpen(true);
@@ -488,14 +488,14 @@ export default function TowerDashboard() {
                                 <Button
                                   size="sm"
                                   variant="outline"
-                                  className="gap-1.5"
+                                  className="w-full justify-center gap-1.5"
                                   onClick={() => {
                                     setLockerPkg(pkg);
                                     setLockerOpen(true);
                                   }}
                                 >
                                   <LocateFixed className="w-3.5 h-3.5" />
-                                  Alocar em Armário
+                                  Alocar
                                 </Button>
                               )}
                             </>
