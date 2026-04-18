@@ -2,49 +2,74 @@
 
 ## Diagnóstico
 
-Você esclareceu que o que aparece são os **botões do Android** (barra de navegação do sistema: voltar, home, recentes) — não a barra do Chrome. Ou seja, o ajuste anterior (`display_override: ["standalone"]`) já funcionou para esconder o navegador. Agora falta esconder a UI do **sistema operacional** para virar fullscreen real.
+**Como está hoje** na tela `/packages` (portaria central):
 
-Como você confirmou que pode esconder tudo (inclusive status bar), a solução é escalar para `fullscreen`.
+- Aba **"Aguardando"**: filtra `status='pending'` AND `current_location_id = central` → ✅ correto, some quando vai pro bloco
+- Aba **"Retiradas"**: filtra apenas `status='picked_up'` → ❌ **só mostra encomendas que o morador retirou no fim**. Encomendas transferidas para o Bloco A continuam `status='pending'` (apenas mudaram de `current_location_id`), então **nunca aparecem como "retiradas" da central**.
 
-## Mudanças
+Resultado: a portaria central perde a rastreabilidade do "quem levou da minha mão". As assinaturas dos porteiros de bloco existem em `package_events.signature_data` (confirmado no banco — todas têm `has_sig: true`), mas nenhuma tela exibe.
 
-**`public/site.webmanifest`** — escalar display para fullscreen:
-```json
-"display_override": ["fullscreen", "standalone"],
-"display": "fullscreen",
+## O que mudar
+
+A semântica de "Retirada" na portaria central passa a ser: **"saiu da minha custódia"** — seja porque o morador retirou direto, seja porque foi transferida para um bloco.
+
+### 1. `src/pages/Packages.tsx` — aba "Retiradas" (modo multi_custody)
+
+Quando `centralLocationId` existe, a query da aba `picked_up` muda para incluir **as duas situações**:
+
+- Encomendas com `status='picked_up'` (retirada direta pelo morador na central), **OU**
+- Encomendas pendentes que **já não estão mais** na central (foram transferidas)
+
+Implementação: usar `.or()` do Supabase:
+```ts
+// Em fetchPackagesPage, quando status='picked_up' E centralLocationId existe:
+query = supabase
+  .from('packages')
+  .select(`*, resident:residents(*), events:package_events(*, from_location:locations!from_location_id(name), to_location:locations!to_location_id(name))`, { count: 'exact' })
+  .eq('condominium_id', condominiumId)
+  .or(`status.eq.picked_up,and(status.eq.pending,current_location_id.neq.${centralLocationId})`)
+  .order('received_at', { ascending: false })
 ```
 
-- `fullscreen`: oculta status bar (relógio/bateria) **e** barra de navegação do Android
-- Fallback `standalone` para browsers que não suportarem fullscreen
-- iOS continua igual (ignora estes campos)
+O mesmo ajuste em `fetchCounts()` para o card "Retiradas hoje" — passa a contar tudo que **saiu da central hoje** (usando o `created_at` do evento de transferência mais recente, ou `picked_up_at`).
 
-**`index.html`** — reforçar fullscreen no Android com meta tag e ajustar viewport para considerar safe-areas:
-```html
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-<meta name="mobile-web-app-capable" content="yes" />
-<!-- Status bar translúcida no Android (caso fullscreen caia para standalone) -->
-<meta name="theme-color" content="#0f766e" />
-```
+### 2. Card visual: distinguir os dois tipos
 
-`viewport-fit=cover` garante que o conteúdo use a tela inteira em telas com notch/safe-area, evitando faixas pretas quando o sistema fica fullscreen.
+Na lista da aba "Retiradas", quando o pacote tem `status='pending'` (ou seja, foi transferido), o badge/botão muda:
 
-**`src/index.css`** (mínimo) — aplicar `env(safe-area-inset-*)` nos paddings principais para conteúdo não ficar embaixo do notch quando o Android entra em modo imersivo.
+- Status normal de retirada do morador: badge verde "Retirado por João Silva"
+- Transferido pra bloco: badge azul "Transferido para Bloco A" (pegando do último `package_events` com `to_location`)
 
-## Comportamento esperado no Android
+### 3. `PackageDetailsDialog.tsx` — exibir assinatura correta
 
-- App abre ocupando tela inteira (sem status bar nem barra de navegação)
-- Para acessar voltar/home, usuário faz swipe da borda inferior (gesto padrão do Android imersivo)
-- iOS: sem mudança (já estava bom)
+Hoje só mostra `pkg.signature_data` (assinatura do morador). Adicionar lógica:
+
+- Se `status='picked_up'` → mostrar assinatura do morador (como hoje)
+- Se `status='pending'` mas saiu da central → buscar o último `package_events` de transferência **saindo** da central, exibir:
+  - "Assinatura do recebedor — Porteiro do Bloco A"
+  - imagem de `event.signature_data`
+  - data/hora da transferência
+  - quem assinou (nome via `transferred_by` → `profiles.full_name`)
+
+Isso resolve o caso "5 pacotes transferidos juntos compartilham a mesma assinatura" — todos aparecerão individualmente na lista de retiradas da central, e ao abrir cada um a portaria verá a mesma assinatura do porteiro do Bloco A (já é assim que está salvo no banco).
+
+### 4. Atualizar título e contador
+
+- Texto do card "Retiradas hoje" → "Saídas hoje" (mais preciso) **OU** manter "Retiradas hoje" se preferir não mexer no vocabulário. Recomendo manter.
+- Título da aba: manter "Retiradas".
+
+## Arquivos modificados
+
+- `src/pages/Packages.tsx` — query da aba "Retiradas" (modo multi_custody) + contador + visual do card
+- `src/components/PackageDetailsDialog.tsx` — exibir assinatura de transferência quando aplicável
+
+## Modo simple (não-multi-custody)
+
+Sem mudanças. Tudo continua igual nos condomínios sem multi-custódia, já que `centralLocationId` é null e a lógica nova não dispara.
 
 ## Validação
 
-Como manifest é cacheado pelo Chrome no momento da instalação:
-1. Desinstalar PWA atual
-2. Limpar dados do site no Chrome (Configurações → Apps → Chrome → Armazenamento → Gerenciar Espaço → "good-start-code" / "cheguei.automatedata.com.br")
-3. Reinstalar via "Adicionar à tela inicial"
-
-## Arquivos modificados
-- `public/site.webmanifest`
-- `index.html`
-- `src/index.css` (ajuste mínimo de safe-area)
+1. Login como portaria central → aba "Retiradas" deve mostrar tanto pickups diretos quanto pacotes transferidos para blocos
+2. Clicar num pacote transferido → dialog deve mostrar assinatura do porteiro do bloco que recebeu, com nome e horário
+3. Fazer uma nova transferência em lote (5 pacotes) → todos devem aparecer na aba "Retiradas" da central com a mesma assinatura
 
