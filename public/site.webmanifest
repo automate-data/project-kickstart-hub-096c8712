@@ -3,6 +3,7 @@
   "short_name": "Chegueii",
   "description": "Sistema de gestão de encomendas para condomínios",
   "start_url": "/",
+  "display_override": ["standalone"],
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#0f766e",
