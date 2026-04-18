@@ -441,6 +441,7 @@ export default function Packages() {
         open={detailsDialogOpen}
         onOpenChange={setDetailsDialogOpen}
         pkg={detailsPackage}
+        centralLocationId={centralLocationId}
       />
     </div>
   );
