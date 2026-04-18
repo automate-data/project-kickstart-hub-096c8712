@@ -235,13 +235,9 @@ export default function TowerDashboard() {
   };
 
   // Handle locker pickup (no signature needed)
-  const handleLockerPickup = async (pkg: TowerPackage) => {
-    if (!user) return;
-
-    const confirmed = window.confirm(
-      `Confirmar que a encomenda de ${pkg.resident?.full_name || 'morador'} foi retirada do armário ${pkg.locker_reference}?`
-    );
-    if (!confirmed) return;
+  const confirmLockerPickup = async () => {
+    const pkg = lockerPickupTarget;
+    if (!pkg || !user) return;
 
     setLockerPickupLoading(pkg.id);
     const pickedUpAt = new Date().toISOString();
@@ -289,6 +285,7 @@ export default function TowerDashboard() {
       }
 
       toast.success('Retirada confirmada com sucesso!');
+      setLockerPickupTarget(null);
       fetchPackages();
     } finally {
       setLockerPickupLoading(null);
