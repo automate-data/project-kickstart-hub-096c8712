@@ -1,9 +1,11 @@
 export function registerServiceWorker() {
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
+      const hadController = !!navigator.serviceWorker.controller;
       let refreshing = false;
 
       navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (!hadController) return; // primeira instalação — não recarregar
         if (refreshing) return;
         refreshing = true;
         window.location.reload();
