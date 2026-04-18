@@ -257,7 +257,7 @@ export default function Packages() {
     const isTransferredAway =
       pkg.status === 'pending' &&
       !!centralLocationId &&
-      pkg.current_location_id !== centralLocationId;
+      (pkg as any).current_location_id !== centralLocationId;
     const isPickedUp = pkg.status === 'picked_up';
     const isClickable = isPickedUp || isTransferredAway;
 
