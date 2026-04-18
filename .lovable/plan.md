@@ -1,33 +1,39 @@
 
 
-## Plano: Usar template de confirmação de retirada do armário
+## Diagnóstico: Tela branca no Android após instalar PWA
 
-### O que muda
+### Causa raiz
 
-**1. Edge Function `send-pickup-confirmation/index.ts`**
-- Aceitar novo parâmetro `locker_reference` no body da requisição
-- Quando `locker_reference` estiver presente, usar o ContentSid do template de armário (`HXbc5c4ecef860c73987e24a09c8392275`) com 2 variáveis: `{{1}}` = nome do morador, `{{2}}` = referência do armário
-- Quando `locker_reference` NÃO estiver presente, manter o ContentSid atual (`HXfd32c526e2f3c8209d014dd2c2f27120`) com as variáveis existentes (nome + data/hora)
-- Atualizar o log context para distinguir `"pickup_confirmation"` vs `"locker_pickup_confirmation"`
+Há dois problemas no `public/sw.js` que afetam o Chrome/Android (iOS Safari é mais tolerante e por isso funciona lá):
 
-**2. Frontend `src/pages/TowerDashboard.tsx`**
-- No `handleLockerPickup`, adicionar `locker_reference: pkg.locker_reference` ao body enviado para a Edge Function
+**1. `controllerchange` causa loop de reload no Android instalado**
+No `registerSW.ts`, sempre que o SW assume controle (incluindo a primeira instalação no Android standalone), dispara `window.location.reload()`. Combinado com `skipWaiting()` + `clients.claim()` na primeira ativação, o Android pode entrar em loop de reload antes da app montar — resultado: tela branca.
 
-### Detalhes técnicos
+**2. `navigate` handler quebra em modo offline/cold start**
+Quando o Android abre o PWA standalone pela primeira vez sem rede estável (ou com rede lenta), o handler tenta `fetch(request)` e, se falhar, faz `caches.match('/index.html')`. Mas o `/index.html` cacheado no install foi salvo com `cache.addAll(['/', '/index.html'])` — o Android pode ter falhado silenciosamente nesse `addAll` (uma URL falhando aborta tudo), deixando o cache vazio. Resultado: fetch falha + cache vazio = tela branca permanente.
 
-```text
-Edge Function — lógica condicional:
+**3. Falta `purpose: "any"` nos ícones**
+Os ícones estão apenas como `maskable`. O Chrome Android precisa de pelo menos um ícone com `purpose: "any"` (ou sem purpose) para o splash screen — sem isso, a splash pode renderizar branca/quebrada antes do app carregar.
 
-if (locker_reference) {
-  ContentSid = "HXbc5c4ecef860c73987e24a09c8392275"
-  contentVariables = { "1": resident_name, "2": locker_reference }
-} else {
-  ContentSid = "HXfd32c526e2f3c8209d014dd2c2f27120"
-  contentVariables = { "1": resident_name, "2": dateTimeBR }
-}
-```
+### Correções
 
-Arquivos modificados:
-- `supabase/functions/send-pickup-confirmation/index.ts`
-- `src/pages/TowerDashboard.tsx` (1 linha — adicionar `locker_reference` ao body)
+**`public/sw.js`** — bump de versão de cache + tornar install resiliente + fallback robusto:
+- `CACHE_NAME` → `'chegueii-v3'` (força limpeza de caches antigos quebrados em devices já instalados)
+- Trocar `cache.addAll([...])` por `Promise.allSettled` com `cache.add` individual — uma falha não aborta o install
+- No `navigate` handler: se fetch falhar E não houver cache, retornar uma `Response` HTML mínima com meta-refresh ao invés de `undefined` (evita tela branca pura)
+- Remover `skipWaiting()` da primeira instalação (manter só no update) — evita race condition
+
+**`src/registerSW.ts`** — não recarregar na primeira instalação:
+- Só fazer `window.location.reload()` em `controllerchange` se já existia um `controller` antes (ou seja, é update, não primeira instalação). Padrão recomendado: checar `navigator.serviceWorker.controller` antes do registro.
+
+**`public/site.webmanifest`** — adicionar ícone `any` para splash do Android:
+- Duplicar entradas 192/512 com `"purpose": "any"` (mantendo as `maskable` existentes)
+
+### Arquivos modificados
+- `public/sw.js`
+- `src/registerSW.ts`
+- `public/site.webmanifest`
+
+### Como o usuário valida
+Após o deploy, no Android instalado: desinstalar o PWA atual, limpar dados do Chrome para o site, reinstalar. Tela deve carregar normalmente.
 
