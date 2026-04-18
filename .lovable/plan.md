@@ -1,43 +1,39 @@
 
-## Plano: Substituir popup nativo por dialog estilizado (cara de app)
 
-### Diagnóstico
-O popup branco no screenshot é um `window.confirm()` nativo do navegador (linha 228 de `src/pages/TowerDashboard.tsx`). Ele ignora todo o design system. Os demais dialogs do app (`PickupDialog`, `LockerDialog`, `Residents`, `Staff`, `AdvancedSettings`) já usam shadcn `Dialog`/`AlertDialog` com visual consistente — não precisam mudar.
+## Plano: Auto-update silencioso do PWA (Opção A)
 
-### Mudança
-Substituir o `window.confirm` por um `AlertDialog` shadcn (com cara de app: bordas arredondadas, sombra, tipografia do design system, botões primários azuis, ícone de pacote/armário no topo).
+### O que muda
 
-### Arquivo modificado
-- `src/pages/TowerDashboard.tsx`
+**`src/registerSW.ts`** — única alteração:
 
-### Implementação
-1. Adicionar estado `lockerPickupTarget: TowerPackage | null` para guardar a encomenda em confirmação.
-2. Trocar `handleLockerPickup` em duas etapas:
-   - `requestLockerPickup(pkg)`: apenas seta o target → abre o dialog.
-   - `confirmLockerPickup()`: executa a lógica atual (update Supabase + WhatsApp + toast).
-3. Renderizar um `AlertDialog` no final do JSX:
-   - Ícone `Archive` em círculo azul claro no topo
-   - Título: "Confirmar retirada do armário"
-   - Descrição com nome do morador, unidade (Bloco/Apto) e referência do armário em destaque
-   - Botão "Cancelar" (outline) + "Confirmar Retirada" (primário azul, com `Loader2` enquanto `lockerPickupLoading`)
-   - Layout mobile-first (`max-w-sm mx-auto`, padding generoso) consistente com `PickupDialog` e `LockerDialog`
+1. Reduzir polling: `60 * 60 * 1000` → `15 * 60 * 1000` (15 min)
+2. Adicionar revalidação em `visibilitychange` (quando aba volta visível) e em `online` (quando reconecta)
+3. Detectar SW novo via `reg.addEventListener('updatefound')` → quando `installing.state === 'installed'` E já há `controller` → `postMessage({type:'SKIP_WAITING'})` automaticamente
+4. O `controllerchange` já existente cuida do reload silencioso
 
-### Resultado visual
+**`public/sw.js`** — pequeno ajuste:
+- O listener atual aceita `event.data === 'SKIP_WAITING'` (string). Aceitar também `event.data?.type === 'SKIP_WAITING'` para compatibilidade com o padrão postMessage com objeto.
+
+### Comportamento final
+
 ```text
-┌─────────────────────────────────┐
-│         ╭───╮                   │
-│         │📦 │  (ícone azul)     │
-│         ╰───╯                   │
-│                                 │
-│   Confirmar retirada            │
-│   do armário                    │
-│                                 │
-│   Gustavo Diniz Decrescenzo     │
-│   Bloco A — Apto 53             │
-│   Armário: 9                    │
-│                                 │
-│   [Cancelar] [✓ Confirmar]     │
-└─────────────────────────────────┘
+App aberto
+  ↓
+A cada 15min OU ao voltar visível/online → reg.update()
+  ↓
+SW novo detectado → instala em background
+  ↓
+Quando state='installed' + há controller → SKIP_WAITING auto
+  ↓
+controllerchange dispara → reload silencioso
+  ↓
+Usuário vê versão nova
 ```
 
-Sem mudanças nos outros dialogs — eles já têm "cara de app".
+### Arquivos modificados
+- `src/registerSW.ts`
+- `public/sw.js` (1 linha)
+
+### Validação
+Publicar uma mudança visível. PWA aberto deve recarregar sozinho em até 15 min (ou imediatamente se trocar de aba e voltar).
+
