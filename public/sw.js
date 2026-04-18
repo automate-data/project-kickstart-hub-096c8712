@@ -1,18 +1,26 @@
-const CACHE_NAME = 'chegueii-v2';
+const CACHE_NAME = 'chegueii-v3';
 const STATIC_ASSETS = ['/', '/index.html'];
 
+const FALLBACK_HTML = `<!DOCTYPE html><html><head><meta charset="utf-8"><meta http-equiv="refresh" content="1"><title>Chegueii</title></head><body style="font-family:sans-serif;padding:20px;text-align:center;">Carregando...</body></html>`;
+
 self.addEventListener('install', (event) => {
-  event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(STATIC_ASSETS)));
-  self.skipWaiting();
+  event.waitUntil(
+    caches.open(CACHE_NAME).then((cache) =>
+      Promise.allSettled(STATIC_ASSETS.map((url) => cache.add(url)))
+    )
+  );
 });
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((names) =>
       Promise.all(names.filter((n) => n !== CACHE_NAME).map((n) => caches.delete(n)))
-    )
+    ).then(() => self.clients.claim())
   );
-  self.clients.claim();
+});
+
+self.addEventListener('message', (event) => {
+  if (event.data === 'SKIP_WAITING') self.skipWaiting();
 });
 
 self.addEventListener('fetch', (event) => {
@@ -28,10 +36,16 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(
       fetch(event.request)
         .then((res) => {
-          caches.open(CACHE_NAME).then((c) => c.put('/index.html', res.clone()));
+          const copy = res.clone();
+          caches.open(CACHE_NAME).then((c) => c.put('/index.html', copy));
           return res;
         })
-        .catch(() => caches.match('/index.html'))
+        .catch(async () => {
+          const cached = await caches.match('/index.html');
+          return cached || new Response(FALLBACK_HTML, {
+            headers: { 'Content-Type': 'text/html; charset=utf-8' },
+          });
+        })
     );
     return;
   }
@@ -40,7 +54,8 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(
       fetch(event.request)
         .then((res) => {
-          caches.open(CACHE_NAME).then((c) => c.put(event.request, res.clone()));
+          const copy = res.clone();
+          caches.open(CACHE_NAME).then((c) => c.put(event.request, copy));
           return res;
         })
         .catch(() => caches.match(event.request))
@@ -52,7 +67,8 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(
       caches.match(event.request).then((cached) =>
         cached || fetch(event.request).then((res) => {
-          caches.open(CACHE_NAME).then((c) => c.put(event.request, res.clone()));
+          const copy = res.clone();
+          caches.open(CACHE_NAME).then((c) => c.put(event.request, copy));
           return res;
         })
       )
