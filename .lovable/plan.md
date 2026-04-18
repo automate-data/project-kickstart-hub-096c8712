@@ -1,43 +1,86 @@
 
-
 ## Diagnóstico
 
-Adicionei na última iteração o embed `transferred_by_profile:profiles!transferred_by(full_name)` no `select` da query principal de `Packages.tsx`. Mas **não existe foreign key** entre `package_events.transferred_by` e `profiles.id`, então o PostgREST retorna **HTTP 400** em todas as queries de pacotes.
+A lista da portaria central continua vazia porque a query principal de `/packages` ainda está quebrando em runtime com **HTTP 400**.
 
-Resultado: tanto a aba "Aguardando" quanto "Retiradas" ficam vazias (a aba "Aguardando" só não mostra como vazia visualmente porque o card "Aguardando retirada" usa um count separado que funciona — mas a lista também está quebrada).
+O que confirmei:
+- O request real da tela ainda falha com:
+  `PGRST200: Could not find a relationship between 'package_events' and 'profiles'`
+- O problema vem do embed `transferred_by_profile:profiles!...` dentro de `events:package_events(...)`
+- Como essa é a **query da lista**, quando ela falha a aba “Retiradas” fica vazia
 
-Erro exato no console:
-```
-PGRST200: Could not find a relationship between 'package_events' and 'profiles' 
-using the hint 'transferred_by' in the schema 'public'
-```
+Também encontrei um detalhe importante:
+- O schema original de `package_events.transferred_by` foi criado como referência de usuário
+- Não há migration no projeto criando a relação pública com `profiles`
+- Então depender desse join direto `package_events -> profiles` não está estável hoje
 
-## Correção
+## Correção recomendada
 
-Duas opções:
+Em vez de continuar bloqueando a lista por causa do nome do recebedor, vou separar as responsabilidades:
 
-**A) Criar a foreign key no banco** (correto a longo prazo) — uma migration adicionando:
-```sql
-ALTER TABLE package_events 
-ADD CONSTRAINT package_events_transferred_by_fkey 
-FOREIGN KEY (transferred_by) REFERENCES profiles(id);
-```
+1. **Restaurar a listagem imediatamente**
+   - remover o embed `transferred_by_profile` da query principal de `src/pages/Packages.tsx`
+   - manter apenas `events`, `from_location` e `to_location`
 
-**B) Buscar o nome do recebedor em paralelo no front** (sem alterar schema) — remover o embed inválido, e no `PackageDetailsDialog` fazer um fetch separado do `profiles.full_name` quando `transferred_by` existir.
+2. **Manter a regra correta da central**
+   - a aba **Retiradas** continua mostrando:
+     - pacotes com `status = picked_up`
+     - pacotes `pending` que já saíram da central (`current_location_id != centralLocationId`)
 
-**Recomendo a opção A** — é uma única migration de 1 linha, deixa o embed funcionar e mantém o código simples. Não há risco de quebrar nada porque a coluna já existe e os valores atuais (`transferred_by`) já apontam para IDs válidos em `profiles`.
+3. **Mostrar assinatura do bloco no detalhe**
+   - em `src/components/PackageDetailsDialog.tsx`, quando o pacote tiver sido transferido:
+     - usar o último `package_events` saindo da central
+     - exibir `signature_data`
+     - buscar o nome do porteiro separadamente a partir de `transferEvent.transferred_by`, sem embed relacional na query principal
+   - se o nome não puder ser resolvido, a assinatura continua aparecendo normalmente
 
 ## Mudanças
 
-1. **Nova migration**: adicionar FK `package_events.transferred_by → profiles.id` (`ON DELETE SET NULL`)
-2. **Sem mudança em código** — o embed `profiles!transferred_by(full_name)` já está correto e passará a funcionar quando a FK for criada e o cache do PostgREST recarregar (automático)
+### `src/pages/Packages.tsx`
+- remover `transferred_by_profile:profiles!...` do `.select(...)`
+- manter a lógica da aba “Retiradas” para central:
+  ```ts
+  .or(`status.eq.picked_up,and(status.eq.pending,current_location_id.neq.${centralLocationId})`)
+  ```
+- preservar badge “Transferido para Bloco X”
+
+### `src/components/PackageDetailsDialog.tsx`
+- parar de depender de `transferEvent.transferred_by_profile`
+- buscar `profiles.full_name` separadamente quando abrir um pacote transferido
+- continuar exibindo:
+  - data/hora da transferência
+  - destino
+  - assinatura do recebedor do bloco
+
+### `src/types/index.ts`
+- ajustar o tipo de `PackageEvent` se necessário para refletir que o nome do recebedor pode vir carregado depois
+
+## Por que esta abordagem é a melhor agora
+
+- resolve o bug principal: **a lista volta a aparecer**
+- não depende de migration para destravar a tela
+- mantém a assinatura do porteiro do bloco visível
+- evita que um join opcional derrube toda a tela de pacotes
 
 ## Validação
 
-1. Aba "Aguardando" volta a listar pacotes
-2. Aba "Retiradas" mostra picked_up + transferidos
-3. Clicar num pacote transferido mostra nome do porteiro do bloco
+1. Entrar no login da portaria central
+2. Abrir aba **Retiradas**
+3. Confirmar que aparecem:
+   - retiradas diretas do morador
+   - encomendas transferidas para bloco
+4. Abrir um pacote transferido
+5. Confirmar:
+   - nome do bloco
+   - horário da transferência
+   - assinatura do porteiro do bloco
+6. Testar transferência em lote (ex.: 5 pacotes)
+   - todos devem aparecer individualmente em “Retiradas”
 
-## Arquivos
-- 1 nova migration SQL (FK constraint)
+## Arquivos a ajustar
+- `src/pages/Packages.tsx`
+- `src/components/PackageDetailsDialog.tsx`
+- possivelmente `src/types/index.ts`
 
+## Observação técnica
+Os warnings de `ref` no console (`PickupDialog` / `PackageDetailsDialog`) são separados deste bug e não explicam a lista vazia.
