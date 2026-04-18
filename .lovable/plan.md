@@ -1,39 +1,49 @@
 
 
-## Plano: Auto-update silencioso do PWA (Opção A)
+## Plano: Ocultar barra de navegação do browser no PWA Android
 
-### O que muda
+### Diagnóstico
 
-**`src/registerSW.ts`** — única alteração:
-
-1. Reduzir polling: `60 * 60 * 1000` → `15 * 60 * 1000` (15 min)
-2. Adicionar revalidação em `visibilitychange` (quando aba volta visível) e em `online` (quando reconecta)
-3. Detectar SW novo via `reg.addEventListener('updatefound')` → quando `installing.state === 'installed'` E já há `controller` → `postMessage({type:'SKIP_WAITING'})` automaticamente
-4. O `controllerchange` já existente cuida do reload silencioso
-
-**`public/sw.js`** — pequeno ajuste:
-- O listener atual aceita `event.data === 'SKIP_WAITING'` (string). Aceitar também `event.data?.type === 'SKIP_WAITING'` para compatibilidade com o padrão postMessage com objeto.
-
-### Comportamento final
-
-```text
-App aberto
-  ↓
-A cada 15min OU ao voltar visível/online → reg.update()
-  ↓
-SW novo detectado → instala em background
-  ↓
-Quando state='installed' + há controller → SKIP_WAITING auto
-  ↓
-controllerchange dispara → reload silencioso
-  ↓
-Usuário vê versão nova
+No `public/site.webmanifest` atual:
+```json
+"display": "standalone"
 ```
 
-### Arquivos modificados
-- `src/registerSW.ts`
-- `public/sw.js` (1 linha)
+No Android, `standalone` ainda mostra a barra de status do sistema e, em alguns launchers/versões do Chrome, pode exibir controles do browser quando o usuário navega entre rotas. O iOS ignora `display` e sempre roda fullscreen-ish quando instalado via "Adicionar à Tela de Início" — por isso lá está limpo.
+
+A solução padrão é usar **`display_override`** (suportado pelo Chrome/Android) com fallback para `display`:
+
+```json
+"display_override": ["fullscreen", "standalone"],
+"display": "standalone"
+```
+
+- `fullscreen`: oculta barra de status + qualquer chrome do navegador (comportamento de app nativo)
+- Fallback para `standalone` em browsers que não suportam `display_override`
+- iOS continua igual (ignora ambos os campos, usa meta tags já presentes no `index.html`)
+
+### Alternativa considerada
+
+`"display": "fullscreen"` direto — mas isso esconde também a barra de status do sistema (relógio, bateria), o que costuma incomodar em apps de produtividade. Por isso `display_override: ["fullscreen", "standalone"]` é mais conservador? **Não** — `fullscreen` esconde a status bar também. 
+
+Opção mais equilibrada: usar **`"display_override": ["standalone"]`** com `theme_color` correto (já tem `#0f766e`) — isso garante standalone "puro" no Android, sem chrome do browser, mas mantém status bar.
+
+### Decisão recomendada
+
+Usar `display_override: ["standalone"]` (mantém status bar do Android, oculta toda UI do Chrome). Se mesmo assim aparecer chrome, escalar para `["fullscreen", "standalone"]`.
+
+### Mudança
+
+**`public/site.webmanifest`** — adicionar 1 linha:
+```json
+"display_override": ["standalone"],
+"display": "standalone",
+```
 
 ### Validação
-Publicar uma mudança visível. PWA aberto deve recarregar sozinho em até 15 min (ou imediatamente se trocar de aba e voltar).
+
+Usuário precisa **desinstalar e reinstalar** o PWA no Android (manifest é cacheado pelo Chrome na instalação — não atualiza sozinho). Após reinstalar, a barra do Chrome deve sumir.
+
+### Arquivo modificado
+- `public/site.webmanifest` (1 linha adicionada)
 
