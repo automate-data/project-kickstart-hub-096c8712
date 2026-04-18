@@ -47,15 +47,24 @@ async function fetchPackagesPage({
 
   let query = supabase
     .from('packages')
-    .select(`*, resident:residents(*)`, { count: 'exact' })
-    .eq('status', status)
+    .select(
+      `*, resident:residents(*), events:package_events(*, from_location:locations!from_location_id(name), to_location:locations!to_location_id(name), transferred_by_profile:profiles!transferred_by(full_name))`,
+      { count: 'exact' }
+    )
     .eq('condominium_id', condominiumId)
     .order('received_at', { ascending: false })
     .range(from, to);
 
-  // In multi_custody mode, only show packages at central location for pending
   if (centralLocationId && status === 'pending') {
-    query = query.eq('current_location_id', centralLocationId);
+    // Aguardando na central: pendentes ainda fisicamente na central
+    query = query.eq('status', 'pending').eq('current_location_id', centralLocationId);
+  } else if (centralLocationId && status === 'picked_up') {
+    // "Retiradas" da central = saiu da minha custódia (retirado pelo morador OU transferido para bloco)
+    query = query.or(
+      `status.eq.picked_up,and(status.eq.pending,current_location_id.neq.${centralLocationId})`
+    );
+  } else {
+    query = query.eq('status', status);
   }
 
   const { data, count, error } = await query;
