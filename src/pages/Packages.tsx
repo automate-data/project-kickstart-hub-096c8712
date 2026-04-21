@@ -149,6 +149,31 @@ export default function Packages() {
       return;
     }
 
+    const todayIso = startOfDay(new Date()).toISOString();
+
+    // Tower-scoped: simple location-based counts
+    if (userLocationId) {
+      const [pendingRes, pickedUpRes] = await Promise.all([
+        supabase
+          .from('packages')
+          .select('id', { count: 'exact', head: true })
+          .eq('condominium_id', condominium.id)
+          .eq('status', 'pending')
+          .eq('current_location_id', userLocationId),
+        supabase
+          .from('packages')
+          .select('id', { count: 'exact', head: true })
+          .eq('condominium_id', condominium.id)
+          .eq('status', 'picked_up')
+          .eq('current_location_id', userLocationId)
+          .gte('picked_up_at', todayIso),
+      ]);
+      setPendingCount(pendingRes.count ?? 0);
+      setPickedUpTodayCount(pickedUpRes.count ?? 0);
+      setPendingElsewhereCount(0);
+      return;
+    }
+
     let pendingQuery = supabase
       .from('packages')
       .select('id', { count: 'exact', head: true })
@@ -170,8 +195,6 @@ export default function Packages() {
           .not('current_location_id', 'is', null)
           .neq('current_location_id', centralLocationId)
       : null;
-
-    const todayIso = startOfDay(new Date()).toISOString();
 
     const pickedUpQuery = centralLocationId
       ? supabase
