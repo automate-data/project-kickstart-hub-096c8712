@@ -93,28 +93,44 @@ export default function Packages() {
   const [pendingElsewhereCount, setPendingElsewhereCount] = useState(0);
   const [pickedUpTodayCount, setPickedUpTodayCount] = useState(0);
   const [centralLocationId, setCentralLocationId] = useState<string | null>(null);
+  const [isTowerScopedUser, setIsTowerScopedUser] = useState(false);
 
-  // Fetch central location for multi_custody mode
+  // Fetch central location for multi_custody mode + check if user is tower-scoped
   useEffect(() => {
     if (!condominium?.id || condominium.custody_mode !== 'multi_custody') {
       setCentralLocationId(null);
+      setIsTowerScopedUser(false);
       return;
     }
     (async () => {
-      const { data: central } = await supabase
-        .from('locations')
-        .select('id')
-        .eq('condominium_id', condominium.id)
-        .eq('type', 'central')
-        .limit(1)
-        .single();
-      setCentralLocationId(central?.id || null);
+      const { data: { user } } = await supabase.auth.getUser();
+      const [centralRes, scopedRes] = await Promise.all([
+        supabase
+          .from('locations')
+          .select('id')
+          .eq('condominium_id', condominium.id)
+          .eq('type', 'central')
+          .limit(1)
+          .single(),
+        user
+          ? supabase
+              .from('user_roles')
+              .select('id')
+              .eq('user_id', user.id)
+              .eq('condominium_id', condominium.id)
+              .not('location_id', 'is', null)
+              .is('deleted_at', null)
+              .limit(1)
+          : Promise.resolve({ data: [] as any[] }),
+      ]);
+      setCentralLocationId(centralRes.data?.id || null);
+      setIsTowerScopedUser((scopedRes.data?.length ?? 0) > 0);
     })();
   }, [condominium?.id, condominium?.custody_mode]);
 
   useEffect(() => {
     fetchCounts();
-  }, [condominium?.id, centralLocationId]);
+  }, [condominium?.id, centralLocationId, isTowerScopedUser]);
 
   const fetchCounts = async () => {
     if (!condominium?.id) {
@@ -136,7 +152,7 @@ export default function Packages() {
       );
     }
 
-    const elsewhereQuery = centralLocationId
+    const elsewhereQuery = centralLocationId && !isTowerScopedUser
       ? supabase
           .from('packages')
           .select('id', { count: 'exact', head: true })
@@ -369,7 +385,7 @@ export default function Packages() {
           <CardContent className="p-4 text-center">
             <p className="text-4xl font-bold text-primary">{pendingCount}</p>
             <p className="text-sm text-muted-foreground mt-1">Aguardando retirada</p>
-            {pendingElsewhereCount > 0 && (
+            {pendingElsewhereCount > 0 && !isTowerScopedUser && (
               <button
                 type="button"
                 onClick={() => setFilter('picked_up')}
