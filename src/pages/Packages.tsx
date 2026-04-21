@@ -369,6 +369,15 @@ export default function Packages() {
           <CardContent className="p-4 text-center">
             <p className="text-4xl font-bold text-primary">{pendingCount}</p>
             <p className="text-sm text-muted-foreground mt-1">Aguardando retirada</p>
+            {pendingElsewhereCount > 0 && (
+              <button
+                type="button"
+                onClick={() => setFilter('picked_up')}
+                className="text-xs text-muted-foreground mt-1 italic hover:text-primary transition-colors underline-offset-2 hover:underline"
+              >
+                + {pendingElsewhereCount} em outros blocos
+              </button>
+            )}
           </CardContent>
         </Card>
         <Card>
