@@ -229,13 +229,14 @@ export default function Packages() {
     isFetchingNextPage,
     isLoading,
   } = useInfiniteQuery({
-    queryKey: ['packages', condominium?.id, filter, centralLocationId],
+    queryKey: ['packages', condominium?.id, filter, centralLocationId, userLocationId],
     queryFn: ({ pageParam }) =>
       fetchPackagesPage({
         condominiumId: condominium!.id,
         status: filter,
         search: searchTerm,
         centralLocationId,
+        userLocationId,
         pageParam: pageParam as number,
       }),
     initialPageParam: 0,
