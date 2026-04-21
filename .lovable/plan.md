@@ -1,88 +1,59 @@
 
 
-## Diagnóstico
+## Objetivo
 
-A `/packages` da Helena (porteira do Bloco A) mostra a visão da **portaria central**, não a dela:
+Em `/packages`, na aba **Aguardando**, mostrar um badge indicando **onde** cada encomenda está fisicamente — espelhando a linguagem do `/tower-dashboard`:
 
-| Tela | O que mostra hoje | O que deveria mostrar |
-|---|---|---|
-| `/tower-dashboard` | 2 no Bloco + 1 no Armário = 3 pacotes pendentes **no Bloco A** ✅ | (já está certo) |
-| `/packages` Aguardando | 0 (filtra pela central) ❌ | **3** (mesmos do tower-dashboard) |
-| `/packages` Retiradas | 4 transferidos (visão da central) ❌ | Apenas pacotes que passaram pelo Bloco A e foram retirados |
+- `No Armário — posição 9` (quando alocada em locker)
+- `No Bloco A` (quando está numa torre/bloco)
+- `Na Central` (quando está na portaria central)
 
-**Causa**: a lógica atual de `Packages.tsx` assume que o usuário é da central. Quando `isTowerScopedUser = true`, ela usa `centralLocationId` como referência mesmo assim.
+## Como funciona (regra)
 
-## Correção
+Para cada pacote pendente:
 
-Quando o usuário tem `location_id` específico (escopo de bloco/torre), a `/packages` passa a usar esse `location_id` no lugar do `centralLocationId`:
+1. Pegar o **último `package_event`** do pacote (ordenado por `created_at desc`).
+2. Se esse evento tem `to_location.type === 'locker'`:
+   - Extrair `locker_reference` do campo `notes` (formato `locker_reference:X`) — fallback pro nome da location.
+   - Badge **âmbar**: `No Armário — posição {X}`.
+3. Senão, usar a `current_location` do pacote:
+   - Se for tipo `central` → badge cinza: `Na Central`.
+   - Se for tipo `tower` → badge azul: `No {nome}` (ex: "No Bloco A").
+   - Se `current_location_id` for `null` (legado) → badge cinza: `Na Central` (default).
 
-### Aba "Aguardando"
-- Filtro: `status = 'pending' AND current_location_id = userLocationId`
-- Espelha exatamente o que `/tower-dashboard` lista (mesmas 3 encomendas: 2 no bloco + 1 no armário)
-- O número grande "Aguardando retirada" passa a mostrar **3** no caso da Helena
-
-### Aba "Retiradas"
-- Filtro: pacotes `picked_up` cuja **última location antes da retirada** foi o `userLocationId`
-  - Implementação prática: `status = 'picked_up' AND current_location_id = userLocationId`
-  - (Quando o porteiro do bloco confirma a retirada, o pacote permanece com `current_location_id = bloco`)
-- Remove o conceito de "Transferido para Bloco X" pra esse usuário (não faz sentido — ele é o destino)
-
-### Cartão "+ N em outros blocos"
-- Já foi escondido na iteração anterior pra `isTowerScopedUser` ✅ (mantém)
-
-### Contagem "Retiradas hoje"
-- Para tower-scoped: `picked_up AND current_location_id = userLocationId AND picked_up_at >= hoje`
+Para condomínio em modo **simples** (`custody_mode === 'simple'`): nada muda, badge não aparece.
 
 ## Arquivo a alterar
 
 **`src/pages/Packages.tsx`**
 
-1. Adicionar state `userLocationId: string | null` (preenchido junto com `isTowerScopedUser` no `useEffect` existente — basta trocar o `select('id')` por `select('id, location_id')` e guardar o valor)
-
-2. Em `fetchPackagesPage`, criar branch novo no início:
+1. **Query**: ajustar o select dos `events` pra incluir o `type` da location:
    ```ts
-   const scopeLocationId = isTowerScopedUser ? userLocationId : centralLocationId;
-   
-   if (userLocationId && status === 'pending') {
-     query = query.eq('status', 'pending').eq('current_location_id', userLocationId);
-   } else if (userLocationId && status === 'picked_up') {
-     query = query.eq('status', 'picked_up').eq('current_location_id', userLocationId);
-   } else if (centralLocationId && status === 'pending') {
-     // ... lógica existente da central
-   }
+   events:package_events(
+     *,
+     from_location:locations!from_location_id(name, type),
+     to_location:locations!to_location_id(name, type)
+   )
    ```
-   Passar `userLocationId` como parâmetro novo de `fetchPackagesPage` e incluir no `queryKey`.
+   E adicionar join da `current_location` no próprio package:
+   ```ts
+   current_location:locations!current_location_id(name, type)
+   ```
 
-3. Em `fetchCounts`, adicionar branch tower-scoped antes da lógica da central:
-   - `pendingQuery`: `.eq('status','pending').eq('current_location_id', userLocationId)`
-   - `pickedUpQuery`: `.eq('status','picked_up').eq('current_location_id', userLocationId).gte('picked_up_at', todayIso)`
-   - `pendingElsewhereCount`: continua 0 (já está)
+2. **Helper** `getLocationBadge(pkg)` que retorna `{ label, variant }` aplicando a regra acima.
 
-4. Na `PackageCard`, ajustar `isTransferredAway`:
-   - Para tower-scoped, nunca é "transferido pra fora" (ele é o destino), então o badge "Transferido para X" não aparece
-   - Condição nova: `isTransferredAway = !isTowerScopedUser && pkg.status === 'pending' && centralLocationId && current_location_id !== centralLocationId`
+3. **PackageCard**: na aba `pending` (somente multi-custódia), renderizar o novo badge logo abaixo (ou ao lado de) `Timer`. Mantém os badges existentes ("Transferido para…", "Retirada pelo morador") inalterados.
+
+4. **Tipos**: estender o tipo `Package` local (cast) para incluir `current_location?: { name; type }` — sem mudar `src/types/index.ts` (uso ad-hoc via `as any`, padrão já usado no arquivo).
 
 ## Validação manual
 
-1. Login Helena (`tower_doorman` Bloco A) → `/packages`
-   - "Aguardando retirada" = **3** (igual ao tower-dashboard)
-   - Lista mostra os 3 pacotes pendentes do Bloco A (sem badge "Transferido")
-   - Aba "Retiradas" mostra apenas os pacotes que ela já entregou no Bloco A
-2. Confirmar retirada via `/packages` → some de "Aguardando", aparece em "Retiradas hoje" e no contador
-3. Login admin/portaria central → comportamento atual mantido (visão da central + "+ N em outros blocos")
-4. Condomínio simples (não multi-custódia) → nada muda
-
-## Sobre a `helena.silva` com location_id NULL
-
-É cadastro inválido — usuário com role `tower_doorman` precisa ter `location_id`. Sugestões (fora desta correção):
-- Validar no formulário de criação de staff que `tower_doorman` exige `location_id`
-- Limpeza one-shot: identificar e corrigir/remover esse usuário órfão
-
-Posso fazer essa limpeza/validação numa próxima iteração — não bloqueia a correção atual.
+1. Helena (Bloco A) em `/packages` → cada pendente mostra `No Armário — posição X` ou `No Bloco A`, batendo com `/tower-dashboard`.
+2. Admin/central em `/packages` → pendentes na central mostram `Na Central`; pendentes que ela ainda enxerga já saíram (badge "Transferido…" continua).
+3. Condomínio simples → nenhum badge de localização aparece (comportamento atual preservado).
 
 ## Fora de escopo
 
-- Limpeza da `helena.silva` (cadastro inválido)
-- Validação no form de staff
-- Esconder rota `/packages` pra `tower_doorman` (alternativa: como agora ela mostra o conteúdo certo, faz sentido manter)
+- Mudar a aba "Retiradas" (já tem indicação de transferência).
+- Adicionar filtro/ordenação por localização.
 
