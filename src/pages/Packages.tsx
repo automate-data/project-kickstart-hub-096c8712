@@ -416,10 +416,17 @@ export default function Packages() {
                 <p className="text-xs text-muted-foreground mt-0.5 truncate">{pkg.tracking_code}</p>
               )}
               <div className="flex items-center justify-between mt-2 gap-2 flex-wrap">
-                <Badge variant="outline" className="text-xs gap-1">
-                  <Timer className="w-3 h-3" />
-                  {formatStayDuration(pkg.received_at, pkg.picked_up_at)}
-                </Badge>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Badge variant="outline" className="text-xs gap-1">
+                    <Timer className="w-3 h-3" />
+                    {formatStayDuration(pkg.received_at, pkg.picked_up_at)}
+                  </Badge>
+                  {locationBadge && (
+                    <Badge className={`text-xs gap-1 ${locationBadge.className}`}>
+                      {locationBadge.label}
+                    </Badge>
+                  )}
+                </div>
                 {isTransferredAway ? (
                   <Badge className="text-xs gap-1 bg-primary/10 text-primary hover:bg-primary/20 border-primary/20">
                     Transferido{transferredToName ? ` para ${transferredToName}` : ''}
