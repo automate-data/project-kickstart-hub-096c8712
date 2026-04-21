@@ -34,7 +34,9 @@ export default function Residents() {
   const [editingResident, setEditingResident] = useState<Resident | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Resident | null>(null);
+  const [importOpen, setImportOpen] = useState(false);
   const { toast } = useToast();
+  const isSuperadmin = role === 'superadmin';
 
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
@@ -144,9 +146,16 @@ export default function Residents() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2 flex-wrap">
         <h1 className="text-2xl font-bold">Moradores</h1>
-        <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) resetForm(); }}>
+        <div className="flex items-center gap-2">
+          {isSuperadmin && condominium?.id && (
+            <Button variant="outline" onClick={() => setImportOpen(true)}>
+              <FileSpreadsheet className="w-4 h-4 mr-2" />
+              Importar planilha
+            </Button>
+          )}
+          <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) resetForm(); }}>
           <DialogTrigger asChild>
             <Button><Plus className="w-4 h-4 mr-2" />Adicionar</Button>
           </DialogTrigger>
