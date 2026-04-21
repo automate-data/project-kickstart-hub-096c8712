@@ -152,7 +152,7 @@ export default function Packages() {
       );
     }
 
-    const elsewhereQuery = centralLocationId
+    const elsewhereQuery = centralLocationId && !isTowerScopedUser
       ? supabase
           .from('packages')
           .select('id', { count: 'exact', head: true })
