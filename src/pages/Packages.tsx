@@ -385,7 +385,7 @@ export default function Packages() {
           <CardContent className="p-4 text-center">
             <p className="text-4xl font-bold text-primary">{pendingCount}</p>
             <p className="text-sm text-muted-foreground mt-1">Aguardando retirada</p>
-            {pendingElsewhereCount > 0 && (
+            {pendingElsewhereCount > 0 && !isTowerScopedUser && (
               <button
                 type="button"
                 onClick={() => setFilter('picked_up')}
