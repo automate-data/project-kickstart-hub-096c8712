@@ -56,8 +56,10 @@ async function fetchPackagesPage({
     .range(from, to);
 
   if (centralLocationId && status === 'pending') {
-    // Aguardando na central: pendentes ainda fisicamente na central
-    query = query.eq('status', 'pending').eq('current_location_id', centralLocationId);
+    // Aguardando na central: pendentes na central OU órfãos (sem location)
+    query = query
+      .eq('status', 'pending')
+      .or(`current_location_id.eq.${centralLocationId},current_location_id.is.null`);
   } else if (centralLocationId && status === 'picked_up') {
     // "Retiradas" da central = saiu da minha custódia (retirado pelo morador OU transferido para bloco)
     query = query.or(
@@ -88,6 +90,7 @@ export default function Packages() {
   const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [pendingCount, setPendingCount] = useState(0);
+  const [pendingElsewhereCount, setPendingElsewhereCount] = useState(0);
   const [pickedUpTodayCount, setPickedUpTodayCount] = useState(0);
   const [centralLocationId, setCentralLocationId] = useState<string | null>(null);
 
@@ -116,6 +119,7 @@ export default function Packages() {
   const fetchCounts = async () => {
     if (!condominium?.id) {
       setPendingCount(0);
+      setPendingElsewhereCount(0);
       setPickedUpTodayCount(0);
       return;
     }
@@ -127,8 +131,20 @@ export default function Packages() {
       .eq('condominium_id', condominium.id);
 
     if (centralLocationId) {
-      pendingQuery = pendingQuery.eq('current_location_id', centralLocationId);
+      pendingQuery = pendingQuery.or(
+        `current_location_id.eq.${centralLocationId},current_location_id.is.null`
+      );
     }
+
+    const elsewhereQuery = centralLocationId
+      ? supabase
+          .from('packages')
+          .select('id', { count: 'exact', head: true })
+          .eq('condominium_id', condominium.id)
+          .eq('status', 'pending')
+          .not('current_location_id', 'is', null)
+          .neq('current_location_id', centralLocationId)
+      : null;
 
     const todayIso = startOfDay(new Date()).toISOString();
 
@@ -147,10 +163,15 @@ export default function Packages() {
           .eq('condominium_id', condominium.id)
           .gte('picked_up_at', todayIso);
 
-    const [pendingRes, pickedUpRes] = await Promise.all([pendingQuery, pickedUpQuery]);
+    const [pendingRes, pickedUpRes, elsewhereRes] = await Promise.all([
+      pendingQuery,
+      pickedUpQuery,
+      elsewhereQuery ?? Promise.resolve({ count: 0 } as any),
+    ]);
 
     setPendingCount(pendingRes.count ?? 0);
     setPickedUpTodayCount(pickedUpRes.count ?? 0);
+    setPendingElsewhereCount(elsewhereRes?.count ?? 0);
   };
 
   const {
@@ -348,6 +369,15 @@ export default function Packages() {
           <CardContent className="p-4 text-center">
             <p className="text-4xl font-bold text-primary">{pendingCount}</p>
             <p className="text-sm text-muted-foreground mt-1">Aguardando retirada</p>
+            {pendingElsewhereCount > 0 && (
+              <button
+                type="button"
+                onClick={() => setFilter('picked_up')}
+                className="text-xs text-muted-foreground mt-1 italic hover:text-primary transition-colors underline-offset-2 hover:underline"
+              >
+                + {pendingElsewhereCount} em outros blocos
+              </button>
+            )}
           </CardContent>
         </Card>
         <Card>
