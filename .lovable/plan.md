@@ -1,59 +1,72 @@
 
 
-## Objetivo
+## Diagnóstico
 
-Em `/packages`, na aba **Aguardando**, mostrar um badge indicando **onde** cada encomenda está fisicamente — espelhando a linguagem do `/tower-dashboard`:
+A Maria (portaria central) vê "4 Aguardando retirada", mas cada um aparece com badge "Transferido". Causa: existem 4 pacotes pendentes legados no banco com `current_location_id = NULL` (criados antes da multi-custódia).
 
-- `No Armário — posição 9` (quando alocada em locker)
-- `No Bloco A` (quando está numa torre/bloco)
-- `Na Central` (quando está na portaria central)
+A `/packages` trata esses órfãos de forma **inconsistente**:
+- Query da aba "Aguardando" considera `current_location_id IS NULL` como "está na central" → entram na lista e no contador.
+- `PackageCard` considera `current_location_id !== centralLocationId` como "transferido" → `null !== central_id` é true, então marca como "Transferido".
 
-## Como funciona (regra)
+Resultado: 4 cards na aba errada com badge contraditório.
 
-Para cada pacote pendente:
+Pacotes envolvidos (Solar dos Pinheiros):
+- `e2eb4cd2…`, `8a0ce83f…`, `160115e6…`, `55d5688c…` — todos `pending` com `current_location_id = NULL`.
 
-1. Pegar o **último `package_event`** do pacote (ordenado por `created_at desc`).
-2. Se esse evento tem `to_location.type === 'locker'`:
-   - Extrair `locker_reference` do campo `notes` (formato `locker_reference:X`) — fallback pro nome da location.
-   - Badge **âmbar**: `No Armário — posição {X}`.
-3. Senão, usar a `current_location` do pacote:
-   - Se for tipo `central` → badge cinza: `Na Central`.
-   - Se for tipo `tower` → badge azul: `No {nome}` (ex: "No Bloco A").
-   - Se `current_location_id` for `null` (legado) → badge cinza: `Na Central` (default).
+Os 3 reais do Bloco A já estão corretos (não aparecem pra Maria — são da Helena).
 
-Para condomínio em modo **simples** (`custody_mode === 'simple'`): nada muda, badge não aparece.
+## Correção
 
-## Arquivo a alterar
+### Parte A — Migração one-shot dos órfãos
 
-**`src/pages/Packages.tsx`**
+Para todo condomínio em `custody_mode = 'multi_custody'`, atualizar pacotes pendentes com `current_location_id IS NULL` para apontar pra `central` daquele condomínio:
 
-1. **Query**: ajustar o select dos `events` pra incluir o `type` da location:
+```sql
+UPDATE packages p
+SET current_location_id = (
+  SELECT id FROM locations
+  WHERE condominium_id = p.condominium_id AND type = 'central'
+  LIMIT 1
+), updated_at = now()
+WHERE p.status = 'pending'
+  AND p.current_location_id IS NULL
+  AND p.condominium_id IN (
+    SELECT id FROM condominiums WHERE custody_mode = 'multi_custody'
+  );
+```
+
+Efeito imediato: os 4 órfãos da Maria passam a apontar pra Portaria → contador continua 4, mas badge fica correto ("Na Central"), sem "Transferido".
+
+### Parte B — Hardening da UI em `src/pages/Packages.tsx`
+
+Tratar `current_location_id == null` como equivalente à central (consistente com a query):
+
+1. Em `PackageCard`, ajustar `isTransferredAway`:
    ```ts
-   events:package_events(
-     *,
-     from_location:locations!from_location_id(name, type),
-     to_location:locations!to_location_id(name, type)
-   )
-   ```
-   E adicionar join da `current_location` no próprio package:
-   ```ts
-   current_location:locations!current_location_id(name, type)
+   const currentLocId = (pkg as any).current_location_id;
+   const isTransferredAway =
+     !isTowerScopedUser &&
+     pkg.status === 'pending' &&
+     !!centralLocationId &&
+     currentLocId != null &&                    // null = na central
+     currentLocId !== centralLocationId;
    ```
 
-2. **Helper** `getLocationBadge(pkg)` que retorna `{ label, variant }` aplicando a regra acima.
+2. Em `getLocationBadge`, o branch que retorna "Na Central" já cobre `currentLoc == null` corretamente — manter como está.
 
-3. **PackageCard**: na aba `pending` (somente multi-custódia), renderizar o novo badge logo abaixo (ou ao lado de) `Timer`. Mantém os badges existentes ("Transferido para…", "Retirada pelo morador") inalterados.
-
-4. **Tipos**: estender o tipo `Package` local (cast) para incluir `current_location?: { name; type }` — sem mudar `src/types/index.ts` (uso ad-hoc via `as any`, padrão já usado no arquivo).
+Assim, mesmo que apareça novo órfão por bug futuro, o card mostra "Na Central" sem badge "Transferido" e fica clicável pra retirada.
 
 ## Validação manual
 
-1. Helena (Bloco A) em `/packages` → cada pendente mostra `No Armário — posição X` ou `No Bloco A`, batendo com `/tower-dashboard`.
-2. Admin/central em `/packages` → pendentes na central mostram `Na Central`; pendentes que ela ainda enxerga já saíram (badge "Transferido…" continua).
-3. Condomínio simples → nenhum badge de localização aparece (comportamento atual preservado).
+1. Login Maria (portaria central) em `/packages`:
+   - "Aguardando retirada" continua **4**, mas cada card mostra badge **"Na Central"** (sem "Transferido").
+   - Botão "Retirar" volta a aparecer nos 4 cards (antes só clicava em detalhes).
+   - "+ 3 em outros blocos" continua mostrando os do Bloco A.
+2. Login Helena (Bloco A) → comportamento atual mantido (3 pendentes do bloco).
+3. Receber novo pacote (qualquer usuário) → entra com `current_location_id = central`, sem virar órfão.
 
 ## Fora de escopo
 
-- Mudar a aba "Retiradas" (já tem indicação de transferência).
-- Adicionar filtro/ordenação por localização.
+- Trigger pra forçar `current_location_id NOT NULL` em multi-custódia (pode virar próxima iteração se quiser garantia de schema).
+- Limpeza do cadastro `helena.silva` com `location_id = NULL`.
 
