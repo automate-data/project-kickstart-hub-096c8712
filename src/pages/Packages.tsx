@@ -325,6 +325,7 @@ export default function Packages() {
     const events = (pkg as any).events as Array<any> | undefined;
     // Transferred-away = pending but not in central anymore (only meaningful in multi_custody)
     const isTransferredAway =
+      !isTowerScopedUser &&
       pkg.status === 'pending' &&
       !!centralLocationId &&
       (pkg as any).current_location_id !== centralLocationId;
