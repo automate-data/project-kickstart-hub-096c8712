@@ -93,22 +93,38 @@ export default function Packages() {
   const [pendingElsewhereCount, setPendingElsewhereCount] = useState(0);
   const [pickedUpTodayCount, setPickedUpTodayCount] = useState(0);
   const [centralLocationId, setCentralLocationId] = useState<string | null>(null);
+  const [isTowerScopedUser, setIsTowerScopedUser] = useState(false);
 
-  // Fetch central location for multi_custody mode
+  // Fetch central location for multi_custody mode + check if user is tower-scoped
   useEffect(() => {
     if (!condominium?.id || condominium.custody_mode !== 'multi_custody') {
       setCentralLocationId(null);
+      setIsTowerScopedUser(false);
       return;
     }
     (async () => {
-      const { data: central } = await supabase
-        .from('locations')
-        .select('id')
-        .eq('condominium_id', condominium.id)
-        .eq('type', 'central')
-        .limit(1)
-        .single();
-      setCentralLocationId(central?.id || null);
+      const { data: { user } } = await supabase.auth.getUser();
+      const [centralRes, scopedRes] = await Promise.all([
+        supabase
+          .from('locations')
+          .select('id')
+          .eq('condominium_id', condominium.id)
+          .eq('type', 'central')
+          .limit(1)
+          .single(),
+        user
+          ? supabase
+              .from('user_roles')
+              .select('id')
+              .eq('user_id', user.id)
+              .eq('condominium_id', condominium.id)
+              .not('location_id', 'is', null)
+              .is('deleted_at', null)
+              .limit(1)
+          : Promise.resolve({ data: [] as any[] }),
+      ]);
+      setCentralLocationId(centralRes.data?.id || null);
+      setIsTowerScopedUser((scopedRes.data?.length ?? 0) > 0);
     })();
   }, [condominium?.id, condominium?.custody_mode]);
 
