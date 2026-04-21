@@ -189,6 +189,7 @@ export default function Residents() {
             </form>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       <div className="relative">
