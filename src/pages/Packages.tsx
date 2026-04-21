@@ -34,12 +34,14 @@ async function fetchPackagesPage({
   status,
   search,
   centralLocationId,
+  userLocationId,
   pageParam = 0,
 }: {
   condominiumId: string;
   status: string;
   search: string;
   centralLocationId?: string | null;
+  userLocationId?: string | null;
   pageParam?: number;
 }) {
   const from = pageParam * PAGE_SIZE;
@@ -55,7 +57,10 @@ async function fetchPackagesPage({
     .order('received_at', { ascending: false })
     .range(from, to);
 
-  if (centralLocationId && status === 'pending') {
+  if (userLocationId) {
+    // Tower-scoped user: only see packages currently at their location
+    query = query.eq('status', status).eq('current_location_id', userLocationId);
+  } else if (centralLocationId && status === 'pending') {
     // Aguardando na central: pendentes na central OU órfãos (sem location)
     query = query
       .eq('status', 'pending')
@@ -94,12 +99,14 @@ export default function Packages() {
   const [pickedUpTodayCount, setPickedUpTodayCount] = useState(0);
   const [centralLocationId, setCentralLocationId] = useState<string | null>(null);
   const [isTowerScopedUser, setIsTowerScopedUser] = useState(false);
+  const [userLocationId, setUserLocationId] = useState<string | null>(null);
 
   // Fetch central location for multi_custody mode + check if user is tower-scoped
   useEffect(() => {
     if (!condominium?.id || condominium.custody_mode !== 'multi_custody') {
       setCentralLocationId(null);
       setIsTowerScopedUser(false);
+      setUserLocationId(null);
       return;
     }
     (async () => {
@@ -115,7 +122,7 @@ export default function Packages() {
         user
           ? supabase
               .from('user_roles')
-              .select('id')
+              .select('id, location_id')
               .eq('user_id', user.id)
               .eq('condominium_id', condominium.id)
               .not('location_id', 'is', null)
@@ -124,19 +131,46 @@ export default function Packages() {
           : Promise.resolve({ data: [] as any[] }),
       ]);
       setCentralLocationId(centralRes.data?.id || null);
-      setIsTowerScopedUser((scopedRes.data?.length ?? 0) > 0);
+      const scopedRow = scopedRes.data?.[0];
+      setIsTowerScopedUser(!!scopedRow);
+      setUserLocationId(scopedRow?.location_id || null);
     })();
   }, [condominium?.id, condominium?.custody_mode]);
 
   useEffect(() => {
     fetchCounts();
-  }, [condominium?.id, centralLocationId, isTowerScopedUser]);
+  }, [condominium?.id, centralLocationId, isTowerScopedUser, userLocationId]);
 
   const fetchCounts = async () => {
     if (!condominium?.id) {
       setPendingCount(0);
       setPendingElsewhereCount(0);
       setPickedUpTodayCount(0);
+      return;
+    }
+
+    const todayIso = startOfDay(new Date()).toISOString();
+
+    // Tower-scoped: simple location-based counts
+    if (userLocationId) {
+      const [pendingRes, pickedUpRes] = await Promise.all([
+        supabase
+          .from('packages')
+          .select('id', { count: 'exact', head: true })
+          .eq('condominium_id', condominium.id)
+          .eq('status', 'pending')
+          .eq('current_location_id', userLocationId),
+        supabase
+          .from('packages')
+          .select('id', { count: 'exact', head: true })
+          .eq('condominium_id', condominium.id)
+          .eq('status', 'picked_up')
+          .eq('current_location_id', userLocationId)
+          .gte('picked_up_at', todayIso),
+      ]);
+      setPendingCount(pendingRes.count ?? 0);
+      setPickedUpTodayCount(pickedUpRes.count ?? 0);
+      setPendingElsewhereCount(0);
       return;
     }
 
@@ -161,8 +195,6 @@ export default function Packages() {
           .not('current_location_id', 'is', null)
           .neq('current_location_id', centralLocationId)
       : null;
-
-    const todayIso = startOfDay(new Date()).toISOString();
 
     const pickedUpQuery = centralLocationId
       ? supabase
@@ -197,13 +229,14 @@ export default function Packages() {
     isFetchingNextPage,
     isLoading,
   } = useInfiniteQuery({
-    queryKey: ['packages', condominium?.id, filter, centralLocationId],
+    queryKey: ['packages', condominium?.id, filter, centralLocationId, userLocationId],
     queryFn: ({ pageParam }) =>
       fetchPackagesPage({
         condominiumId: condominium!.id,
         status: filter,
         search: searchTerm,
         centralLocationId,
+        userLocationId,
         pageParam: pageParam as number,
       }),
     initialPageParam: 0,
@@ -292,6 +325,7 @@ export default function Packages() {
     const events = (pkg as any).events as Array<any> | undefined;
     // Transferred-away = pending but not in central anymore (only meaningful in multi_custody)
     const isTransferredAway =
+      !isTowerScopedUser &&
       pkg.status === 'pending' &&
       !!centralLocationId &&
       (pkg as any).current_location_id !== centralLocationId;
