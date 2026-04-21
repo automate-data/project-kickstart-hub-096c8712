@@ -366,11 +366,13 @@ export default function Packages() {
   const PackageCard = ({ pkg }: { pkg: Package }) => {
     const events = (pkg as any).events as Array<any> | undefined;
     // Transferred-away = pending but not in central anymore (only meaningful in multi_custody)
+    const currentLocId = (pkg as any).current_location_id;
     const isTransferredAway =
       !isTowerScopedUser &&
       pkg.status === 'pending' &&
       !!centralLocationId &&
-      (pkg as any).current_location_id !== centralLocationId;
+      currentLocId != null &&
+      currentLocId !== centralLocationId;
     const isPickedUp = pkg.status === 'picked_up';
     const isClickable = isPickedUp || isTransferredAway;
     const locationBadge = pkg.status === 'pending' && !isTransferredAway ? getLocationBadge(pkg) : null;
