@@ -50,7 +50,7 @@ async function fetchPackagesPage({
   let query = supabase
     .from('packages')
     .select(
-      `*, resident:residents(*), events:package_events(*, from_location:locations!from_location_id(name), to_location:locations!to_location_id(name))`,
+      `*, resident:residents(*), current_location:locations!current_location_id(name, type), events:package_events(*, from_location:locations!from_location_id(name, type), to_location:locations!to_location_id(name, type))`,
       { count: 'exact' }
     )
     .eq('condominium_id', condominiumId)
