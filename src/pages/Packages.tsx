@@ -130,7 +130,7 @@ export default function Packages() {
 
   useEffect(() => {
     fetchCounts();
-  }, [condominium?.id, centralLocationId]);
+  }, [condominium?.id, centralLocationId, isTowerScopedUser]);
 
   const fetchCounts = async () => {
     if (!condominium?.id) {
