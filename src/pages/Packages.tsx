@@ -90,6 +90,7 @@ export default function Packages() {
   const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [pendingCount, setPendingCount] = useState(0);
+  const [pendingElsewhereCount, setPendingElsewhereCount] = useState(0);
   const [pickedUpTodayCount, setPickedUpTodayCount] = useState(0);
   const [centralLocationId, setCentralLocationId] = useState<string | null>(null);
 
