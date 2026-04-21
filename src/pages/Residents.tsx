@@ -17,7 +17,8 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Search, User, Phone, Home, Loader2, Trash2, Pencil } from 'lucide-react';
+import { Plus, Search, User, Phone, Home, Loader2, Trash2, Pencil, FileSpreadsheet } from 'lucide-react';
+import ImportResidentsDialog from '@/components/residents/ImportResidentsDialog';
 
 export default function Residents() {
   const { condominium } = useCondominium();
