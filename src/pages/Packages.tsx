@@ -56,8 +56,10 @@ async function fetchPackagesPage({
     .range(from, to);
 
   if (centralLocationId && status === 'pending') {
-    // Aguardando na central: pendentes ainda fisicamente na central
-    query = query.eq('status', 'pending').eq('current_location_id', centralLocationId);
+    // Aguardando na central: pendentes na central OU órfãos (sem location)
+    query = query
+      .eq('status', 'pending')
+      .or(`current_location_id.eq.${centralLocationId},current_location_id.is.null`);
   } else if (centralLocationId && status === 'picked_up') {
     // "Retiradas" da central = saiu da minha custódia (retirado pelo morador OU transferido para bloco)
     query = query.or(
