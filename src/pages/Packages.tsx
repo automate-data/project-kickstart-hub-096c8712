@@ -50,7 +50,7 @@ async function fetchPackagesPage({
   let query = supabase
     .from('packages')
     .select(
-      `*, resident:residents(*), events:package_events(*, from_location:locations!from_location_id(name), to_location:locations!to_location_id(name))`,
+      `*, resident:residents(*), current_location:locations!current_location_id(name, type), events:package_events(*, from_location:locations!from_location_id(name, type), to_location:locations!to_location_id(name, type))`,
       { count: 'exact' }
     )
     .eq('condominium_id', condominiumId)
@@ -321,6 +321,48 @@ export default function Packages() {
     setSelectedPackage(null);
   };
 
+  const isMultiCustody = condominium?.custody_mode === 'multi_custody';
+
+  const getLocationBadge = (pkg: Package): { label: string; className: string } | null => {
+    if (!isMultiCustody) return null;
+    const events = (pkg as any).events as Array<any> | undefined;
+    const lastEvent = events
+      ?.slice()
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0];
+
+    if (lastEvent?.to_location?.type === 'locker') {
+      let position: string | null = null;
+      const notes = lastEvent.notes as string | undefined;
+      const match = notes?.match(/locker_reference:([^\s,;]+)/i);
+      if (match) position = match[1];
+      const label = position
+        ? `No Armário — posição ${position}`
+        : `No Armário${lastEvent.to_location.name ? ` — ${lastEvent.to_location.name}` : ''}`;
+      return {
+        label,
+        className: 'bg-amber-500/10 text-amber-700 dark:text-amber-400 hover:bg-amber-500/20 border-amber-500/20',
+      };
+    }
+
+    const currentLoc = (pkg as any).current_location as { name?: string; type?: string } | undefined;
+    if (!currentLoc || currentLoc.type === 'central') {
+      return {
+        label: 'Na Central',
+        className: 'bg-muted text-muted-foreground hover:bg-muted/80 border-border',
+      };
+    }
+    if (currentLoc.type === 'tower') {
+      return {
+        label: `No ${currentLoc.name}`,
+        className: 'bg-blue-500/10 text-blue-700 dark:text-blue-400 hover:bg-blue-500/20 border-blue-500/20',
+      };
+    }
+    return {
+      label: `Em ${currentLoc.name ?? 'localização'}`,
+      className: 'bg-muted text-muted-foreground hover:bg-muted/80 border-border',
+    };
+  };
+
   const PackageCard = ({ pkg }: { pkg: Package }) => {
     const events = (pkg as any).events as Array<any> | undefined;
     // Transferred-away = pending but not in central anymore (only meaningful in multi_custody)
@@ -331,6 +373,7 @@ export default function Packages() {
       (pkg as any).current_location_id !== centralLocationId;
     const isPickedUp = pkg.status === 'picked_up';
     const isClickable = isPickedUp || isTransferredAway;
+    const locationBadge = pkg.status === 'pending' && !isTransferredAway ? getLocationBadge(pkg) : null;
 
     // Last transfer event leaving the central
     const transferEvent = events
@@ -373,10 +416,17 @@ export default function Packages() {
                 <p className="text-xs text-muted-foreground mt-0.5 truncate">{pkg.tracking_code}</p>
               )}
               <div className="flex items-center justify-between mt-2 gap-2 flex-wrap">
-                <Badge variant="outline" className="text-xs gap-1">
-                  <Timer className="w-3 h-3" />
-                  {formatStayDuration(pkg.received_at, pkg.picked_up_at)}
-                </Badge>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Badge variant="outline" className="text-xs gap-1">
+                    <Timer className="w-3 h-3" />
+                    {formatStayDuration(pkg.received_at, pkg.picked_up_at)}
+                  </Badge>
+                  {locationBadge && (
+                    <Badge className={`text-xs gap-1 ${locationBadge.className}`}>
+                      {locationBadge.label}
+                    </Badge>
+                  )}
+                </div>
                 {isTransferredAway ? (
                   <Badge className="text-xs gap-1 bg-primary/10 text-primary hover:bg-primary/20 border-primary/20">
                     Transferido{transferredToName ? ` para ${transferredToName}` : ''}
