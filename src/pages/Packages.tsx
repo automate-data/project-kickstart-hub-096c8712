@@ -34,12 +34,14 @@ async function fetchPackagesPage({
   status,
   search,
   centralLocationId,
+  userLocationId,
   pageParam = 0,
 }: {
   condominiumId: string;
   status: string;
   search: string;
   centralLocationId?: string | null;
+  userLocationId?: string | null;
   pageParam?: number;
 }) {
   const from = pageParam * PAGE_SIZE;
@@ -55,7 +57,10 @@ async function fetchPackagesPage({
     .order('received_at', { ascending: false })
     .range(from, to);
 
-  if (centralLocationId && status === 'pending') {
+  if (userLocationId) {
+    // Tower-scoped user: only see packages currently at their location
+    query = query.eq('status', status).eq('current_location_id', userLocationId);
+  } else if (centralLocationId && status === 'pending') {
     // Aguardando na central: pendentes na central OU órfãos (sem location)
     query = query
       .eq('status', 'pending')
