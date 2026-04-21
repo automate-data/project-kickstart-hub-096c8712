@@ -262,6 +262,17 @@ export default function Residents() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {isSuperadmin && condominium?.id && (
+        <ImportResidentsDialog
+          open={importOpen}
+          onOpenChange={setImportOpen}
+          condominiumId={condominium.id}
+          groupLabel={groupLabel}
+          unitLabel={unitLabel}
+          onImportComplete={fetchResidents}
+        />
+      )}
     </div>
   );
 }
