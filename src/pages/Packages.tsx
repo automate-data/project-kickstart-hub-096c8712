@@ -37,6 +37,7 @@ async function fetchPackagesPage({
   search,
   centralLocationId,
   userLocationId,
+  isSimpleLocker,
   pageParam = 0,
 }: {
   condominiumId: string;
@@ -44,6 +45,7 @@ async function fetchPackagesPage({
   search: string;
   centralLocationId?: string | null;
   userLocationId?: string | null;
+  isSimpleLocker?: boolean;
   pageParam?: number;
 }) {
   const from = pageParam * PAGE_SIZE;
@@ -62,6 +64,10 @@ async function fetchPackagesPage({
   if (userLocationId) {
     // Tower-scoped user: only see packages currently at their location
     query = query.eq('status', status).eq('current_location_id', userLocationId);
+  } else if (isSimpleLocker) {
+    // Simple locker: pendentes (na central, órfãos ou em armário) ficam em "Aguardando".
+    // Apenas status='picked_up' aparece em "Retiradas".
+    query = query.eq('status', status);
   } else if (centralLocationId && status === 'pending') {
     // Aguardando na central: pendentes na central OU órfãos (sem location)
     query = query
