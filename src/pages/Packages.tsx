@@ -274,7 +274,7 @@ export default function Packages() {
     isFetchingNextPage,
     isLoading,
   } = useInfiniteQuery({
-    queryKey: ['packages', condominium?.id, filter, centralLocationId, userLocationId],
+    queryKey: ['packages', condominium?.id, filter, centralLocationId, userLocationId, condominium?.custody_mode],
     queryFn: ({ pageParam }) =>
       fetchPackagesPage({
         condominiumId: condominium!.id,
@@ -282,6 +282,7 @@ export default function Packages() {
         search: searchTerm,
         centralLocationId,
         userLocationId,
+        isSimpleLocker: condominium?.custody_mode === 'simple_locker',
         pageParam: pageParam as number,
       }),
     initialPageParam: 0,
