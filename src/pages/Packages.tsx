@@ -339,6 +339,76 @@ export default function Packages() {
   const isMultiCustody = condominium?.custody_mode === 'multi_custody' || condominium?.custody_mode === 'simple_locker';
   const isSimpleLocker = condominium?.custody_mode === 'simple_locker';
 
+  const handleAllocateClick = (pkg: Package, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setAllocatePkg(pkg);
+    setAllocateOpen(true);
+  };
+
+  const handleConfirmAllocation = async (lockerReference: string, sendWhatsApp: boolean) => {
+    if (!allocatePkg || !centralLocationId) return;
+
+    const ref = lockerReference.trim();
+    const matched = lockers.find(l => {
+      const n = l.name.toLowerCase();
+      return n === ref.toLowerCase() || n.endsWith(` ${ref.toLowerCase()}`);
+    });
+    const targetLocker = matched || lockers[0];
+
+    if (!targetLocker) {
+      toast.error('Nenhum armário cadastrado. Configure em Configurações Avançadas.');
+      return;
+    }
+
+    const { error: updErr } = await supabase
+      .from('packages')
+      .update({ current_location_id: targetLocker.id })
+      .eq('id', allocatePkg.id);
+
+    if (updErr) {
+      toast.error('Erro ao alocar encomenda');
+      return;
+    }
+
+    const { data: { user } } = await supabase.auth.getUser();
+    await supabase.from('package_events').insert({
+      package_id: allocatePkg.id,
+      from_location_id: centralLocationId,
+      to_location_id: targetLocker.id,
+      transferred_by: user?.id,
+      notes: `locker_reference:${ref}`,
+    } as any);
+
+    insertLog({
+      event_type: 'package_allocated_to_locker',
+      package_id: allocatePkg.id,
+      condominium_id: condominium?.id,
+      metadata: { locker_reference: ref },
+    });
+
+    if (sendWhatsApp && allocatePkg.resident?.phone && allocatePkg.resident?.whatsapp_enabled !== false) {
+      try {
+        await supabase.functions.invoke('send-locker-notification', {
+          body: {
+            resident_phone: allocatePkg.resident.phone,
+            resident_name: allocatePkg.resident.full_name,
+            tower_name: 'Portaria',
+            locker_reference: ref,
+          },
+        });
+      } catch (e) {
+        console.error('[Locker] WhatsApp failed:', e);
+      }
+    }
+
+    toast.success(`Encomenda alocada no armário ${ref}`);
+    setAllocateOpen(false);
+    setAllocatePkg(null);
+    queryClient.invalidateQueries({ queryKey: ['packages'] });
+    fetchCounts();
+  };
+
   const getLocationBadge = (pkg: Package): { label: string; className: string } | null => {
     if (!isMultiCustody) return null;
     const events = (pkg as any).events as Array<any> | undefined;
