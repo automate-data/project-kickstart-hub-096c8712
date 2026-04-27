@@ -294,13 +294,13 @@ export default function AdvancedSettings() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="central">Portaria Central</SelectItem>
-                      <SelectItem value="tower">Torre</SelectItem>
+                      {!isSimpleLocker && <SelectItem value="central">Portaria Central</SelectItem>}
+                      {!isSimpleLocker && <SelectItem value="tower">Torre</SelectItem>}
                       <SelectItem value="locker">Armário</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
-                {newType === 'locker' && towers.length > 0 && (
+                {!isSimpleLocker && newType === 'locker' && towers.length > 0 && (
                   <div>
                     <Label>Torre (pai)</Label>
                     <Select value={newParentId} onValueChange={setNewParentId}>
