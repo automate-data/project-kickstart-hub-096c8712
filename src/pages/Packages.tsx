@@ -8,13 +8,15 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Package as PackageIcon, Clock, CheckCircle2, Search, Timer, BellOff, Loader2 } from 'lucide-react';
+import { Package as PackageIcon, Clock, CheckCircle2, Search, Timer, BellOff, Loader2, Boxes } from 'lucide-react';
 import { differenceInMinutes, differenceInHours, differenceInDays, startOfDay } from 'date-fns';
 import { PickupDialog } from '@/components/PickupDialog';
 import { PackageDetailsDialog } from '@/components/PackageDetailsDialog';
+import { LockerDialog } from '@/components/custody/CustodyDialogs';
 import { toast } from 'sonner';
 import { PackagePhoto } from '@/components/PackagePhoto';
 import { Input } from '@/components/ui/input';
+import type { Location } from '@/types';
 
 const PAGE_SIZE = 20;
 
