@@ -524,18 +524,30 @@ export default function Packages() {
                     Retirada pelo morador
                   </Badge>
                 ) : pkg.status === 'pending' ? (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      handlePickUpClick(pkg);
-                    }}
-                  >
-                    <CheckCircle2 className="w-4 h-4 mr-1" />
-                    Retirar
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    {isSimpleLocker && currentLocId === centralLocationId && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={(e) => handleAllocateClick(pkg, e)}
+                      >
+                        <Boxes className="w-4 h-4 mr-1" />
+                        Alocar
+                      </Button>
+                    )}
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        handlePickUpClick(pkg);
+                      }}
+                    >
+                      <CheckCircle2 className="w-4 h-4 mr-1" />
+                      Retirar
+                    </Button>
+                  </div>
                 ) : null}
               </div>
             </div>
