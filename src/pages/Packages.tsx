@@ -195,6 +195,30 @@ export default function Packages() {
       return;
     }
 
+    const isSimpleLockerMode = condominium?.custody_mode === 'simple_locker';
+
+    // Simple locker: pendentes ficam em "Aguardando" mesmo alocadas em armário.
+    // Retiradas hoje = apenas status='picked_up' no dia.
+    if (isSimpleLockerMode) {
+      const [pendingRes, pickedUpRes] = await Promise.all([
+        supabase
+          .from('packages')
+          .select('id', { count: 'exact', head: true })
+          .eq('condominium_id', condominium.id)
+          .eq('status', 'pending'),
+        supabase
+          .from('packages')
+          .select('id', { count: 'exact', head: true })
+          .eq('condominium_id', condominium.id)
+          .eq('status', 'picked_up')
+          .gte('picked_up_at', todayIso),
+      ]);
+      setPendingCount(pendingRes.count ?? 0);
+      setPickedUpTodayCount(pickedUpRes.count ?? 0);
+      setPendingElsewhereCount(0);
+      return;
+    }
+
     let pendingQuery = supabase
       .from('packages')
       .select('id', { count: 'exact', head: true })
