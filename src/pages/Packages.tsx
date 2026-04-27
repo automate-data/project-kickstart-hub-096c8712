@@ -677,6 +677,14 @@ export default function Packages() {
         pkg={detailsPackage}
         centralLocationId={centralLocationId}
       />
+
+      <LockerDialog
+        open={allocateOpen}
+        onOpenChange={setAllocateOpen}
+        pkg={allocatePkg}
+        towerName="Portaria"
+        onConfirm={handleConfirmAllocation}
+      />
     </div>
   );
 }
