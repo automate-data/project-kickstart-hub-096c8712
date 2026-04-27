@@ -102,6 +102,9 @@ export default function Packages() {
   const [centralLocationId, setCentralLocationId] = useState<string | null>(null);
   const [isTowerScopedUser, setIsTowerScopedUser] = useState(false);
   const [userLocationId, setUserLocationId] = useState<string | null>(null);
+  const [lockers, setLockers] = useState<Location[]>([]);
+  const [allocatePkg, setAllocatePkg] = useState<Package | null>(null);
+  const [allocateOpen, setAllocateOpen] = useState(false);
 
   // Fetch central location for multi_custody/simple_locker modes + check if user is tower-scoped
   useEffect(() => {
