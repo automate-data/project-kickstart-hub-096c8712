@@ -516,7 +516,7 @@ export default function Packages() {
                     </Badge>
                   )}
                 </div>
-                {isTransferredAway ? (
+                {isTransferredAway && !isSimpleLocker ? (
                   <Badge className="text-xs gap-1 bg-primary/10 text-primary hover:bg-primary/20 border-primary/20">
                     Transferido{transferredToName ? ` para ${transferredToName}` : ''}
                   </Badge>
@@ -570,7 +570,7 @@ export default function Packages() {
           <CardContent className="p-4 text-center">
             <p className="text-4xl font-bold text-primary">{pendingCount}</p>
             <p className="text-sm text-muted-foreground mt-1">Aguardando retirada</p>
-            {pendingElsewhereCount > 0 && !isTowerScopedUser && (
+            {pendingElsewhereCount > 0 && !isTowerScopedUser && !isSimpleLocker && (
               <button
                 type="button"
                 onClick={() => setFilter('picked_up')}
