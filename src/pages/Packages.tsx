@@ -117,7 +117,8 @@ export default function Packages() {
     }
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      const [centralRes, scopedRes] = await Promise.all([
+      const isSimpleLockerMode = condominium.custody_mode === 'simple_locker';
+      const [centralRes, scopedRes, lockersRes] = await Promise.all([
         supabase
           .from('locations')
           .select('id')
@@ -135,11 +136,19 @@ export default function Packages() {
               .is('deleted_at', null)
               .limit(1)
           : Promise.resolve({ data: [] as any[] }),
+        isSimpleLockerMode
+          ? supabase
+              .from('locations')
+              .select('*')
+              .eq('condominium_id', condominium.id)
+              .eq('type', 'locker')
+          : Promise.resolve({ data: [] as any[] }),
       ]);
       setCentralLocationId(centralRes.data?.id || null);
       const scopedRow = scopedRes.data?.[0];
       setIsTowerScopedUser(!!scopedRow);
       setUserLocationId(scopedRow?.location_id || null);
+      setLockers((lockersRes.data || []) as Location[]);
     })();
   }, [condominium?.id, condominium?.custody_mode]);
 
