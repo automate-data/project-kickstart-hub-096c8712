@@ -525,7 +525,7 @@ export default function Packages() {
                   </Badge>
                 ) : pkg.status === 'pending' ? (
                   <div className="flex items-center gap-2">
-                    {isSimpleLocker && currentLocId === centralLocationId && (
+                    {isSimpleLocker && (currentLocId == null || currentLocId === centralLocationId) && (
                       <Button
                         size="sm"
                         variant="outline"
