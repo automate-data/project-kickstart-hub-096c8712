@@ -98,7 +98,7 @@ export interface AISuggestion {
 
 // ─── Multi-Custody Mode (Advanced) ───────────────────────────────────────────
 
-export type CustodyMode = 'simple' | 'multi_custody';
+export type CustodyMode = 'simple' | 'simple_locker' | 'multi_custody';
 
 export type LocationType = 'central' | 'tower' | 'locker';
 

@@ -65,7 +65,7 @@ export default function ReceivePackage() {
   }, []);
 
   useEffect(() => {
-    if (condominium?.id && condominium?.custody_mode === 'multi_custody') {
+    if (condominium?.id && (condominium?.custody_mode === 'multi_custody' || condominium?.custody_mode === 'simple_locker')) {
       supabase
         .from('locations')
         .select('id')

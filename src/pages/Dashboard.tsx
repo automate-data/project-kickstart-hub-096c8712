@@ -33,8 +33,8 @@ export default function Dashboard() {
       .order('received_at', { ascending: false })
       .limit(10);
 
-    // In multi_custody mode, only show packages at central location
-    if (condominium.custody_mode === 'multi_custody') {
+    // In multi_custody/simple_locker modes, only show packages at central location
+    if (condominium.custody_mode === 'multi_custody' || condominium.custody_mode === 'simple_locker') {
       const { data: central } = await supabase
         .from('locations')
         .select('id')
