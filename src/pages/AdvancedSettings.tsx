@@ -60,7 +60,8 @@ export default function AdvancedSettings() {
   }, [condominium?.id]);
 
   useEffect(() => {
-    if (!condominium?.id || custodyMode !== 'multi_custody') return;
+    if (!condominium?.id) return;
+    if (custodyMode !== 'multi_custody' && custodyMode !== 'simple_locker') return;
     fetchLocations();
   }, [condominium?.id, custodyMode]);
 
@@ -102,6 +103,26 @@ export default function AdvancedSettings() {
     }
     setCustodyMode(value);
     toast({ title: 'Configuração salva.' });
+
+    // Garante portaria central pra simple_locker
+    if (value === 'simple_locker') {
+      const { data: existing } = await supabase
+        .from('locations')
+        .select('id')
+        .eq('condominium_id', condominium.id)
+        .eq('type', 'central')
+        .limit(1);
+      if (!existing || existing.length === 0) {
+        await supabase.from('locations').insert({
+          condominium_id: condominium.id,
+          type: 'central',
+          name: 'Portaria',
+        } as any);
+      }
+      await fetchLocations();
+      // Default novo local: armário com parent = central
+      setNewType('locker');
+    }
   };
 
   const handleAddLocation = async () => {
