@@ -101,9 +101,10 @@ export default function Packages() {
   const [isTowerScopedUser, setIsTowerScopedUser] = useState(false);
   const [userLocationId, setUserLocationId] = useState<string | null>(null);
 
-  // Fetch central location for multi_custody mode + check if user is tower-scoped
+  // Fetch central location for multi_custody/simple_locker modes + check if user is tower-scoped
   useEffect(() => {
-    if (!condominium?.id || condominium.custody_mode !== 'multi_custody') {
+    const hasLocations = condominium?.custody_mode === 'multi_custody' || condominium?.custody_mode === 'simple_locker';
+    if (!condominium?.id || !hasLocations) {
       setCentralLocationId(null);
       setIsTowerScopedUser(false);
       setUserLocationId(null);
@@ -321,7 +322,8 @@ export default function Packages() {
     setSelectedPackage(null);
   };
 
-  const isMultiCustody = condominium?.custody_mode === 'multi_custody';
+  const isMultiCustody = condominium?.custody_mode === 'multi_custody' || condominium?.custody_mode === 'simple_locker';
+  const isSimpleLocker = condominium?.custody_mode === 'simple_locker';
 
   const getLocationBadge = (pkg: Package): { label: string; className: string } | null => {
     if (!isMultiCustody) return null;

@@ -1,94 +1,130 @@
+## Novo modo de custódia: `simple_locker` (Portaria Simples com Armário)
 
+Bloco único. Porteiro recebe → notifica chegada → opcionalmente aloca em armário numerado → segunda notificação → morador retira com assinatura.
 
-## Documentação de Infraestrutura e Privacidade — Chegueii
+---
 
-Vou gerar **um PDF executivo + técnico** com diagrama de arquitetura embutido, pronto pra entregar ao DPO/cliente.
+### 1. Banco de dados (migration)
 
-### Conteúdo do documento
+**`condominiums.custody_mode`**
+- Hoje é `text` com default `'simple'` (sem CHECK constraint). Adicionar trigger de validação que aceite `('simple','simple_locker','multi_custody')` (evita CHECK pra não brigar com restore/migrações futuras — segue convenção do projeto).
 
-**Capa**
-- Título, sistema (Chegueii — gestão de encomendas para condomínios), versão, data, escopo
+**`locations`**
+- Sem mudança de schema. No modo `simple_locker`:
+  - Criar 1 location `type='central'` (portaria) automaticamente no setup.
+  - Lockers ficam com `parent_id = central.id` (a coluna já é `uuid` nullable, sem FK de tipo — funciona).
+- Sem torres nesse modo.
 
-**1. Sumário executivo** (2 páginas)
-- O que é o sistema, quem usa (admin condomínio, porteiro central, porteiro de bloco, morador via WhatsApp)
-- Visão geral da arquitetura em 1 parágrafo
-- Resumo dos subprocessadores
+**`package_events`**
+- Sem mudança. Reaproveita o evento de transferência `central → locker` com `notes: "locker_reference:<num>"` (mesma convenção de multi-custody).
 
-**2. Arquitetura de infraestrutura**
-- **Diagrama de fluxo de dados** (Mermaid renderizado como PNG e embutido):
-  ```
-  Porteiro (PWA) → Lovable CDN → Lovable Cloud (Supabase / AWS us-east-1)
-                                  ├── Postgres (RLS, isolamento por condomínio)
-                                  ├── Auth (JWT + bcrypt)
-                                  ├── Storage (fotos anonimizadas)
-                                  └── Edge Functions (Deno)
-                                       ├──→ Google Gemini (OCR de etiqueta)
-                                       └──→ Twilio (WhatsApp para morador)
-  ```
-- Hospedagem do frontend (Lovable + custom domain `cheguei.automatedata.com.br`)
-- Backend (Lovable Cloud / Supabase, projeto `pkejkxjbvvcayobktucj`, AWS us-east-1)
-- PWA e cache local (service worker)
+---
 
-**3. Componentes de backend**
-- Tabela com cada componente Supabase em uso (Postgres, Auth, Storage, Edge Functions) e finalidade
-- Lista das 8 edge functions e o que cada uma faz
-- Buckets de storage (`package-photos`, `boletos`)
+### 2. Tipos TypeScript
 
-**4. Subprocessadores (foco LGPD)**
-Tabela completa: serviço · finalidade · dados trafegados · localização · base legal sugerida
-- Lovable / Supabase (AWS us-east-1, EUA) — hospedagem e dados
-- Twilio — notificações WhatsApp (telefone E.164, nome, descrição da encomenda)
-- Google Gemini 2.5 Flash via Lovable AI Gateway — OCR (imagem bruta da etiqueta antes da anonimização)
-- AWS S3 via Supabase Storage — armazenamento de fotos já anonimizadas
+`src/types/index.ts`:
+```ts
+export type CustodyMode = 'simple' | 'simple_locker' | 'multi_custody';
+```
 
-**5. Dados pessoais tratados**
-- Inventário por categoria de titular: morador, funcionário, administrador
-- Para cada um: campos, finalidade, retenção atual, onde fica armazenado
+`src/hooks/useCondominium.tsx`: campo `custody_mode` permanece `string` (já é).
 
-**6. Segurança**
-- RLS por `condominium_id` (isolamento multi-tenant)
-- Roles em tabela separada (`user_roles`) — sem escalada via JWT
-- Senhas com bcrypt, JWT auto-refresh
-- Anonimização LGPD client-side (blur de CPF, endereço, telefone, QR codes antes do upload)
-- Soft-delete (`deleted_at`) + observação sobre processo de hard-delete sob solicitação
-- Edge functions com `verify_jwt` controlado por função
+---
 
-**7. Aviso de transferência internacional (LGPD)**
-- Dados trafegam para EUA (AWS us-east-1, Twilio, Google Cloud)
-- Cláusula sugerida pra política de privacidade
-- Recomendação: incluir no contrato com o condomínio
+### 3. Setup wizard (`src/pages/Setup.tsx`)
 
-**8. Pendências de adequação LGPD**
-Checklist priorizado:
-- [ ] DPA com Lovable, Twilio, Google
-- [ ] Política de retenção das fotos (hoje sem TTL)
-- [ ] Processo formal de exclusão definitiva (hoje só soft-delete)
-- [ ] Página `/privacidade` e `/termos` no app
-- [ ] Encarregado (DPO) definido em contrato
-- [ ] Validação se região AWS atende requisitos do cliente
+Adicionar **Step 3 novo (Modo de Operação)** antes do resumo (vira 4 steps):
 
-**9. Anexos técnicos**
-- IDs e endpoints (projeto Supabase, URLs do app)
-- Lista das tabelas principais com finalidade
-- Lista de secrets configurados (sem valores)
+- Step 3 — RadioGroup com 3 opções: Simples / Simples com Armário / Multi-Custódia.
+- Se `simple_locker` selecionado: input "Quantidade de armários" + prefixo opcional (default `Armário`). Gera nomes `Armário 1..N` (editável depois em AdvancedSettings).
+- Step 4 — Resumo + Concluir.
 
-### Como vou gerar
+No `handleFinish`:
+- Insere condominium com `custody_mode` escolhido.
+- Se `simple_locker`: cria location central (`name='Portaria'`, `type='central'`) + N lockers com `parent_id = central.id`.
+- Se `multi_custody`: comportamento atual (lockers configurados depois).
 
-1. Criar o diagrama Mermaid → renderizar como PNG (via `mermaid-cli` ou serviço público) → embutir no PDF
-2. Gerar PDF com **ReportLab** (Platypus para layout multi-página com tabelas, headings e imagem)
-3. Paleta sóbria: navy `#1E2761` + cinza, sem cores berrantes (público jurídico/técnico)
-4. Fonte Helvetica (built-in, sem risco de glyphs faltando)
-5. **QA obrigatório**: converter cada página com `pdftoppm -r 150` e revisar visualmente — overlap, corte, contraste, diagrama legível
+---
 
-### Entregável
+### 4. AdvancedSettings (`src/pages/AdvancedSettings.tsx`)
 
-**Arquivo**: `/mnt/documents/Chegueii_Infraestrutura_e_Privacidade.pdf`
+- Adicionar terceiro RadioGroup: "Portaria Simples com Armário".
+- Ao mudar para `simple_locker`: garantir central existente; permitir CRUD de lockers (parent = central, sem dropdown de torre).
+- Bloco "Locais Físicos" agora aparece para `multi_custody` **e** `simple_locker`. No modo `simple_locker` o `<Select>` de tipo só mostra `Armário` (central já existe), e oculta o seletor de torre.
 
-Após gerar, entrego via `<lov-artifact>` pra você baixar. Versionamento `_v2`, `_v3` se pedir ajustes.
+---
 
-### Fora de escopo (posso fazer numa próxima)
+### 5. Dashboard (`src/pages/Dashboard.tsx`)
 
-- Criar páginas `/privacidade` e `/termos` dentro do app
-- Templates de DPA pra cada subprocessador
-- Versão em inglês
+- Filtro de pendentes: tratar `simple_locker` igual ao `multi_custody` — só mostra pacotes em `current_location_id = central` (e órfãos legados ficam fora; receber package já grava central).
+- Adicionar **modo seleção múltipla** (checkbox em cada card pendente) quando `custody_mode === 'simple_locker'`.
+- Botão flutuante "Alocar no armário (N)" abre `LockerDialog` (de `CustodyDialogs.tsx`) — adaptado para receber lista (loop sobre seleção, ou abrir um por um). Decisão: **abrir LockerDialog por pacote** (cada um vai pra um armário diferente) — mais simples e cobre 99% dos casos.
+- Após alocar: update `packages.current_location_id`, insert `package_events` (from=central, to=locker, notes=`locker_reference:<num>`), invoke `send-locker-notification` se `whatsapp_enabled`.
 
+---
+
+### 6. ReceivePackage (`src/pages/ReceivePackage.tsx`)
+
+Já busca central quando `multi_custody`. Estender condição: também buscar central quando `simple_locker` e gravar `current_location_id = central.id` no novo pacote.
+
+---
+
+### 7. Packages (`src/pages/Packages.tsx`)
+
+- Substituir `isMultiCustody = custody_mode === 'multi_custody'` por `hasLocations = custody_mode !== 'simple'` em toda lógica de:
+  - busca de `centralLocationId`,
+  - filtros da query (pendentes na central + órfãos),
+  - `getLocationBadge` (renderiza "No Armário — posição X" / "Na Central").
+- No modo `simple_locker` **não** existem outras torres → `pendingElsewhereCount` será sempre 0 naturalmente (pacotes só estão em central ou em locker). Pacotes em locker ainda aparecem na aba Aguardando com badge "No Armário".
+- Adicionar botão "Alocar no armário" inline em cada card pendente quando `custody_mode === 'simple_locker'` (alternativa à seleção em massa do Dashboard).
+
+---
+
+### 8. Edge function `send-locker-notification`
+
+Hoje a mensagem usa template Twilio `HXfe32e7f4dcfef8eed3e5ef677df35606` com 3 variáveis: `{1}=morador, {2}=torre, {3}=armário`.
+
+No modo `simple_locker` não tem torre. Opções:
+- **A (recomendado):** passar `tower_name = "Portaria"` quando `simple_locker`. Frase fica natural: "...no armário X da Portaria". Sem mudança no template, sem reaprovação Twilio.
+- B: criar template novo só com 2 variáveis — exige reaprovação WhatsApp (lento).
+
+Vou com **A**. Frontend envia `tower_name: 'Portaria'` quando custody_mode === 'simple_locker'.
+
+---
+
+### 9. AppLayout / navegação
+
+Sem mudança. `simple_locker` não tem rotas de torre (já são exclusivas de `tower_doorman`/`tower_admin` roles, que não existem nesse modo).
+
+---
+
+### 10. Roles
+
+- Reaproveita `admin` + `doorman`. Nada de role novo.
+- Doorman vê Dashboard, recebe e aloca em armário.
+
+---
+
+### Arquivos tocados
+
+| Arquivo | Mudança |
+|---|---|
+| `supabase/migrations/...` | Trigger validação `custody_mode` |
+| `src/types/index.ts` | `CustodyMode` union |
+| `src/pages/Setup.tsx` | Novo step de modo + criação de central/lockers |
+| `src/pages/AdvancedSettings.tsx` | 3ª opção + CRUD lockers no simple_locker |
+| `src/pages/Dashboard.tsx` | Seleção múltipla + botão alocar |
+| `src/pages/ReceivePackage.tsx` | Gravar central no simple_locker |
+| `src/pages/Packages.tsx` | Generalizar `isMultiCustody` → `hasLocations`, badges |
+| `src/components/custody/CustodyDialogs.tsx` | Tornar `towerName` opcional / fallback "Portaria" |
+
+Edge functions: nenhuma alteração de código (frontend manda `tower_name='Portaria'`).
+
+---
+
+### Fora de escopo
+
+- Alocação em lote num único armário (cada pacote vai pra um locker individual).
+- Migrar condomínios `simple` existentes para `simple_locker` automaticamente (admin escolhe manualmente em AdvancedSettings).
+- Template WhatsApp dedicado sem menção a torre (fica como melhoria futura).
+- Relatórios específicos de uso de armário (Reports continua agnóstico).

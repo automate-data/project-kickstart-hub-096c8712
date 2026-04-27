@@ -60,7 +60,8 @@ export default function AdvancedSettings() {
   }, [condominium?.id]);
 
   useEffect(() => {
-    if (!condominium?.id || custodyMode !== 'multi_custody') return;
+    if (!condominium?.id) return;
+    if (custodyMode !== 'multi_custody' && custodyMode !== 'simple_locker') return;
     fetchLocations();
   }, [condominium?.id, custodyMode]);
 
@@ -102,16 +103,47 @@ export default function AdvancedSettings() {
     }
     setCustodyMode(value);
     toast({ title: 'Configuração salva.' });
+
+    // Garante portaria central pra simple_locker
+    if (value === 'simple_locker') {
+      const { data: existing } = await supabase
+        .from('locations')
+        .select('id')
+        .eq('condominium_id', condominium.id)
+        .eq('type', 'central')
+        .limit(1);
+      if (!existing || existing.length === 0) {
+        await supabase.from('locations').insert({
+          condominium_id: condominium.id,
+          type: 'central',
+          name: 'Portaria',
+        } as any);
+      }
+      await fetchLocations();
+      // Default novo local: armário com parent = central
+      setNewType('locker');
+    }
   };
+
+  const centralLoc = locations.find((l) => l.type === 'central');
+  const isSimpleLocker = custodyMode === 'simple_locker';
 
   const handleAddLocation = async () => {
     if (!condominium?.id || !newName.trim()) return;
     setSaving(true);
+    let parentId: string | null = null;
+    if (newType === 'locker') {
+      if (isSimpleLocker) {
+        parentId = centralLoc?.id || null;
+      } else if (newParentId) {
+        parentId = newParentId;
+      }
+    }
     const insert: any = {
       condominium_id: condominium.id,
       type: newType,
       name: newName.trim(),
-      parent_id: newType === 'locker' && newParentId ? newParentId : null,
+      parent_id: parentId,
     };
     const { error } = await supabase.from('locations').insert(insert);
     if (error) {
@@ -119,7 +151,7 @@ export default function AdvancedSettings() {
     } else {
       toast({ title: 'Local adicionado.' });
       setNewName('');
-      setNewType('central');
+      setNewType(isSimpleLocker ? 'locker' : 'central');
       setNewParentId('');
       await fetchLocations();
     }
@@ -180,6 +212,17 @@ export default function AdvancedSettings() {
               </div>
             </div>
             <div className="flex items-start space-x-3 p-3 rounded-lg border border-border hover:bg-muted/50 transition-colors">
+              <RadioGroupItem value="simple_locker" id="mode-simple-locker" className="mt-1" />
+              <div>
+                <Label htmlFor="mode-simple-locker" className="font-medium cursor-pointer">
+                  Portaria Simples com Armário
+                </Label>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Uma portaria + armários numerados. Porteiro pode opcionalmente alocar a encomenda em um armário.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-start space-x-3 p-3 rounded-lg border border-border hover:bg-muted/50 transition-colors">
               <RadioGroupItem value="multi_custody" id="mode-multi" className="mt-1" />
               <div>
                 <Label htmlFor="mode-multi" className="font-medium cursor-pointer">
@@ -194,7 +237,7 @@ export default function AdvancedSettings() {
         </CardContent>
       </Card>
 
-      {custodyMode === 'multi_custody' && (
+      {(custodyMode === 'multi_custody' || custodyMode === 'simple_locker') && (
         <Card>
           <CardHeader>
             <CardTitle>Locais Físicos</CardTitle>
@@ -251,13 +294,13 @@ export default function AdvancedSettings() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="central">Portaria Central</SelectItem>
-                      <SelectItem value="tower">Torre</SelectItem>
+                      {!isSimpleLocker && <SelectItem value="central">Portaria Central</SelectItem>}
+                      {!isSimpleLocker && <SelectItem value="tower">Torre</SelectItem>}
                       <SelectItem value="locker">Armário</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
-                {newType === 'locker' && towers.length > 0 && (
+                {!isSimpleLocker && newType === 'locker' && towers.length > 0 && (
                   <div>
                     <Label>Torre (pai)</Label>
                     <Select value={newParentId} onValueChange={setNewParentId}>
