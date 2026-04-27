@@ -212,6 +212,17 @@ export default function AdvancedSettings() {
               </div>
             </div>
             <div className="flex items-start space-x-3 p-3 rounded-lg border border-border hover:bg-muted/50 transition-colors">
+              <RadioGroupItem value="simple_locker" id="mode-simple-locker" className="mt-1" />
+              <div>
+                <Label htmlFor="mode-simple-locker" className="font-medium cursor-pointer">
+                  Portaria Simples com Armário
+                </Label>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Uma portaria + armários numerados. Porteiro pode opcionalmente alocar a encomenda em um armário.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-start space-x-3 p-3 rounded-lg border border-border hover:bg-muted/50 transition-colors">
               <RadioGroupItem value="multi_custody" id="mode-multi" className="mt-1" />
               <div>
                 <Label htmlFor="mode-multi" className="font-medium cursor-pointer">
@@ -226,7 +237,7 @@ export default function AdvancedSettings() {
         </CardContent>
       </Card>
 
-      {custodyMode === 'multi_custody' && (
+      {(custodyMode === 'multi_custody' || custodyMode === 'simple_locker') && (
         <Card>
           <CardHeader>
             <CardTitle>Locais Físicos</CardTitle>
