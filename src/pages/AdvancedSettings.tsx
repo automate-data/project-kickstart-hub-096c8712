@@ -125,14 +125,25 @@ export default function AdvancedSettings() {
     }
   };
 
+  const centralLoc = locations.find((l) => l.type === 'central');
+  const isSimpleLocker = custodyMode === 'simple_locker';
+
   const handleAddLocation = async () => {
     if (!condominium?.id || !newName.trim()) return;
     setSaving(true);
+    let parentId: string | null = null;
+    if (newType === 'locker') {
+      if (isSimpleLocker) {
+        parentId = centralLoc?.id || null;
+      } else if (newParentId) {
+        parentId = newParentId;
+      }
+    }
     const insert: any = {
       condominium_id: condominium.id,
       type: newType,
       name: newName.trim(),
-      parent_id: newType === 'locker' && newParentId ? newParentId : null,
+      parent_id: parentId,
     };
     const { error } = await supabase.from('locations').insert(insert);
     if (error) {
@@ -140,7 +151,7 @@ export default function AdvancedSettings() {
     } else {
       toast({ title: 'Local adicionado.' });
       setNewName('');
-      setNewType('central');
+      setNewType(isSimpleLocker ? 'locker' : 'central');
       setNewParentId('');
       await fetchLocations();
     }
