@@ -516,7 +516,7 @@ export default function Packages() {
                     </Badge>
                   )}
                 </div>
-                {isTransferredAway ? (
+                {isTransferredAway && !isSimpleLocker ? (
                   <Badge className="text-xs gap-1 bg-primary/10 text-primary hover:bg-primary/20 border-primary/20">
                     Transferido{transferredToName ? ` para ${transferredToName}` : ''}
                   </Badge>
