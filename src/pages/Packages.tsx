@@ -432,6 +432,7 @@ export default function Packages() {
 
     const currentLoc = (pkg as any).current_location as { name?: string; type?: string } | undefined;
     if (!currentLoc || currentLoc.type === 'central') {
+      if (isSimpleLocker) return null;
       return {
         label: 'Na Central',
         className: 'bg-muted text-muted-foreground hover:bg-muted/80 border-border',
@@ -525,7 +526,7 @@ export default function Packages() {
                   </Badge>
                 ) : pkg.status === 'pending' ? (
                   <div className="flex items-center gap-2">
-                    {isSimpleLocker && currentLocId === centralLocationId && (
+                    {isSimpleLocker && (currentLocId == null || currentLocId === centralLocationId) && (
                       <Button
                         size="sm"
                         variant="outline"
