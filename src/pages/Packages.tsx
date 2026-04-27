@@ -8,13 +8,15 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Package as PackageIcon, Clock, CheckCircle2, Search, Timer, BellOff, Loader2 } from 'lucide-react';
+import { Package as PackageIcon, Clock, CheckCircle2, Search, Timer, BellOff, Loader2, Boxes } from 'lucide-react';
 import { differenceInMinutes, differenceInHours, differenceInDays, startOfDay } from 'date-fns';
 import { PickupDialog } from '@/components/PickupDialog';
 import { PackageDetailsDialog } from '@/components/PackageDetailsDialog';
+import { LockerDialog } from '@/components/custody/CustodyDialogs';
 import { toast } from 'sonner';
 import { PackagePhoto } from '@/components/PackagePhoto';
 import { Input } from '@/components/ui/input';
+import type { Location } from '@/types';
 
 const PAGE_SIZE = 20;
 
@@ -100,6 +102,9 @@ export default function Packages() {
   const [centralLocationId, setCentralLocationId] = useState<string | null>(null);
   const [isTowerScopedUser, setIsTowerScopedUser] = useState(false);
   const [userLocationId, setUserLocationId] = useState<string | null>(null);
+  const [lockers, setLockers] = useState<Location[]>([]);
+  const [allocatePkg, setAllocatePkg] = useState<Package | null>(null);
+  const [allocateOpen, setAllocateOpen] = useState(false);
 
   // Fetch central location for multi_custody/simple_locker modes + check if user is tower-scoped
   useEffect(() => {
@@ -112,7 +117,8 @@ export default function Packages() {
     }
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      const [centralRes, scopedRes] = await Promise.all([
+      const isSimpleLockerMode = condominium.custody_mode === 'simple_locker';
+      const [centralRes, scopedRes, lockersRes] = await Promise.all([
         supabase
           .from('locations')
           .select('id')
@@ -130,11 +136,19 @@ export default function Packages() {
               .is('deleted_at', null)
               .limit(1)
           : Promise.resolve({ data: [] as any[] }),
+        isSimpleLockerMode
+          ? supabase
+              .from('locations')
+              .select('*')
+              .eq('condominium_id', condominium.id)
+              .eq('type', 'locker')
+          : Promise.resolve({ data: [] as any[] }),
       ]);
       setCentralLocationId(centralRes.data?.id || null);
       const scopedRow = scopedRes.data?.[0];
       setIsTowerScopedUser(!!scopedRow);
       setUserLocationId(scopedRow?.location_id || null);
+      setLockers((lockersRes.data || []) as Location[]);
     })();
   }, [condominium?.id, condominium?.custody_mode]);
 
@@ -325,6 +339,76 @@ export default function Packages() {
   const isMultiCustody = condominium?.custody_mode === 'multi_custody' || condominium?.custody_mode === 'simple_locker';
   const isSimpleLocker = condominium?.custody_mode === 'simple_locker';
 
+  const handleAllocateClick = (pkg: Package, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setAllocatePkg(pkg);
+    setAllocateOpen(true);
+  };
+
+  const handleConfirmAllocation = async (lockerReference: string, sendWhatsApp: boolean) => {
+    if (!allocatePkg || !centralLocationId) return;
+
+    const ref = lockerReference.trim();
+    const matched = lockers.find(l => {
+      const n = l.name.toLowerCase();
+      return n === ref.toLowerCase() || n.endsWith(` ${ref.toLowerCase()}`);
+    });
+    const targetLocker = matched || lockers[0];
+
+    if (!targetLocker) {
+      toast.error('Nenhum armário cadastrado. Configure em Configurações Avançadas.');
+      return;
+    }
+
+    const { error: updErr } = await supabase
+      .from('packages')
+      .update({ current_location_id: targetLocker.id })
+      .eq('id', allocatePkg.id);
+
+    if (updErr) {
+      toast.error('Erro ao alocar encomenda');
+      return;
+    }
+
+    const { data: { user } } = await supabase.auth.getUser();
+    await supabase.from('package_events').insert({
+      package_id: allocatePkg.id,
+      from_location_id: centralLocationId,
+      to_location_id: targetLocker.id,
+      transferred_by: user?.id,
+      notes: `locker_reference:${ref}`,
+    } as any);
+
+    insertLog({
+      event_type: 'package_allocated_to_locker',
+      package_id: allocatePkg.id,
+      condominium_id: condominium?.id,
+      metadata: { locker_reference: ref },
+    });
+
+    if (sendWhatsApp && allocatePkg.resident?.phone && allocatePkg.resident?.whatsapp_enabled !== false) {
+      try {
+        await supabase.functions.invoke('send-locker-notification', {
+          body: {
+            resident_phone: allocatePkg.resident.phone,
+            resident_name: allocatePkg.resident.full_name,
+            tower_name: 'Portaria',
+            locker_reference: ref,
+          },
+        });
+      } catch (e) {
+        console.error('[Locker] WhatsApp failed:', e);
+      }
+    }
+
+    toast.success(`Encomenda alocada no armário ${ref}`);
+    setAllocateOpen(false);
+    setAllocatePkg(null);
+    queryClient.invalidateQueries({ queryKey: ['packages'] });
+    fetchCounts();
+  };
+
   const getLocationBadge = (pkg: Package): { label: string; className: string } | null => {
     if (!isMultiCustody) return null;
     const events = (pkg as any).events as Array<any> | undefined;
@@ -440,18 +524,30 @@ export default function Packages() {
                     Retirada pelo morador
                   </Badge>
                 ) : pkg.status === 'pending' ? (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      handlePickUpClick(pkg);
-                    }}
-                  >
-                    <CheckCircle2 className="w-4 h-4 mr-1" />
-                    Retirar
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    {isSimpleLocker && currentLocId === centralLocationId && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={(e) => handleAllocateClick(pkg, e)}
+                      >
+                        <Boxes className="w-4 h-4 mr-1" />
+                        Alocar
+                      </Button>
+                    )}
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        handlePickUpClick(pkg);
+                      }}
+                    >
+                      <CheckCircle2 className="w-4 h-4 mr-1" />
+                      Retirar
+                    </Button>
+                  </div>
                 ) : null}
               </div>
             </div>
@@ -580,6 +676,14 @@ export default function Packages() {
         onOpenChange={setDetailsDialogOpen}
         pkg={detailsPackage}
         centralLocationId={centralLocationId}
+      />
+
+      <LockerDialog
+        open={allocateOpen}
+        onOpenChange={setAllocateOpen}
+        pkg={allocatePkg}
+        towerName="Portaria"
+        onConfirm={handleConfirmAllocation}
       />
     </div>
   );
