@@ -10,9 +10,10 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { Building2, ArrowRight, ArrowLeft, Check, Loader2, Plus, X, Users, Home } from 'lucide-react';
+import { Building2, ArrowRight, ArrowLeft, Check, Loader2, Plus, X, Users, Home, Boxes } from 'lucide-react';
+import type { CustodyMode } from '@/types';
 
-type Step = 1 | 2 | 3;
+type Step = 1 | 2 | 3 | 4;
 
 const GROUP_LABEL_OPTIONS = ['Bloco', 'Torre', 'Rua', 'Quadra'];
 const UNIT_LABEL_OPTIONS = ['Apartamento', 'Casa', 'Sala'];
@@ -44,6 +45,11 @@ export default function Setup() {
   const [customUnitLabel, setCustomUnitLabel] = useState('');
   const [groupInput, setGroupInput] = useState('');
   const [groups, setGroups] = useState<string[]>([]);
+
+  // Step 3 — Modo de operação
+  const [custodyMode, setCustodyMode] = useState<CustodyMode>('simple');
+  const [lockerCount, setLockerCount] = useState<number>(10);
+  const [lockerPrefix, setLockerPrefix] = useState<string>('Armário');
 
   const effectiveGroupLabel = groupLabel === 'custom' ? customGroupLabel : groupLabel;
   const effectiveUnitLabel = unitLabel === 'custom' ? customUnitLabel : unitLabel;
@@ -77,11 +83,11 @@ export default function Setup() {
         groups: groups,
         setup_completed: true,
         admin_user_id: user.id,
+        custody_mode: custodyMode,
       } as any).select('id').single();
 
       if (error) throw error;
 
-      // Link admin to the new condominium
       const { error: roleError } = await supabase.from('user_roles').insert({
         user_id: user.id,
         role: 'admin' as any,
@@ -89,6 +95,33 @@ export default function Setup() {
       });
 
       if (roleError) console.error('Error creating role link:', roleError);
+
+      // simple_locker: cria portaria central + N lockers
+      if (custodyMode === 'simple_locker') {
+        const { data: central, error: centralErr } = await supabase
+          .from('locations')
+          .insert({
+            condominium_id: newCondo.id,
+            type: 'central',
+            name: 'Portaria',
+          } as any)
+          .select('id')
+          .single();
+
+        if (centralErr) {
+          console.error('Error creating central location:', centralErr);
+        } else if (central) {
+          const lockerRows = Array.from({ length: Math.max(1, lockerCount) }, (_, i) => ({
+            condominium_id: newCondo.id,
+            type: 'locker',
+            name: `${lockerPrefix.trim() || 'Armário'} ${i + 1}`,
+            parent_id: central.id,
+            position: i + 1,
+          }));
+          const { error: lockerErr } = await supabase.from('locations').insert(lockerRows as any);
+          if (lockerErr) console.error('Error creating lockers:', lockerErr);
+        }
+      }
 
       await refetch();
       toast({ title: 'Condomínio configurado com sucesso!' });
@@ -114,7 +147,7 @@ export default function Setup() {
 
         {/* Progress */}
         <div className="flex items-center justify-center gap-2">
-          {[1, 2, 3].map((s) => (
+          {[1, 2, 3, 4].map((s) => (
             <div
               key={s}
               className={`h-2 rounded-full transition-all ${
@@ -285,6 +318,105 @@ export default function Setup() {
         {step === 3 && (
           <Card>
             <CardHeader>
+              <CardTitle className="flex items-center gap-2"><Boxes className="w-5 h-5" />Modo de Operação</CardTitle>
+              <CardDescription>Como a portaria gerencia a custódia das encomendas</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <RadioGroup
+                value={custodyMode}
+                onValueChange={(v) => setCustodyMode(v as CustodyMode)}
+                className="space-y-3"
+              >
+                <Label
+                  htmlFor="mode-simple"
+                  className={`flex items-start gap-3 p-4 rounded-lg border-2 cursor-pointer transition-colors ${
+                    custodyMode === 'simple' ? 'border-primary bg-primary/5' : 'border-border'
+                  }`}
+                >
+                  <RadioGroupItem value="simple" id="mode-simple" className="mt-1" />
+                  <div>
+                    <p className="font-medium">Portaria Simples</p>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Porteiro registra e morador retira diretamente na portaria.
+                    </p>
+                  </div>
+                </Label>
+
+                <Label
+                  htmlFor="mode-simple-locker"
+                  className={`flex items-start gap-3 p-4 rounded-lg border-2 cursor-pointer transition-colors ${
+                    custodyMode === 'simple_locker' ? 'border-primary bg-primary/5' : 'border-border'
+                  }`}
+                >
+                  <RadioGroupItem value="simple_locker" id="mode-simple-locker" className="mt-1" />
+                  <div>
+                    <p className="font-medium">Portaria Simples com Armário</p>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Porteiro pode opcionalmente alocar a encomenda em um armário numerado e o morador é avisado.
+                    </p>
+                  </div>
+                </Label>
+
+                <Label
+                  htmlFor="mode-multi"
+                  className={`flex items-start gap-3 p-4 rounded-lg border-2 cursor-pointer transition-colors ${
+                    custodyMode === 'multi_custody' ? 'border-primary bg-primary/5' : 'border-border'
+                  }`}
+                >
+                  <RadioGroupItem value="multi_custody" id="mode-multi" className="mt-1" />
+                  <div>
+                    <p className="font-medium">Multi-Custódia</p>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Portaria central + porteiros de torre. Encomendas passam por múltiplos pontos.
+                    </p>
+                  </div>
+                </Label>
+              </RadioGroup>
+
+              {custodyMode === 'simple_locker' && (
+                <div className="space-y-4 p-4 rounded-lg bg-muted/40 border border-border">
+                  <p className="text-sm font-medium">Configuração inicial dos armários</p>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Quantidade</Label>
+                      <Input
+                        type="number"
+                        min={1}
+                        max={500}
+                        value={lockerCount}
+                        onChange={e => setLockerCount(Math.max(1, parseInt(e.target.value) || 1))}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Prefixo</Label>
+                      <Input
+                        value={lockerPrefix}
+                        onChange={e => setLockerPrefix(e.target.value)}
+                        placeholder="Armário"
+                      />
+                    </div>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Serão criados {lockerCount} armários: {lockerPrefix.trim() || 'Armário'} 1, {lockerPrefix.trim() || 'Armário'} 2... Você pode editar depois em Configurações Avançadas.
+                  </p>
+                </div>
+              )}
+
+              <div className="flex gap-3">
+                <Button variant="outline" onClick={() => setStep(2)} className="flex-1">
+                  <ArrowLeft className="w-4 h-4 mr-2" />Voltar
+                </Button>
+                <Button onClick={() => setStep(4)} className="flex-1">
+                  Próximo <ArrowRight className="w-4 h-4 ml-2" />
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {step === 4 && (
+          <Card>
+            <CardHeader>
               <CardTitle className="flex items-center gap-2"><Users className="w-5 h-5" />Resumo e Conclusão</CardTitle>
               <CardDescription>Revise as configurações antes de concluir</CardDescription>
             </CardHeader>
@@ -297,6 +429,7 @@ export default function Setup() {
                 <p><strong>Agrupamento:</strong> {effectiveGroupLabel}</p>
                 <p><strong>Unidade:</strong> {effectiveUnitLabel}</p>
                 {groups.length > 0 && <p><strong>{effectiveGroupLabel}s:</strong> {groups.join(', ')}</p>}
+                <p><strong>Modo:</strong> {custodyMode === 'simple' ? 'Portaria Simples' : custodyMode === 'simple_locker' ? `Portaria Simples com Armário (${lockerCount} armários)` : 'Multi-Custódia'}</p>
               </div>
 
               <p className="text-sm text-muted-foreground">
@@ -304,7 +437,7 @@ export default function Setup() {
               </p>
 
               <div className="flex gap-3">
-                <Button variant="outline" onClick={() => setStep(2)} className="flex-1">
+                <Button variant="outline" onClick={() => setStep(3)} className="flex-1">
                   <ArrowLeft className="w-4 h-4 mr-2" />Voltar
                 </Button>
                 <Button onClick={handleFinish} className="flex-1" disabled={isSaving}>
