@@ -1,40 +1,49 @@
-## Adicionar botão "Alocar" na página de Encomendas (`/packages`)
+# Encomendas alocadas em armário devem permanecer em "Aguardando" (modo Portaria + Armário)
 
-Replicar a funcionalidade já existente no Dashboard para o modo `simple_locker`, permitindo alocar encomendas em armários direto da listagem de encomendas.
+## Problema
 
-### Mudanças em `src/pages/Packages.tsx`
+No modo **Portaria Simples com Armário** (`simple_locker`), quando a portaria aloca uma encomenda em um armário, ela some da aba **Aguardando** e aparece na aba **Retiradas** com um botão "Retirar". Isso está incorreto — a encomenda ainda não foi retirada pelo morador, ela apenas mudou de localização (Central → Armário).
 
-1. **Imports**:
-   - Adicionar ícone `Boxes` do lucide-react
-   - Importar `LockerDialog` de `@/components/custody/CustodyDialogs`
-   - Importar tipo `Location` de `@/types`
+O comportamento correto (igual ao modo **Multi-custódia**) é:
+- A encomenda continua na aba **Aguardando**
+- Mostra o badge **"No Armário — posição X"** (já implementado em `getLocationBadge`)
+- O botão **"Retirar"** continua ali para confirmação de retirada com assinatura
+- O botão **"Alocar"** desaparece (já está alocada)
+- Aparece em **Retiradas** apenas quando `status = 'picked_up'`
 
-2. **Estado novo**:
-   - `lockers: Location[]` — lista de armários do condomínio
-   - `allocatePkg: Package | null`
-   - `allocateOpen: boolean`
+## O que mudar
 
-3. **Buscar armários**: no useEffect que já carrega central location, quando `custody_mode === 'simple_locker'`, também buscar `locations` do tipo `locker` e salvar em `lockers`.
+Arquivo único: **`src/pages/Packages.tsx`**
 
-4. **Handlers** (idênticos ao Dashboard):
-   - `handleAllocateClick(pkg, e)` — abre dialog
-   - `handleConfirmAllocation(lockerReference, sendWhatsApp)`:
-     - Acha locker por nome (match exato ou sufixo)
-     - `UPDATE packages SET current_location_id = targetLocker.id`
-     - `INSERT package_events` com `notes: locker_reference:XX`
-     - `insertLog({ event_type: 'package_allocated_to_locker', ... })`
-     - Chama edge function `send-locker-notification` com `tower_name: 'Portaria'` se WhatsApp habilitado
-     - Toast + invalida queries + fetchCounts
+### 1. Query de listagem (`fetchPackagesPage`, linhas ~65-77)
 
-5. **PackageCard**: na seção de status pendente (linha ~442), quando `isSimpleLocker` E não está transferido E o pacote está na central (sem locker alocado ainda) → renderizar **dois botões** lado a lado: `Alocar` (variant outline com ícone Boxes) + `Retirar`.
-   - Se já está no armário (locationBadge indica "No Armário") → mostrar só `Retirar`.
+Hoje, quando há `centralLocationId`, o filtro de `picked_up` inclui pacotes pendentes fora da central — isso foi pensado para multi-custódia (transferidos para torres). Em `simple_locker` esse mesmo filtro varre os armários e os puxa para "Retiradas".
 
-6. **Renderizar `<LockerDialog>`** no fim do componente, com `towerName="Portaria"`.
+Adicionar um parâmetro `isSimpleLocker` ao `fetchPackagesPage` e:
+- **Aguardando**: incluir pendentes na central, órfãos **e** pendentes em armários (qualquer `current_location_id`, desde que `status = 'pending'`).
+- **Retiradas**: usar apenas `status.eq.picked_up` (sem o `or` que pega pendentes fora da central).
 
-### Comportamento esperado
+### 2. Contadores (`fetchCounts`, linhas ~192-237)
 
-- Modo `simple` e `multi_custody` → sem mudança visual.
-- Modo `simple_locker`:
-  - Encomenda pendente na portaria → botões `Alocar` + `Retirar`
-  - Encomenda já alocada no armário → botão `Retirar` + badge "No Armário — posição X"
-  - Após alocar → morador recebe WhatsApp com número do armário, lista atualiza.
+Mesma lógica:
+- `pendingCount` em simple_locker = todas as pendentes do condomínio (sem filtrar por `current_location_id`).
+- `pickedUpTodayCount` em simple_locker = apenas `status='picked_up'` no dia (sem o ramo "transferidas hoje").
+- `pendingElsewhereCount` permanece 0 em simple_locker (já está oculto na UI).
+
+### 3. PackageCard (linhas ~457-552)
+
+- `isTransferredAway` deve ser **false** em simple_locker (não existe "transferência" para outro local de custódia, só alocação em armário, que mantém a encomenda em aguardando). Adicionar `&& !isSimpleLocker` no cálculo.
+- Resultado automático: o botão "Retirar" continua aparecendo para encomendas em armário, e o botão "Alocar" some (a condição `currentLocId === centralLocationId` já trata isso).
+- O badge "No Armário — posição X" já é renderizado por `getLocationBadge` quando há um evento com `to_location.type === 'locker'`.
+
+## Resultado esperado
+
+Em **Portaria Simples com Armário**:
+
+| Estado da encomenda | Aba | Badge | Botões |
+|---|---|---|---|
+| Recém recebida (na central) | Aguardando | — | Alocar, Retirar |
+| Alocada em armário (pendente) | **Aguardando** | **No Armário — posição X** | Retirar |
+| Retirada pelo morador | Retiradas | Retirada pelo morador | — (clicável p/ detalhes) |
+
+Idêntico ao comportamento já existente em multi-custódia, exceto que não há transferências entre torres.

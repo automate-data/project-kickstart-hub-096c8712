@@ -37,6 +37,7 @@ async function fetchPackagesPage({
   search,
   centralLocationId,
   userLocationId,
+  isSimpleLocker,
   pageParam = 0,
 }: {
   condominiumId: string;
@@ -44,6 +45,7 @@ async function fetchPackagesPage({
   search: string;
   centralLocationId?: string | null;
   userLocationId?: string | null;
+  isSimpleLocker?: boolean;
   pageParam?: number;
 }) {
   const from = pageParam * PAGE_SIZE;
@@ -62,6 +64,10 @@ async function fetchPackagesPage({
   if (userLocationId) {
     // Tower-scoped user: only see packages currently at their location
     query = query.eq('status', status).eq('current_location_id', userLocationId);
+  } else if (isSimpleLocker) {
+    // Simple locker: pendentes (na central, órfãos ou em armário) ficam em "Aguardando".
+    // Apenas status='picked_up' aparece em "Retiradas".
+    query = query.eq('status', status);
   } else if (centralLocationId && status === 'pending') {
     // Aguardando na central: pendentes na central OU órfãos (sem location)
     query = query
@@ -189,6 +195,30 @@ export default function Packages() {
       return;
     }
 
+    const isSimpleLockerMode = condominium?.custody_mode === 'simple_locker';
+
+    // Simple locker: pendentes ficam em "Aguardando" mesmo alocadas em armário.
+    // Retiradas hoje = apenas status='picked_up' no dia.
+    if (isSimpleLockerMode) {
+      const [pendingRes, pickedUpRes] = await Promise.all([
+        supabase
+          .from('packages')
+          .select('id', { count: 'exact', head: true })
+          .eq('condominium_id', condominium.id)
+          .eq('status', 'pending'),
+        supabase
+          .from('packages')
+          .select('id', { count: 'exact', head: true })
+          .eq('condominium_id', condominium.id)
+          .eq('status', 'picked_up')
+          .gte('picked_up_at', todayIso),
+      ]);
+      setPendingCount(pendingRes.count ?? 0);
+      setPickedUpTodayCount(pickedUpRes.count ?? 0);
+      setPendingElsewhereCount(0);
+      return;
+    }
+
     let pendingQuery = supabase
       .from('packages')
       .select('id', { count: 'exact', head: true })
@@ -244,7 +274,7 @@ export default function Packages() {
     isFetchingNextPage,
     isLoading,
   } = useInfiniteQuery({
-    queryKey: ['packages', condominium?.id, filter, centralLocationId, userLocationId],
+    queryKey: ['packages', condominium?.id, filter, centralLocationId, userLocationId, condominium?.custody_mode],
     queryFn: ({ pageParam }) =>
       fetchPackagesPage({
         condominiumId: condominium!.id,
@@ -252,6 +282,7 @@ export default function Packages() {
         search: searchTerm,
         centralLocationId,
         userLocationId,
+        isSimpleLocker: condominium?.custody_mode === 'simple_locker',
         pageParam: pageParam as number,
       }),
     initialPageParam: 0,
@@ -456,6 +487,7 @@ export default function Packages() {
     const currentLocId = (pkg as any).current_location_id;
     const isTransferredAway =
       !isTowerScopedUser &&
+      !isSimpleLocker &&
       pkg.status === 'pending' &&
       !!centralLocationId &&
       currentLocId != null &&
