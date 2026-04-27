@@ -487,6 +487,7 @@ export default function Packages() {
     const currentLocId = (pkg as any).current_location_id;
     const isTransferredAway =
       !isTowerScopedUser &&
+      !isSimpleLocker &&
       pkg.status === 'pending' &&
       !!centralLocationId &&
       currentLocId != null &&
