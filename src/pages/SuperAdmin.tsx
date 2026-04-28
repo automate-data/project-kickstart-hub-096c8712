@@ -151,16 +151,32 @@ export default function SuperAdmin() {
   const cloudCostPerCond = CLOUD_FIXED_MONTHLY / activeCondCount;
   const totalCost = whatsappCost + aiCost + CLOUD_FIXED_MONTHLY;
 
-  // Per-condominium cost breakdown
-  const condCosts = (() => {
-    if (!logs || !condStats) return {};
-    const costs: Record<string, { whatsapp: number; ai: number; cloud: number; total: number }> = {};
+  // Per-condominium breakdown for the SELECTED period (from logs)
+  const condPeriodStats = (() => {
+    if (!logs || !condStats) return {} as Record<string, { whatsapp: number; received: number; pickedUp: number; errors: number }>;
+    const out: Record<string, { whatsapp: number; received: number; pickedUp: number; errors: number }> = {};
     condStats.forEach((s: any) => {
       const condId = s.condominium_id;
       const condLogs = logs.filter((l: any) => l.condominium_id === condId);
-      const wa = condLogs.filter((l: any) => l.event_type === 'whatsapp_sent').length * WHATSAPP_COST_PER_MSG;
-      const ai = condLogs.filter((l: any) => l.event_type === 'package_received').length * AI_COST_PER_CALL;
-      costs[condId] = { whatsapp: wa, ai, cloud: cloudCostPerCond, total: wa + ai + cloudCostPerCond };
+      out[condId] = {
+        whatsapp: condLogs.filter((l: any) => l.event_type === 'whatsapp_sent').length,
+        received: condLogs.filter((l: any) => l.event_type === 'package_received').length,
+        pickedUp: condLogs.filter((l: any) => l.event_type === 'package_picked_up').length,
+        errors: condLogs.filter((l: any) => ['error', 'whatsapp_failed', 'ai_label_failed'].includes(l.event_type)).length,
+      };
+    });
+    return out;
+  })();
+
+  // Per-condominium cost breakdown (uses selected period)
+  const condCosts = (() => {
+    if (!condStats) return {} as Record<string, { whatsapp: number; ai: number; cloud: number; total: number }>;
+    const costs: Record<string, { whatsapp: number; ai: number; cloud: number; total: number }> = {};
+    condStats.forEach((s: any) => {
+      const ps = condPeriodStats[s.condominium_id] || { whatsapp: 0, received: 0, pickedUp: 0, errors: 0 };
+      const wa = ps.whatsapp * WHATSAPP_COST_PER_MSG;
+      const ai = ps.received * AI_COST_PER_CALL;
+      costs[s.condominium_id] = { whatsapp: wa, ai, cloud: cloudCostPerCond, total: wa + ai + cloudCostPerCond };
     });
     return costs;
   })();
@@ -333,15 +349,16 @@ export default function SuperAdmin() {
                   <TableBody>
                     {condStats?.map((s: any) => {
                       const cc = condCosts[s.condominium_id];
+                      const ps = condPeriodStats[s.condominium_id] || { whatsapp: 0, pickedUp: 0, errors: 0 };
                       return (
                         <TableRow key={s.condominium_id}>
                           <TableCell className="font-medium">{s.condominium_name}</TableCell>
                           <TableCell className="text-center">{s.packages_pending}</TableCell>
-                          <TableCell className="text-center">{s.packages_picked_up}</TableCell>
-                          <TableCell className="text-center">{s.whatsapp_sent_30d}</TableCell>
+                          <TableCell className="text-center">{ps.pickedUp}</TableCell>
+                          <TableCell className="text-center">{ps.whatsapp}</TableCell>
                           <TableCell className="text-center">
-                            {Number(s.errors_30d) > 0 ? (
-                              <Badge variant="destructive">{s.errors_30d}</Badge>
+                            {ps.errors > 0 ? (
+                              <Badge variant="destructive">{ps.errors}</Badge>
                             ) : '0'}
                           </TableCell>
                           <TableCell className="text-center">{s.total_staff}</TableCell>
@@ -357,24 +374,27 @@ export default function SuperAdmin() {
               </div>
               {/* Mobile cards */}
               <div className="md:hidden space-y-3">
-                {condStats?.map((s: any) => (
-                  <Card key={s.condominium_id}>
-                    <CardContent className="p-4">
-                      <p className="font-semibold mb-2">{s.condominium_name}</p>
-                      <div className="grid grid-cols-2 gap-2 text-sm">
-                        <div>Pendentes: <strong>{s.packages_pending}</strong></div>
-                        <div>Retiradas: <strong>{s.packages_picked_up}</strong></div>
-                        <div>WhatsApp: <strong>{s.whatsapp_sent_30d}</strong></div>
-                        <div>Erros: <strong>{s.errors_30d}</strong></div>
-                        <div>Staff: <strong>{s.total_staff}</strong></div>
-                        <div>Moradores: <strong>{s.total_residents}</strong></div>
-                        <div className="col-span-2 text-destructive font-medium">
-                          💰 Custo Est.: <strong>${condCosts[s.condominium_id]?.total?.toFixed(2) || '0.00'}</strong>
+                {condStats?.map((s: any) => {
+                  const ps = condPeriodStats[s.condominium_id] || { whatsapp: 0, pickedUp: 0, errors: 0 };
+                  return (
+                    <Card key={s.condominium_id}>
+                      <CardContent className="p-4">
+                        <p className="font-semibold mb-2">{s.condominium_name}</p>
+                        <div className="grid grid-cols-2 gap-2 text-sm">
+                          <div>Pendentes: <strong>{s.packages_pending}</strong></div>
+                          <div>Retiradas: <strong>{ps.pickedUp}</strong></div>
+                          <div>WhatsApp: <strong>{ps.whatsapp}</strong></div>
+                          <div>Erros: <strong>{ps.errors}</strong></div>
+                          <div>Staff: <strong>{s.total_staff}</strong></div>
+                          <div>Moradores: <strong>{s.total_residents}</strong></div>
+                          <div className="col-span-2 text-destructive font-medium">
+                            💰 Custo Est.: <strong>${condCosts[s.condominium_id]?.total?.toFixed(2) || '0.00'}</strong>
+                          </div>
                         </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+                      </CardContent>
+                    </Card>
+                  );
+                })}
               </div>
             </>
           )}
