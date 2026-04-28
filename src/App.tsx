@@ -29,16 +29,19 @@ const queryClient = new QueryClient();
 
 function AppRoutes() {
   const { user, isLoading: authLoading, role, isPasswordRecovery } = useAuth();
-  const { needsSetup, isLoading: condLoading } = useCondominium();
+  const { needsSetup, isLoading: condLoading, condominium } = useCondominium();
 
   if (authLoading || (user && !isPasswordRecovery && condLoading)) {
     return null;
   }
 
+  // tower_admin não faz sentido em simple_locker (não há torres) — vira admin/dashboard padrão
+  const isSimpleLockerCond = condominium?.custody_mode === 'simple_locker';
+
   // If admin and needs setup, redirect to /setup
   const shouldRedirectToSetup = user && role === 'admin' && needsSetup;
   const shouldRedirectToTower = user && role === 'tower_doorman';
-  const shouldRedirectToTowerAdmin = user && role === 'tower_admin';
+  const shouldRedirectToTowerAdmin = user && role === 'tower_admin' && !isSimpleLockerCond;
 
   return (
     <Routes>
