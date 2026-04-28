@@ -133,10 +133,18 @@ export default function TowerAdminDashboard() {
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
 
+    const { data: lockerLocs } = await supabase
+      .from('locations')
+      .select('id')
+      .eq('parent_id', towerLocationId)
+      .eq('type', 'locker');
+
+    const locationIds = [towerLocationId, ...(lockerLocs || []).map(l => l.id)];
+
     const { count } = await supabase
       .from('packages')
       .select('id', { count: 'exact', head: true })
-      .eq('current_location_id', towerLocationId)
+      .in('current_location_id', locationIds)
       .eq('status', 'picked_up')
       .gte('picked_up_at', todayStart.toISOString());
 
