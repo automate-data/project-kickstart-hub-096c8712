@@ -239,7 +239,11 @@ export default function TowerAdminDashboard() {
                 <Card key={pkg.id}>
                   <CardContent className="p-4">
                     <div className="flex gap-3">
-                      <PackagePhoto photoUrl={pkg.photo_url} alt="Foto da encomenda" />
+                      <PackagePhoto
+                        photoUrl={pkg.photo_url}
+                        alt="Foto da encomenda"
+                        className="h-24 w-24 shrink-0 rounded-md object-cover sm:h-28 sm:w-28"
+                      />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
                           <p className="font-medium truncate">
