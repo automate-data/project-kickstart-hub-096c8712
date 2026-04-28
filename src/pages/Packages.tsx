@@ -450,8 +450,8 @@ export default function Packages() {
     if (lastEvent?.to_location?.type === 'locker') {
       let position: string | null = null;
       const notes = lastEvent.notes as string | undefined;
-      const match = notes?.match(/locker_reference:([^\s,;]+)/i);
-      if (match) position = match[1];
+      const match = notes?.match(/locker_reference:([^,;\n\r]+)/i);
+      if (match) position = match[1].trim();
       const label = position
         ? `No Armário — posição ${position}`
         : `No Armário${lastEvent.to_location.name ? ` — ${lastEvent.to_location.name}` : ''}`;

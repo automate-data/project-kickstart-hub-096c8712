@@ -1,49 +1,44 @@
-# Encomendas alocadas em armário devem permanecer em "Aguardando" (modo Portaria + Armário)
-
 ## Problema
 
-No modo **Portaria Simples com Armário** (`simple_locker`), quando a portaria aloca uma encomenda em um armário, ela some da aba **Aguardando** e aparece na aba **Retiradas** com um botão "Retirar". Isso está incorreto — a encomenda ainda não foi retirada pelo morador, ela apenas mudou de localização (Central → Armário).
+No modo **Portaria Simples com Armário** (`simple_locker`), o badge das encomendas alocadas mostra apenas a primeira palavra da posição do armário — por exemplo, exibe **"posição Armário"** em vez de **"posição Armário 08"**, e **"posição Caixinha"** em vez de **"posição Caixinha do correio"**.
 
-O comportamento correto (igual ao modo **Multi-custódia**) é:
-- A encomenda continua na aba **Aguardando**
-- Mostra o badge **"No Armário — posição X"** (já implementado em `getLocationBadge`)
-- O botão **"Retirar"** continua ali para confirmação de retirada com assinatura
-- O botão **"Alocar"** desaparece (já está alocada)
-- Aparece em **Retiradas** apenas quando `status = 'picked_up'`
+Isso é crítico porque, no dia seguinte, o porteiro precisa da posição **completa** para localizar a encomenda fisicamente.
 
-## O que mudar
+## Causa raiz
 
-Arquivo único: **`src/pages/Packages.tsx`**
+Confirmei consultando os `package_events` reais: os dados estão salvos corretamente no banco, ex.:
 
-### 1. Query de listagem (`fetchPackagesPage`, linhas ~65-77)
+```
+notes: "locker_reference:Armário 08"
+notes: "locker_reference:Caixinha do correio"
+```
 
-Hoje, quando há `centralLocationId`, o filtro de `picked_up` inclui pacotes pendentes fora da central — isso foi pensado para multi-custódia (transferidos para torres). Em `simple_locker` esse mesmo filtro varre os armários e os puxa para "Retiradas".
+O bug está no **regex** que extrai a posição em `src/pages/Packages.tsx`, função `getLocationBadge`:
 
-Adicionar um parâmetro `isSimpleLocker` ao `fetchPackagesPage` e:
-- **Aguardando**: incluir pendentes na central, órfãos **e** pendentes em armários (qualquer `current_location_id`, desde que `status = 'pending'`).
-- **Retiradas**: usar apenas `status.eq.picked_up` (sem o `or` que pega pendentes fora da central).
+```ts
+const match = notes?.match(/locker_reference:([^\s,;]+)/i);
+```
 
-### 2. Contadores (`fetchCounts`, linhas ~192-237)
+O padrão `[^\s,;]+` para no **primeiro espaço**, então captura só `"Armário"` ou `"Caixinha"`, descartando o restante.
 
-Mesma lógica:
-- `pendingCount` em simple_locker = todas as pendentes do condomínio (sem filtrar por `current_location_id`).
-- `pickedUpTodayCount` em simple_locker = apenas `status='picked_up'` no dia (sem o ramo "transferidas hoje").
-- `pendingElsewhereCount` permanece 0 em simple_locker (já está oculto na UI).
+## Correção
 
-### 3. PackageCard (linhas ~457-552)
+Arquivo único: **`src/pages/Packages.tsx`** (função `getLocationBadge`, ~linha 453).
 
-- `isTransferredAway` deve ser **false** em simple_locker (não existe "transferência" para outro local de custódia, só alocação em armário, que mantém a encomenda em aguardando). Adicionar `&& !isSimpleLocker` no cálculo.
-- Resultado automático: o botão "Retirar" continua aparecendo para encomendas em armário, e o botão "Alocar" some (a condição `currentLocId === centralLocationId` já trata isso).
-- O badge "No Armário — posição X" já é renderizado por `getLocationBadge` quando há um evento com `to_location.type === 'locker'`.
+Trocar o regex para capturar tudo até o final da linha ou até um separador real (`,` ou `;`), preservando espaços internos:
+
+```ts
+const match = notes?.match(/locker_reference:([^,;\n\r]+)/i);
+if (match) position = match[1].trim();
+```
 
 ## Resultado esperado
 
-Em **Portaria Simples com Armário**:
+Os badges passam a exibir a posição completa registrada pelo porteiro:
 
-| Estado da encomenda | Aba | Badge | Botões |
-|---|---|---|---|
-| Recém recebida (na central) | Aguardando | — | Alocar, Retirar |
-| Alocada em armário (pendente) | **Aguardando** | **No Armário — posição X** | Retirar |
-| Retirada pelo morador | Retiradas | Retirada pelo morador | — (clicável p/ detalhes) |
+| Antes | Depois |
+|---|---|
+| No Armário — posição Armário | No Armário — posição Armário 08 |
+| No Armário — posição Caixinha | No Armário — posição Caixinha do correio |
 
-Idêntico ao comportamento já existente em multi-custódia, exceto que não há transferências entre torres.
+Nenhuma migração de dados é necessária — o banco já tem a informação correta, é apenas a leitura no frontend que estava truncando.
