@@ -374,24 +374,27 @@ export default function SuperAdmin() {
               </div>
               {/* Mobile cards */}
               <div className="md:hidden space-y-3">
-                {condStats?.map((s: any) => (
-                  <Card key={s.condominium_id}>
-                    <CardContent className="p-4">
-                      <p className="font-semibold mb-2">{s.condominium_name}</p>
-                      <div className="grid grid-cols-2 gap-2 text-sm">
-                        <div>Pendentes: <strong>{s.packages_pending}</strong></div>
-                        <div>Retiradas: <strong>{s.packages_picked_up}</strong></div>
-                        <div>WhatsApp: <strong>{s.whatsapp_sent_30d}</strong></div>
-                        <div>Erros: <strong>{s.errors_30d}</strong></div>
-                        <div>Staff: <strong>{s.total_staff}</strong></div>
-                        <div>Moradores: <strong>{s.total_residents}</strong></div>
-                        <div className="col-span-2 text-destructive font-medium">
-                          💰 Custo Est.: <strong>${condCosts[s.condominium_id]?.total?.toFixed(2) || '0.00'}</strong>
+                {condStats?.map((s: any) => {
+                  const ps = condPeriodStats[s.condominium_id] || { whatsapp: 0, pickedUp: 0, errors: 0 };
+                  return (
+                    <Card key={s.condominium_id}>
+                      <CardContent className="p-4">
+                        <p className="font-semibold mb-2">{s.condominium_name}</p>
+                        <div className="grid grid-cols-2 gap-2 text-sm">
+                          <div>Pendentes: <strong>{s.packages_pending}</strong></div>
+                          <div>Retiradas: <strong>{ps.pickedUp}</strong></div>
+                          <div>WhatsApp: <strong>{ps.whatsapp}</strong></div>
+                          <div>Erros: <strong>{ps.errors}</strong></div>
+                          <div>Staff: <strong>{s.total_staff}</strong></div>
+                          <div>Moradores: <strong>{s.total_residents}</strong></div>
+                          <div className="col-span-2 text-destructive font-medium">
+                            💰 Custo Est.: <strong>${condCosts[s.condominium_id]?.total?.toFixed(2) || '0.00'}</strong>
+                          </div>
                         </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+                      </CardContent>
+                    </Card>
+                  );
+                })}
               </div>
             </>
           )}
