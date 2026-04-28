@@ -349,15 +349,16 @@ export default function SuperAdmin() {
                   <TableBody>
                     {condStats?.map((s: any) => {
                       const cc = condCosts[s.condominium_id];
+                      const ps = condPeriodStats[s.condominium_id] || { whatsapp: 0, pickedUp: 0, errors: 0 };
                       return (
                         <TableRow key={s.condominium_id}>
                           <TableCell className="font-medium">{s.condominium_name}</TableCell>
                           <TableCell className="text-center">{s.packages_pending}</TableCell>
-                          <TableCell className="text-center">{s.packages_picked_up}</TableCell>
-                          <TableCell className="text-center">{s.whatsapp_sent_30d}</TableCell>
+                          <TableCell className="text-center">{ps.pickedUp}</TableCell>
+                          <TableCell className="text-center">{ps.whatsapp}</TableCell>
                           <TableCell className="text-center">
-                            {Number(s.errors_30d) > 0 ? (
-                              <Badge variant="destructive">{s.errors_30d}</Badge>
+                            {ps.errors > 0 ? (
+                              <Badge variant="destructive">{ps.errors}</Badge>
                             ) : '0'}
                           </TableCell>
                           <TableCell className="text-center">{s.total_staff}</TableCell>
