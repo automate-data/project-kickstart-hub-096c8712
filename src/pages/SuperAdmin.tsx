@@ -64,9 +64,11 @@ export default function SuperAdmin() {
 
   // Condominium stats
   const { data: condStats, isLoading: statsLoading } = useQuery({
-    queryKey: ['sa-cond-stats'],
+    queryKey: ['sa-cond-stats', condFilter],
     queryFn: async () => {
-      const { data } = await supabase.from('condominium_stats' as any).select('*');
+      let q = supabase.from('condominium_stats' as any).select('*');
+      if (condFilter !== 'all') q = q.eq('condominium_id', condFilter);
+      const { data } = await q;
       return (data || []) as any[];
     },
     refetchInterval: 60000,
