@@ -31,34 +31,61 @@ export default function TowerAdminDashboard() {
   const towerCount = packages.length;
   const lockerCount = packages.filter(p => p.locker_reference).length;
 
-  // Fetch tower from user_roles
+  // Fetch scoped location from user_roles. In simple_locker, tower_admin may not have
+  // a tower location; use the central/Portaria location so lockers load correctly.
   useEffect(() => {
-    if (!user) return;
+    if (!user || !condominium?.id) return;
     (async () => {
+      setIsLoading(true);
+
       const { data } = await supabase
         .from('user_roles')
         .select('location_id')
         .eq('user_id', user.id)
         .eq('role', 'tower_admin')
+        .eq('condominium_id', condominium.id)
         .is('deleted_at', null)
         .limit(1)
         .single();
 
-      if (data?.location_id) {
-        setTowerLocationId(data.location_id);
+      let locationId = data?.location_id || null;
+      let locationName = '';
+
+      if (!locationId && condominium.custody_mode === 'simple_locker') {
+        const { data: central } = await supabase
+          .from('locations')
+          .select('id, name')
+          .eq('condominium_id', condominium.id)
+          .eq('type', 'central')
+          .maybeSingle();
+
+        locationId = central?.id || null;
+        locationName = central?.name || 'Portaria';
+      }
+
+      if (locationId) {
+        setTowerLocationId(locationId);
         const { data: loc } = await supabase
           .from('locations')
           .select('name')
-          .eq('id', data.location_id)
-          .single();
-        if (loc) setTowerName(loc.name);
+          .eq('id', locationId)
+          .maybeSingle();
+        setTowerName(loc?.name || locationName || 'Portaria');
+      } else {
+        setTowerLocationId(null);
+        setTowerName('Portaria');
+        setPackages([]);
+        setIsLoading(false);
       }
     })();
-  }, [user]);
+  }, [user, condominium?.id, condominium?.custody_mode]);
 
   // Fetch pending packages
   const fetchPackages = useCallback(async () => {
-    if (!towerLocationId) return;
+    if (!towerLocationId) {
+      setIsLoading(false);
+      return;
+    }
     setIsLoading(true);
 
     // Lockers filhos desta torre — pacotes alocados ficam com current_location_id = locker
@@ -159,7 +186,9 @@ export default function TowerAdminDashboard() {
   return (
     <AppLayout>
       <div className="space-y-6 animate-fade-in">
-        <h1 className="text-2xl font-bold">Painel — {towerName || 'Torre'}</h1>
+        <h1 className="text-2xl font-bold">
+          Painel — {towerName || (condominium?.custody_mode === 'simple_locker' ? 'Portaria' : 'Torre')}
+        </h1>
 
         {/* Counters */}
         <div className="grid grid-cols-3 gap-4">
@@ -167,7 +196,9 @@ export default function TowerAdminDashboard() {
             <CardContent className="p-4 text-center">
               <Package className="w-6 h-6 mx-auto mb-1 text-primary" />
               <p className="text-2xl font-bold">{towerCount}</p>
-              <p className="text-xs text-muted-foreground">Na Torre</p>
+              <p className="text-xs text-muted-foreground">
+                {condominium?.custody_mode === 'simple_locker' ? 'Pendentes' : 'Na Torre'}
+              </p>
             </CardContent>
           </Card>
           <Card>
@@ -197,7 +228,9 @@ export default function TowerAdminDashboard() {
             <Card>
               <CardContent className="p-8 text-center">
                 <Package className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
-                <p className="text-muted-foreground">Nenhuma encomenda pendente na torre</p>
+                <p className="text-muted-foreground">
+                  Nenhuma encomenda pendente {condominium?.custody_mode === 'simple_locker' ? 'na portaria' : 'na torre'}
+                </p>
               </CardContent>
             </Card>
           ) : (
