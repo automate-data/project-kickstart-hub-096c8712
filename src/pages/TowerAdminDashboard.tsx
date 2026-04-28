@@ -186,7 +186,9 @@ export default function TowerAdminDashboard() {
   return (
     <AppLayout>
       <div className="space-y-6 animate-fade-in">
-        <h1 className="text-2xl font-bold">Painel — {towerName || 'Torre'}</h1>
+        <h1 className="text-2xl font-bold">
+          Painel — {towerName || (condominium?.custody_mode === 'simple_locker' ? 'Portaria' : 'Torre')}
+        </h1>
 
         {/* Counters */}
         <div className="grid grid-cols-3 gap-4">
@@ -194,7 +196,9 @@ export default function TowerAdminDashboard() {
             <CardContent className="p-4 text-center">
               <Package className="w-6 h-6 mx-auto mb-1 text-primary" />
               <p className="text-2xl font-bold">{towerCount}</p>
-              <p className="text-xs text-muted-foreground">Na Torre</p>
+              <p className="text-xs text-muted-foreground">
+                {condominium?.custody_mode === 'simple_locker' ? 'Pendentes' : 'Na Torre'}
+              </p>
             </CardContent>
           </Card>
           <Card>
@@ -224,7 +228,9 @@ export default function TowerAdminDashboard() {
             <Card>
               <CardContent className="p-8 text-center">
                 <Package className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
-                <p className="text-muted-foreground">Nenhuma encomenda pendente na torre</p>
+                <p className="text-muted-foreground">
+                  Nenhuma encomenda pendente {condominium?.custody_mode === 'simple_locker' ? 'na portaria' : 'na torre'}
+                </p>
               </CardContent>
             </Card>
           ) : (
