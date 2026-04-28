@@ -61,10 +61,21 @@ export default function TowerAdminDashboard() {
     if (!towerLocationId) return;
     setIsLoading(true);
 
+    // Lockers filhos desta torre — pacotes alocados ficam com current_location_id = locker
+    const { data: lockerLocs } = await supabase
+      .from('locations')
+      .select('id, name')
+      .eq('parent_id', towerLocationId)
+      .eq('type', 'locker');
+
+    const lockerMap = new Map((lockerLocs || []).map(l => [l.id, l.name]));
+    const lockerIds = Array.from(lockerMap.keys());
+    const locationIds = [towerLocationId, ...lockerIds];
+
     const { data: pkgs } = await supabase
       .from('packages')
       .select('*, resident:residents(*)')
-      .eq('current_location_id', towerLocationId)
+      .in('current_location_id', locationIds)
       .eq('status', 'pending')
       .order('created_at', { ascending: true });
 
@@ -74,21 +85,13 @@ export default function TowerAdminDashboard() {
       return;
     }
 
-    // Check locker allocations via package_events
+    // Check locker allocations via package_events para obter a referência (ex: "Armário 08")
     const packageIds = pkgs.map(p => p.id);
     const { data: events } = await supabase
       .from('package_events')
       .select('package_id, to_location_id, notes')
       .in('package_id', packageIds)
       .order('created_at', { ascending: false });
-
-    const { data: lockerLocs } = await supabase
-      .from('locations')
-      .select('id, name')
-      .eq('parent_id', towerLocationId)
-      .eq('type', 'locker');
-
-    const lockerMap = new Map((lockerLocs || []).map(l => [l.id, l.name]));
 
     const lockerAllocations = new Map<string, string>();
     const seen = new Set<string>();
@@ -98,10 +101,17 @@ export default function TowerAdminDashboard() {
       if (ev.to_location_id && lockerMap.has(ev.to_location_id)) {
         let ref = '';
         if (ev.notes) {
-          const match = ev.notes.match(/locker_reference:(.+)/);
+          const match = ev.notes.match(/locker_reference:([^,;\n\r]+)/i);
           if (match) ref = match[1].trim();
         }
         lockerAllocations.set(ev.package_id, ref || lockerMap.get(ev.to_location_id) || '');
+      }
+    }
+
+    // Fallback: pacote já está com current_location_id = locker mesmo sem evento
+    for (const p of pkgs) {
+      if (!lockerAllocations.has(p.id) && p.current_location_id && lockerMap.has(p.current_location_id)) {
+        lockerAllocations.set(p.id, lockerMap.get(p.current_location_id) || '');
       }
     }
 
@@ -123,10 +133,18 @@ export default function TowerAdminDashboard() {
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
 
+    const { data: lockerLocs } = await supabase
+      .from('locations')
+      .select('id')
+      .eq('parent_id', towerLocationId)
+      .eq('type', 'locker');
+
+    const locationIds = [towerLocationId, ...(lockerLocs || []).map(l => l.id)];
+
     const { count } = await supabase
       .from('packages')
       .select('id', { count: 'exact', head: true })
-      .eq('current_location_id', towerLocationId)
+      .in('current_location_id', locationIds)
       .eq('status', 'picked_up')
       .gte('picked_up_at', todayStart.toISOString());
 
