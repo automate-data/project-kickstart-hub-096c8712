@@ -31,34 +31,61 @@ export default function TowerAdminDashboard() {
   const towerCount = packages.length;
   const lockerCount = packages.filter(p => p.locker_reference).length;
 
-  // Fetch tower from user_roles
+  // Fetch scoped location from user_roles. In simple_locker, tower_admin may not have
+  // a tower location; use the central/Portaria location so lockers load correctly.
   useEffect(() => {
-    if (!user) return;
+    if (!user || !condominium?.id) return;
     (async () => {
+      setIsLoading(true);
+
       const { data } = await supabase
         .from('user_roles')
         .select('location_id')
         .eq('user_id', user.id)
         .eq('role', 'tower_admin')
+        .eq('condominium_id', condominium.id)
         .is('deleted_at', null)
         .limit(1)
         .single();
 
-      if (data?.location_id) {
-        setTowerLocationId(data.location_id);
+      let locationId = data?.location_id || null;
+      let locationName = '';
+
+      if (!locationId && condominium.custody_mode === 'simple_locker') {
+        const { data: central } = await supabase
+          .from('locations')
+          .select('id, name')
+          .eq('condominium_id', condominium.id)
+          .eq('type', 'central')
+          .maybeSingle();
+
+        locationId = central?.id || null;
+        locationName = central?.name || 'Portaria';
+      }
+
+      if (locationId) {
+        setTowerLocationId(locationId);
         const { data: loc } = await supabase
           .from('locations')
           .select('name')
-          .eq('id', data.location_id)
-          .single();
-        if (loc) setTowerName(loc.name);
+          .eq('id', locationId)
+          .maybeSingle();
+        setTowerName(loc?.name || locationName || 'Portaria');
+      } else {
+        setTowerLocationId(null);
+        setTowerName('Portaria');
+        setPackages([]);
+        setIsLoading(false);
       }
     })();
-  }, [user]);
+  }, [user, condominium?.id, condominium?.custody_mode]);
 
   // Fetch pending packages
   const fetchPackages = useCallback(async () => {
-    if (!towerLocationId) return;
+    if (!towerLocationId) {
+      setIsLoading(false);
+      return;
+    }
     setIsLoading(true);
 
     // Lockers filhos desta torre — pacotes alocados ficam com current_location_id = locker
