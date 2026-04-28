@@ -96,7 +96,7 @@ function AppRoutes() {
         path="/tower-admin-dashboard"
         element={
           <ProtectedRoute>
-            <TowerAdminDashboard />
+            {isSimpleLockerCond ? <Navigate to="/" replace /> : <TowerAdminDashboard />}
           </ProtectedRoute>
         }
       />
