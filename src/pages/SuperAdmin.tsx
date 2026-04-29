@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
@@ -26,9 +27,10 @@ function formatDuration(seconds: number | null): string {
 }
 
 export default function SuperAdmin() {
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [period, setPeriod] = useState<Period>('30');
   const [condFilter, setCondFilter] = useState<string>('all');
 
@@ -145,11 +147,16 @@ export default function SuperAdmin() {
   };
 
   // Cost calculations
+  // Cloud is always shown at full monthly rate ($25/mês fixo) regardless of period filter.
+  // Divide cloud by TOTAL real condominium count (not the filtered subset) so per-condo
+  // share is stable when toggling filters.
+  const totalCondCount = condominiums?.length || 1;
+  const cloudCostPerCond = CLOUD_FIXED_MONTHLY / totalCondCount;
   const whatsappCost = metrics.whatsappSent * WHATSAPP_COST_PER_MSG;
   const aiCost = metrics.received * AI_COST_PER_CALL;
-  const activeCondCount = condStats?.length || 1;
-  const cloudCostPerCond = CLOUD_FIXED_MONTHLY / activeCondCount;
-  const totalCost = whatsappCost + aiCost + CLOUD_FIXED_MONTHLY;
+  // When filtering a single condominium, total cost includes only that condo's cloud share
+  const cloudCostInView = condFilter === 'all' ? CLOUD_FIXED_MONTHLY : cloudCostPerCond;
+  const totalCost = whatsappCost + aiCost + cloudCostInView;
 
   // Per-condominium breakdown for the SELECTED period (from logs)
   const condPeriodStats = (() => {
@@ -181,7 +188,7 @@ export default function SuperAdmin() {
     return costs;
   })();
 
-  // Pending packages count (current)
+  // Pending packages count (current snapshot — não depende de período)
   const pendingTotal = condStats?.reduce((sum: number, s: any) => sum + (Number(s.packages_pending) || 0), 0) || 0;
 
   // Active users (unique user_ids with sessions in period)
@@ -224,7 +231,7 @@ export default function SuperAdmin() {
           </div>
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <span className="max-w-[200px] truncate">{user?.user_metadata?.full_name || user?.email}</span>
-            <Button variant="ghost" size="icon" onClick={() => { window.location.href = '/'; }}>
+            <Button variant="ghost" size="icon" onClick={async () => { await signOut(); navigate('/auth', { replace: true }); }} title="Sair">
               <LogOut className="w-4 h-4" />
             </Button>
           </div>
@@ -295,27 +302,30 @@ export default function SuperAdmin() {
               detail={`${metrics.whatsappSent} msgs × $${WHATSAPP_COST_PER_MSG}`}
             />
             <CostCard icon={<Brain className="w-5 h-5 text-primary" />} label="Custo IA" value={aiCost} detail={`${metrics.received} chamadas × $${AI_COST_PER_CALL}`} />
-            <CostCard icon={<Cloud className="w-5 h-5 text-primary" />} label="Custo Cloud (fixo/mês)" value={CLOUD_FIXED_MONTHLY} detail={`$${cloudCostPerCond.toFixed(2)}/condomínio`} />
-            <CostCard icon={<DollarSign className="w-5 h-5 text-destructive" />} label="Custo Total" value={totalCost} detail="WhatsApp + IA + Cloud" highlight />
+            <CostCard icon={<Cloud className="w-5 h-5 text-primary" />} label="Custo Cloud (mês corrente)" value={cloudCostInView} detail={condFilter === 'all' ? `$${cloudCostPerCond.toFixed(2)}/condomínio (${totalCondCount} ativos)` : `1 de ${totalCondCount} condomínios`} />
+            <CostCard icon={<DollarSign className="w-5 h-5 text-destructive" />} label="Custo Total" value={totalCost} detail="WhatsApp + IA + Cloud (mês)" highlight />
           </>
         )}
       </div>
 
       {/* Chart */}
-      {chartData.length > 1 && (
+      {chartData.length > 0 && (
         <Card>
-          <CardHeader><CardTitle className="text-lg">Tendência de Encomendas</CardTitle></CardHeader>
+          <CardHeader>
+            <CardTitle className="text-lg">Tendência de Encomendas</CardTitle>
+            <p className="text-xs text-muted-foreground">Período: {period === '1' ? 'Hoje' : `Últimos ${period} dias`}{condFilter !== 'all' ? ` · ${getCondName(condFilter)}` : ''}</p>
+          </CardHeader>
           <CardContent>
             <div className="h-64">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={chartData}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="date" fontSize={12} />
-                  <YAxis fontSize={12} />
+                  <YAxis fontSize={12} allowDecimals={false} />
                   <Tooltip />
                   <Legend />
-                  <Line type="monotone" dataKey="received" name="Recebidas" stroke="hsl(var(--primary))" strokeWidth={2} />
-                  <Line type="monotone" dataKey="pickedUp" name="Retiradas" stroke="hsl(142, 76%, 36%)" strokeWidth={2} />
+                  <Line type="monotone" dataKey="received" name="Recebidas" stroke="hsl(var(--primary))" strokeWidth={2} dot />
+                  <Line type="monotone" dataKey="pickedUp" name="Retiradas" stroke="hsl(142, 76%, 36%)" strokeWidth={2} dot />
                 </LineChart>
               </ResponsiveContainer>
             </div>
@@ -325,7 +335,12 @@ export default function SuperAdmin() {
 
       {/* Condominium Stats Table */}
       <Card>
-        <CardHeader><CardTitle className="text-lg">Visão por Condomínio</CardTitle></CardHeader>
+        <CardHeader>
+          <CardTitle className="text-lg">Visão por Condomínio</CardTitle>
+          <p className="text-xs text-muted-foreground">
+            Atividade no período: {period === '1' ? 'Hoje' : `Últimos ${period} dias`} · Pendentes/Staff/Moradores são snapshot atual
+          </p>
+        </CardHeader>
         <CardContent>
           {statsLoading ? (
             <Skeleton className="h-32" />
@@ -337,23 +352,25 @@ export default function SuperAdmin() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Condomínio</TableHead>
-                      <TableHead className="text-center">Pendentes</TableHead>
-                      <TableHead className="text-center">Retiradas</TableHead>
-                      <TableHead className="text-center">WhatsApp</TableHead>
+                      <TableHead className="text-center" title="Encomendas atualmente aguardando retirada (snapshot)">Pendentes*</TableHead>
+                      <TableHead className="text-center" title="Encomendas recebidas no período">Recebidas</TableHead>
+                      <TableHead className="text-center" title="Encomendas retiradas no período">Retiradas</TableHead>
+                      <TableHead className="text-center" title="Mensagens WhatsApp enviadas no período">WhatsApp</TableHead>
                       <TableHead className="text-center">Erros</TableHead>
-                      <TableHead className="text-center">Staff</TableHead>
-                      <TableHead className="text-center">Moradores</TableHead>
-                      <TableHead className="text-center">💰 Custo Est.</TableHead>
+                      <TableHead className="text-center" title="Funcionários ativos (snapshot)">Staff*</TableHead>
+                      <TableHead className="text-center" title="Moradores cadastrados (snapshot)">Moradores*</TableHead>
+                      <TableHead className="text-center">💰 Custo no período</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {condStats?.map((s: any) => {
                       const cc = condCosts[s.condominium_id];
-                      const ps = condPeriodStats[s.condominium_id] || { whatsapp: 0, pickedUp: 0, errors: 0 };
+                      const ps = condPeriodStats[s.condominium_id] || { whatsapp: 0, received: 0, pickedUp: 0, errors: 0 };
                       return (
                         <TableRow key={s.condominium_id}>
                           <TableCell className="font-medium">{s.condominium_name}</TableCell>
                           <TableCell className="text-center">{s.packages_pending}</TableCell>
+                          <TableCell className="text-center">{ps.received}</TableCell>
                           <TableCell className="text-center">{ps.pickedUp}</TableCell>
                           <TableCell className="text-center">{ps.whatsapp}</TableCell>
                           <TableCell className="text-center">
@@ -375,20 +392,21 @@ export default function SuperAdmin() {
               {/* Mobile cards */}
               <div className="md:hidden space-y-3">
                 {condStats?.map((s: any) => {
-                  const ps = condPeriodStats[s.condominium_id] || { whatsapp: 0, pickedUp: 0, errors: 0 };
+                  const ps = condPeriodStats[s.condominium_id] || { whatsapp: 0, received: 0, pickedUp: 0, errors: 0 };
                   return (
                     <Card key={s.condominium_id}>
                       <CardContent className="p-4">
                         <p className="font-semibold mb-2">{s.condominium_name}</p>
                         <div className="grid grid-cols-2 gap-2 text-sm">
-                          <div>Pendentes: <strong>{s.packages_pending}</strong></div>
+                          <div>Pendentes*: <strong>{s.packages_pending}</strong></div>
+                          <div>Recebidas: <strong>{ps.received}</strong></div>
                           <div>Retiradas: <strong>{ps.pickedUp}</strong></div>
                           <div>WhatsApp: <strong>{ps.whatsapp}</strong></div>
                           <div>Erros: <strong>{ps.errors}</strong></div>
-                          <div>Staff: <strong>{s.total_staff}</strong></div>
-                          <div>Moradores: <strong>{s.total_residents}</strong></div>
+                          <div>Staff*: <strong>{s.total_staff}</strong></div>
+                          <div>Moradores*: <strong>{s.total_residents}</strong></div>
                           <div className="col-span-2 text-destructive font-medium">
-                            💰 Custo Est.: <strong>${condCosts[s.condominium_id]?.total?.toFixed(2) || '0.00'}</strong>
+                            💰 Custo no período: <strong>${condCosts[s.condominium_id]?.total?.toFixed(2) || '0.00'}</strong>
                           </div>
                         </div>
                       </CardContent>
@@ -396,6 +414,7 @@ export default function SuperAdmin() {
                   );
                 })}
               </div>
+              <p className="text-[10px] text-muted-foreground mt-3">* snapshot atual (não filtrado por período)</p>
             </>
           )}
         </CardContent>
