@@ -57,7 +57,11 @@ export default function ProtectedRoute({ children, requiredRole, allowedRoles }:
     return <Navigate to="/" replace />;
   }
 
-  if (requiredRole && requiredRole !== 'superadmin' && role !== requiredRole && role !== 'admin' && role !== 'superadmin') {
+  if (allowedRoles && allowedRoles.length > 0) {
+    if (role !== 'superadmin' && !allowedRoles.includes(role as AppRole)) {
+      return <Navigate to="/" replace />;
+    }
+  } else if (requiredRole && requiredRole !== 'superadmin' && role !== requiredRole && role !== 'admin' && role !== 'superadmin') {
     return <Navigate to="/" replace />;
   }
 
