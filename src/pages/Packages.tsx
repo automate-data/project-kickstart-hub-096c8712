@@ -424,7 +424,7 @@ export default function Packages() {
           body: {
             resident_phone: allocatePkg.resident.phone,
             resident_name: allocatePkg.resident.full_name,
-            tower_name: 'Portaria',
+            tower_name: 'Bloco',
             locker_reference: ref,
           },
         });
