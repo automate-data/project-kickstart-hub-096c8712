@@ -1,75 +1,48 @@
 ## Objetivo
 
-Apagar **completamente** o `Condomínio Solar dos Pinheiros` (id `df888202-1a6f-4121-956a-1270f04065e2`) e todos os dados/usuários vinculados **exclusivamente** a ele. O **Bloco A** (id `91b0ba23…`) e demais condomínios permanecem intactos.
+Liberar para o papel `tower_admin` o acesso total à página de **Moradores** (`/residents`), com os mesmos poderes que `admin` (criar, editar, excluir, importar). Hoje o `tower_admin` é redirecionado para `/tower-admin-dashboard` ao logar e não enxerga o menu principal.
 
-## O que será apagado (resumo dos dados encontrados)
+## Mudanças
 
-| Tabela | Registros |
-|---|---|
-| `packages` | 32 |
-| `residents` | 7 |
-| `user_roles` | 11 |
-| `locations` | 6 |
-| `system_logs` | 96 |
-| `package_events` | (todos os ligados aos 32 pacotes) |
-| `user_sessions` | 0 |
-| `condominiums` | 1 |
-| Fotos no bucket `package-photos` | 32 arquivos |
+### 1. Liberar a rota `/residents`
+**Arquivo:** `src/App.tsx`
 
-## Usuários (auth.users)
+A rota usa `<ProtectedRoute requiredRole="admin">`, e dentro do `ProtectedRoute` qualquer papel diferente de `admin`/`superadmin` é barrado. Trocar a checagem de papel para aceitar também `tower_admin` — feito de forma localizada na própria rota, sem alterar o comportamento global do `ProtectedRoute`.
 
-Usuários vinculados ao condomínio-alvo:
+Abordagem: usar `requiredRole="admin"` mas permitir bypass quando `role === 'tower_admin'`. A forma mais limpa é estender o `ProtectedRoute` para aceitar uma lista `allowedRoles`, ou criar um wrapper inline. Vou estender `ProtectedRoute` com um prop opcional `allowedRoles?: AppRole[]` que, se preenchido, substitui a regra `requiredRole`.
 
-| Usuário | Outras vinculações? | Ação |
-|---|---|---|
-| `helena@cond.internal` (porteira) | nenhuma | **apagar de auth.users** |
-| `tereza@cond.internal` (tower_admin) | nenhuma | **apagar de auth.users** |
-| `maria@cond.internal` (porteira) | nenhuma | **apagar de auth.users** |
-| `julia@cond.internal` (admin) | nenhuma | **apagar de auth.users** |
-| `contato@automatedata.com.br` (admin) | sim — 4 outros condomínios (incl. Bloco A) | **manter conta**, remover apenas a role deste condomínio |
+**Arquivo:** `src/components/ProtectedRoute.tsx`
+- Adicionar `allowedRoles?: AppRole[]`.
+- Se `allowedRoles` estiver presente, autorizar quando `role` estiver nessa lista (mantendo `superadmin` sempre autorizado).
 
-## Ordem de execução (uma migration única, transacional)
+### 2. Mostrar Moradores no menu para tower_admin
+**Arquivo:** `src/components/layout/AppLayout.tsx`
 
-```text
-1. Coletar IDs em CTEs (packages, residents, locations do condomínio-alvo)
-2. DELETE FROM package_events WHERE package_id IN (...)
-3. DELETE FROM system_logs    WHERE condominium_id = '<id>'
-4. DELETE FROM user_sessions  WHERE condominium_id = '<id>' (já 0)
-5. DELETE FROM packages       WHERE condominium_id = '<id>'
-6. DELETE FROM residents      WHERE condominium_id = '<id>'
-7. DELETE FROM user_roles     WHERE condominium_id = '<id>'
-8. DELETE FROM locations      WHERE condominium_id = '<id>'
-9. DELETE FROM condominiums   WHERE id = '<id>'
-10. DELETE FROM auth.users    WHERE id IN (helena, tereza, maria, julia)
-    (NÃO apagar contato@automatedata.com.br — tem outros vínculos)
+Hoje o tower_admin nem chega ao `AppLayout` porque o App.tsx faz `Navigate to="/tower-admin-dashboard"` no path `/`. Para que ele navegue até `/residents`, duas peças:
+
+- **Remover o redirect forçado de tower_admin** apenas para a rota `/residents` — manter o `tower-admin-dashboard` como home padrão dele continua válido.
+- **Não alterar** o redirect de `/` (ele continua indo pro dashboard da torre ao logar).
+- Adicionar um link/botão "Moradores" dentro do `TowerAdminDashboard.tsx` para que ele consiga navegar até lá. Como o `TowerAdminDashboard` não usa o `AppLayout`, o caminho precisa ser explícito.
+
+### 3. Desbloquear edição dentro da página
+**Arquivo:** `src/pages/Residents.tsx` (linha 26)
+
+```ts
+const isAdmin = role === 'admin';
 ```
+Trocar para:
+```ts
+const isAdmin = role === 'admin' || role === 'superadmin' || role === 'tower_admin';
+```
+Isso libera os botões de criar/editar/excluir/importar que dependem de `isAdmin`.
 
-A migration usa um único bloco `DO $$ … $$` para rodar tudo dentro de uma transação. Se algum passo falhar, nada é apagado.
+### 4. RLS no banco
+As políticas de `residents` já permitem qualquer usuário com vínculo em `user_roles` para o `condominium_id` correspondente fazer SELECT/INSERT/UPDATE/DELETE — não checam o tipo de papel. Portanto **nenhuma migração é necessária**: o `tower_admin` já tem permissão a nível de banco. A restrição era puramente de UI.
 
-## Limpeza das fotos no Storage
+## Resumo das telas afetadas
+- `/residents` — acessível e totalmente editável para tower_admin.
+- `/tower-admin-dashboard` — ganha botão "Moradores" para navegação.
+- Demais páginas (`/staff`, `/reports`, `/advanced-settings`) permanecem restritas a admin/superadmin.
 
-Após a migration, rodar um script que:
-1. Lê os 32 `photo_url` capturados antes da exclusão (vou capturá-los em uma view temporária ou listar via consulta antes de rodar a migration).
-2. Chama `supabase.storage.from('package-photos').remove([...])` com a lista.
-
-Como a migration apaga os pacotes e perdemos os `photo_url`, vou:
-- **Antes** da migration: rodar uma query para extrair a lista dos 32 `photo_url` e salvá-la inline na própria migration como um array, OU
-- Criar um pequeno script Node/Deno que: (a) lista os `photo_url`, (b) executa a migration, (c) apaga os arquivos do bucket.
-
-Abordagem escolhida: **uma edge function descartável** `delete-condominium-data` que faz tudo em sequência usando `SERVICE_ROLE_KEY` (lê fotos → apaga fotos do bucket → roda os DELETEs em ordem → apaga auth.users via Admin API). Mais seguro que tentar coordenar storage + SQL manualmente. A função é apagada logo depois.
-
-## Verificações pós-execução
-
-Após a exclusão, rodo as mesmas contagens (`packages`, `residents`, `user_roles`, `locations`, `system_logs`, `condominiums`, `auth.users` dos 4 e-mails) para confirmar **zero** registros remanescentes do condomínio-alvo, e confirmo que o Bloco A continua com os mesmos números (24 recebidas hoje, 95 moradores, etc.).
-
-## Pontos importantes
-
-- **Irreversível**. Não há soft-delete aqui — é DELETE físico, conforme solicitado ("excluir todos os dados").
-- O Bloco A e a conta `contato@automatedata.com.br` **não são tocados**.
-- A memória `mem://preferences/demo` referencia "Solar dos Pinheiros" como ambiente demo — vou atualizá-la depois para apontar explicitamente ao **Bloco A** (id `91b0ba23…`), evitando confusão futura.
-
-## Detalhes técnicos
-
-- A edge function usará `@supabase/supabase-js` com `SERVICE_ROLE_KEY` para bypass de RLS (necessário para `auth.admin.deleteUser` e DELETEs em `system_logs`/`user_sessions` que hoje não têm policies de DELETE).
-- Validação dupla no início: confirma que o `id` recebido **não é** `91b0ba23-a8b3-4481-98a0-0a3a74f00602` (Bloco A) — guarda extra contra acidente.
-- Resposta da função retorna o relatório de quantos registros foram apagados em cada tabela, para mostrar a você no chat.
+## Pergunta pendente
+Você não respondeu como o tower_admin deve **chegar** na página. Vou seguir com a opção **botão no Tower Admin Dashboard** (mais coerente com o fluxo atual dele) — me avise se preferir liberar o menu completo do AppLayout.
