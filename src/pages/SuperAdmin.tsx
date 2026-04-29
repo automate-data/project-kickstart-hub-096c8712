@@ -64,14 +64,40 @@ export default function SuperAdmin() {
     refetchInterval: 60000,
   });
 
-  // Condominium stats
+  // Condominium stats — built from parallel direct queries (avoids slow view)
   const { data: condStats, isLoading: statsLoading } = useQuery({
     queryKey: ['sa-cond-stats', condFilter],
     queryFn: async () => {
-      let q = supabase.from('condominium_stats' as any).select('*');
-      if (condFilter !== 'all') q = q.eq('condominium_id', condFilter);
-      const { data } = await q;
-      return (data || []) as any[];
+      const condQuery = supabase.from('condominiums').select('id, name');
+      const { data: conds } = condFilter !== 'all'
+        ? await condQuery.eq('id', condFilter)
+        : await condQuery.order('name');
+      if (!conds?.length) return [] as any[];
+
+      const condIds = conds.map((c: any) => c.id);
+
+      const [pkgRes, resRes, staffRes] = await Promise.all([
+        supabase.from('packages').select('condominium_id, status').in('condominium_id', condIds),
+        supabase.from('residents').select('condominium_id').in('condominium_id', condIds).is('deleted_at', null),
+        supabase.from('user_roles').select('user_id, condominium_id').in('condominium_id', condIds).is('deleted_at', null),
+      ]);
+
+      const pkgs = pkgRes.data || [];
+      const residentsArr = resRes.data || [];
+      const staffArr = staffRes.data || [];
+
+      return conds.map((c: any) => {
+        const cp = pkgs.filter((p: any) => p.condominium_id === c.id);
+        const uniqueStaff = new Set(staffArr.filter((u: any) => u.condominium_id === c.id).map((u: any) => u.user_id));
+        return {
+          condominium_id: c.id,
+          condominium_name: c.name,
+          packages_pending: cp.filter((p: any) => p.status === 'pending').length,
+          packages_picked_up: cp.filter((p: any) => p.status === 'picked_up').length,
+          total_residents: residentsArr.filter((r: any) => r.condominium_id === c.id).length,
+          total_staff: uniqueStaff.size,
+        };
+      });
     },
     refetchInterval: 60000,
   });
@@ -154,9 +180,8 @@ export default function SuperAdmin() {
   const cloudCostPerCond = CLOUD_FIXED_MONTHLY / totalCondCount;
   const whatsappCost = metrics.whatsappSent * WHATSAPP_COST_PER_MSG;
   const aiCost = metrics.received * AI_COST_PER_CALL;
-  // When filtering a single condominium, total cost includes only that condo's cloud share
-  const cloudCostInView = condFilter === 'all' ? CLOUD_FIXED_MONTHLY : cloudCostPerCond;
-  const totalCost = whatsappCost + aiCost + cloudCostInView;
+  // Custo Total sempre inclui o Cloud cheio ($25/mês fixo) + custos variáveis do período
+  const totalCost = whatsappCost + aiCost + CLOUD_FIXED_MONTHLY;
 
   // Per-condominium breakdown for the SELECTED period (from logs)
   const condPeriodStats = (() => {
@@ -302,7 +327,7 @@ export default function SuperAdmin() {
               detail={`${metrics.whatsappSent} msgs × $${WHATSAPP_COST_PER_MSG}`}
             />
             <CostCard icon={<Brain className="w-5 h-5 text-primary" />} label="Custo IA" value={aiCost} detail={`${metrics.received} chamadas × $${AI_COST_PER_CALL}`} />
-            <CostCard icon={<Cloud className="w-5 h-5 text-primary" />} label="Custo Cloud (mês corrente)" value={cloudCostInView} detail={condFilter === 'all' ? `$${cloudCostPerCond.toFixed(2)}/condomínio (${totalCondCount} ativos)` : `1 de ${totalCondCount} condomínios`} />
+            <CostCard icon={<Cloud className="w-5 h-5 text-primary" />} label="Custo Cloud (mês fixo)" value={CLOUD_FIXED_MONTHLY} detail={`$${cloudCostPerCond.toFixed(2)}/condomínio (${totalCondCount} ativos)`} />
             <CostCard icon={<DollarSign className="w-5 h-5 text-destructive" />} label="Custo Total" value={totalCost} detail="WhatsApp + IA + Cloud (mês)" highlight />
           </>
         )}
