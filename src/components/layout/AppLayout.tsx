@@ -21,6 +21,8 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const isAdmin = role === 'admin' || role === 'superadmin';
   const isSuperAdmin = role === 'superadmin';
   const isTowerDoorman = role === 'tower_doorman';
+  const isTowerAdmin = role === 'tower_admin';
+  const canManageResidents = isAdmin || isTowerAdmin;
 
   const navItems = isTowerDoorman
     ? [
@@ -30,7 +32,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
     : [
         { path: '/', label: 'Receber', icon: Package, show: true },
         { path: '/packages', label: 'Encomendas', icon: ClipboardList, show: true },
-        { path: '/residents', label: 'Moradores', icon: Users, show: isAdmin },
+        { path: '/residents', label: 'Moradores', icon: Users, show: canManageResidents },
         { path: '/staff', label: 'Equipe', icon: UserCog, show: isAdmin },
         { path: '/reports', label: 'Relatórios', icon: BarChart2, show: isAdmin },
         { path: '/advanced-settings', label: 'Configurações Avançadas', icon: Settings2, show: isAdmin && user?.email === 'contato@automatedata.com.br' },
