@@ -309,25 +309,116 @@ export default function SuperAdmin() {
       </div>
 
       {/* Chart */}
-      {chartData.length > 1 && (
+      {chartData.length > 0 && (
         <Card>
-          <CardHeader><CardTitle className="text-lg">Tendência de Encomendas</CardTitle></CardHeader>
+          <CardHeader>
+            <CardTitle className="text-lg">Tendência de Encomendas</CardTitle>
+            <p className="text-xs text-muted-foreground">Período: {period === '1' ? 'Hoje' : `Últimos ${period} dias`}{condFilter !== 'all' ? ` · ${getCondName(condFilter)}` : ''}</p>
+          </CardHeader>
           <CardContent>
             <div className="h-64">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={chartData}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="date" fontSize={12} />
-                  <YAxis fontSize={12} />
+                  <YAxis fontSize={12} allowDecimals={false} />
                   <Tooltip />
                   <Legend />
-                  <Line type="monotone" dataKey="received" name="Recebidas" stroke="hsl(var(--primary))" strokeWidth={2} />
-                  <Line type="monotone" dataKey="pickedUp" name="Retiradas" stroke="hsl(142, 76%, 36%)" strokeWidth={2} />
+                  <Line type="monotone" dataKey="received" name="Recebidas" stroke="hsl(var(--primary))" strokeWidth={2} dot />
+                  <Line type="monotone" dataKey="pickedUp" name="Retiradas" stroke="hsl(142, 76%, 36%)" strokeWidth={2} dot />
                 </LineChart>
               </ResponsiveContainer>
             </div>
           </CardContent>
         </Card>
+      )}
+
+      {/* Condominium Stats Table */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">Visão por Condomínio</CardTitle>
+          <p className="text-xs text-muted-foreground">
+            Atividade no período: {period === '1' ? 'Hoje' : `Últimos ${period} dias`} · Pendentes/Staff/Moradores são snapshot atual
+          </p>
+        </CardHeader>
+        <CardContent>
+          {statsLoading ? (
+            <Skeleton className="h-32" />
+          ) : (
+            <>
+              {/* Desktop table */}
+              <div className="hidden md:block">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Condomínio</TableHead>
+                      <TableHead className="text-center" title="Encomendas atualmente aguardando retirada (snapshot)">Pendentes*</TableHead>
+                      <TableHead className="text-center" title="Encomendas recebidas no período">Recebidas</TableHead>
+                      <TableHead className="text-center" title="Encomendas retiradas no período">Retiradas</TableHead>
+                      <TableHead className="text-center" title="Mensagens WhatsApp enviadas no período">WhatsApp</TableHead>
+                      <TableHead className="text-center">Erros</TableHead>
+                      <TableHead className="text-center" title="Funcionários ativos (snapshot)">Staff*</TableHead>
+                      <TableHead className="text-center" title="Moradores cadastrados (snapshot)">Moradores*</TableHead>
+                      <TableHead className="text-center">💰 Custo no período</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {condStats?.map((s: any) => {
+                      const cc = condCosts[s.condominium_id];
+                      const ps = condPeriodStats[s.condominium_id] || { whatsapp: 0, received: 0, pickedUp: 0, errors: 0 };
+                      return (
+                        <TableRow key={s.condominium_id}>
+                          <TableCell className="font-medium">{s.condominium_name}</TableCell>
+                          <TableCell className="text-center">{s.packages_pending}</TableCell>
+                          <TableCell className="text-center">{ps.received}</TableCell>
+                          <TableCell className="text-center">{ps.pickedUp}</TableCell>
+                          <TableCell className="text-center">{ps.whatsapp}</TableCell>
+                          <TableCell className="text-center">
+                            {ps.errors > 0 ? (
+                              <Badge variant="destructive">{ps.errors}</Badge>
+                            ) : '0'}
+                          </TableCell>
+                          <TableCell className="text-center">{s.total_staff}</TableCell>
+                          <TableCell className="text-center">{s.total_residents}</TableCell>
+                          <TableCell className="text-center font-medium text-destructive">
+                            ${cc?.total?.toFixed(2) || '0.00'}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+              {/* Mobile cards */}
+              <div className="md:hidden space-y-3">
+                {condStats?.map((s: any) => {
+                  const ps = condPeriodStats[s.condominium_id] || { whatsapp: 0, received: 0, pickedUp: 0, errors: 0 };
+                  return (
+                    <Card key={s.condominium_id}>
+                      <CardContent className="p-4">
+                        <p className="font-semibold mb-2">{s.condominium_name}</p>
+                        <div className="grid grid-cols-2 gap-2 text-sm">
+                          <div>Pendentes*: <strong>{s.packages_pending}</strong></div>
+                          <div>Recebidas: <strong>{ps.received}</strong></div>
+                          <div>Retiradas: <strong>{ps.pickedUp}</strong></div>
+                          <div>WhatsApp: <strong>{ps.whatsapp}</strong></div>
+                          <div>Erros: <strong>{ps.errors}</strong></div>
+                          <div>Staff*: <strong>{s.total_staff}</strong></div>
+                          <div>Moradores*: <strong>{s.total_residents}</strong></div>
+                          <div className="col-span-2 text-destructive font-medium">
+                            💰 Custo no período: <strong>${condCosts[s.condominium_id]?.total?.toFixed(2) || '0.00'}</strong>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+              <p className="text-[10px] text-muted-foreground mt-3">* snapshot atual (não filtrado por período)</p>
+            </>
+          )}
+        </CardContent>
+      </Card>
       )}
 
       {/* Condominium Stats Table */}
