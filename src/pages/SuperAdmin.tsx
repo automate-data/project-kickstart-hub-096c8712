@@ -231,7 +231,7 @@ export default function SuperAdmin() {
           </div>
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <span className="max-w-[200px] truncate">{user?.user_metadata?.full_name || user?.email}</span>
-            <Button variant="ghost" size="icon" onClick={() => { window.location.href = '/'; }}>
+            <Button variant="ghost" size="icon" onClick={async () => { await signOut(); navigate('/auth', { replace: true }); }} title="Sair">
               <LogOut className="w-4 h-4" />
             </Button>
           </div>
@@ -302,8 +302,8 @@ export default function SuperAdmin() {
               detail={`${metrics.whatsappSent} msgs × $${WHATSAPP_COST_PER_MSG}`}
             />
             <CostCard icon={<Brain className="w-5 h-5 text-primary" />} label="Custo IA" value={aiCost} detail={`${metrics.received} chamadas × $${AI_COST_PER_CALL}`} />
-            <CostCard icon={<Cloud className="w-5 h-5 text-primary" />} label="Custo Cloud (fixo/mês)" value={CLOUD_FIXED_MONTHLY} detail={`$${cloudCostPerCond.toFixed(2)}/condomínio`} />
-            <CostCard icon={<DollarSign className="w-5 h-5 text-destructive" />} label="Custo Total" value={totalCost} detail="WhatsApp + IA + Cloud" highlight />
+            <CostCard icon={<Cloud className="w-5 h-5 text-primary" />} label="Custo Cloud (mês corrente)" value={cloudCostInView} detail={condFilter === 'all' ? `$${cloudCostPerCond.toFixed(2)}/condomínio (${totalCondCount} ativos)` : `1 de ${totalCondCount} condomínios`} />
+            <CostCard icon={<DollarSign className="w-5 h-5 text-destructive" />} label="Custo Total" value={totalCost} detail="WhatsApp + IA + Cloud (mês)" highlight />
           </>
         )}
       </div>
