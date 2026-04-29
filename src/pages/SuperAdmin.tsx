@@ -327,7 +327,7 @@ export default function SuperAdmin() {
               detail={`${metrics.whatsappSent} msgs × $${WHATSAPP_COST_PER_MSG}`}
             />
             <CostCard icon={<Brain className="w-5 h-5 text-primary" />} label="Custo IA" value={aiCost} detail={`${metrics.received} chamadas × $${AI_COST_PER_CALL}`} />
-            <CostCard icon={<Cloud className="w-5 h-5 text-primary" />} label="Custo Cloud (mês corrente)" value={cloudCostInView} detail={condFilter === 'all' ? `$${cloudCostPerCond.toFixed(2)}/condomínio (${totalCondCount} ativos)` : `1 de ${totalCondCount} condomínios`} />
+            <CostCard icon={<Cloud className="w-5 h-5 text-primary" />} label="Custo Cloud (mês fixo)" value={CLOUD_FIXED_MONTHLY} detail={`$${cloudCostPerCond.toFixed(2)}/condomínio (${totalCondCount} ativos)`} />
             <CostCard icon={<DollarSign className="w-5 h-5 text-destructive" />} label="Custo Total" value={totalCost} detail="WhatsApp + IA + Cloud (mês)" highlight />
           </>
         )}
