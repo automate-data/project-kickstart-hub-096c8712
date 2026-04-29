@@ -120,7 +120,7 @@ function AppRoutes() {
       <Route
         path="/residents"
         element={
-          <ProtectedRoute requiredRole="admin">
+          <ProtectedRoute allowedRoles={['admin', 'tower_admin']}>
             {shouldRedirectToSetup ? <Navigate to="/setup" replace /> : (
               <AppLayout><Residents /></AppLayout>
             )}

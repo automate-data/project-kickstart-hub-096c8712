@@ -23,7 +23,7 @@ import ImportResidentsDialog from '@/components/residents/ImportResidentsDialog'
 export default function Residents() {
   const { condominium } = useCondominium();
   const { role } = useAuth();
-  const isAdmin = role === 'admin';
+  const isAdmin = role === 'admin' || role === 'superadmin' || role === 'tower_admin';
   const groupLabel = condominium?.group_label || 'Bloco';
   const unitLabel = condominium?.unit_label || 'Apartamento';
 

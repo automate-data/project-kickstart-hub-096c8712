@@ -8,9 +8,10 @@ import { Loader2, LogOut } from 'lucide-react';
 interface ProtectedRouteProps {
   children: ReactNode;
   requiredRole?: AppRole;
+  allowedRoles?: AppRole[];
 }
 
-export default function ProtectedRoute({ children, requiredRole }: ProtectedRouteProps) {
+export default function ProtectedRoute({ children, requiredRole, allowedRoles }: ProtectedRouteProps) {
   const { user, role, isLoading, mustChangePassword, isPasswordRecovery, signOut } = useAuth();
 
   if (isPasswordRecovery) {
@@ -56,7 +57,11 @@ export default function ProtectedRoute({ children, requiredRole }: ProtectedRout
     return <Navigate to="/" replace />;
   }
 
-  if (requiredRole && requiredRole !== 'superadmin' && role !== requiredRole && role !== 'admin' && role !== 'superadmin') {
+  if (allowedRoles && allowedRoles.length > 0) {
+    if (role !== 'superadmin' && !allowedRoles.includes(role as AppRole)) {
+      return <Navigate to="/" replace />;
+    }
+  } else if (requiredRole && requiredRole !== 'superadmin' && role !== requiredRole && role !== 'admin' && role !== 'superadmin') {
     return <Navigate to="/" replace />;
   }
 
