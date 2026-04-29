@@ -147,11 +147,16 @@ export default function SuperAdmin() {
   };
 
   // Cost calculations
+  // Cloud is always shown at full monthly rate ($25/mês fixo) regardless of period filter.
+  // Divide cloud by TOTAL real condominium count (not the filtered subset) so per-condo
+  // share is stable when toggling filters.
+  const totalCondCount = condominiums?.length || 1;
+  const cloudCostPerCond = CLOUD_FIXED_MONTHLY / totalCondCount;
   const whatsappCost = metrics.whatsappSent * WHATSAPP_COST_PER_MSG;
   const aiCost = metrics.received * AI_COST_PER_CALL;
-  const activeCondCount = condStats?.length || 1;
-  const cloudCostPerCond = CLOUD_FIXED_MONTHLY / activeCondCount;
-  const totalCost = whatsappCost + aiCost + CLOUD_FIXED_MONTHLY;
+  // When filtering a single condominium, total cost includes only that condo's cloud share
+  const cloudCostInView = condFilter === 'all' ? CLOUD_FIXED_MONTHLY : cloudCostPerCond;
+  const totalCost = whatsappCost + aiCost + cloudCostInView;
 
   // Per-condominium breakdown for the SELECTED period (from logs)
   const condPeriodStats = (() => {
@@ -183,7 +188,7 @@ export default function SuperAdmin() {
     return costs;
   })();
 
-  // Pending packages count (current)
+  // Pending packages count (current snapshot — não depende de período)
   const pendingTotal = condStats?.reduce((sum: number, s: any) => sum + (Number(s.packages_pending) || 0), 0) || 0;
 
   // Active users (unique user_ids with sessions in period)
