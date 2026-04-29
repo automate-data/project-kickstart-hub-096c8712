@@ -180,9 +180,8 @@ export default function SuperAdmin() {
   const cloudCostPerCond = CLOUD_FIXED_MONTHLY / totalCondCount;
   const whatsappCost = metrics.whatsappSent * WHATSAPP_COST_PER_MSG;
   const aiCost = metrics.received * AI_COST_PER_CALL;
-  // When filtering a single condominium, total cost includes only that condo's cloud share
-  const cloudCostInView = condFilter === 'all' ? CLOUD_FIXED_MONTHLY : cloudCostPerCond;
-  const totalCost = whatsappCost + aiCost + cloudCostInView;
+  // Custo Total sempre inclui o Cloud cheio ($25/mês fixo) + custos variáveis do período
+  const totalCost = whatsappCost + aiCost + CLOUD_FIXED_MONTHLY;
 
   // Per-condominium breakdown for the SELECTED period (from logs)
   const condPeriodStats = (() => {
