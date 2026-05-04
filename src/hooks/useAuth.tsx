@@ -54,21 +54,46 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const trackSession = async (userId: string) => {
-    const condId = localStorage.getItem('selected_condominium');
+    const condId = localStorage.getItem('selected_condominium_id');
+    const now = new Date().toISOString();
     // Check if there's already an open session for this user
     const { data: existing } = await supabase
       .from('user_sessions')
-      .select('id')
+      .select('id, condominium_id')
       .eq('user_id', userId)
       .is('logout_at', null)
+      .order('login_at', { ascending: false })
       .limit(1);
-    if (existing && existing.length > 0) return; // already tracked
+    if (existing && existing.length > 0) {
+      // Update last_seen_at (and condominium if it was missing)
+      const patch: any = { last_seen_at: now };
+      if (!existing[0].condominium_id && condId) patch.condominium_id = condId;
+      await supabase.from('user_sessions').update(patch).eq('id', existing[0].id);
+      return;
+    }
     await supabase.from('user_sessions').insert({
       user_id: userId,
       condominium_id: condId || null,
-      login_at: new Date().toISOString(),
+      login_at: now,
+      last_seen_at: now,
     } as any);
   };
+
+  // Heartbeat: update last_seen_at every 60s while tab is active
+  useEffect(() => {
+    if (!user) return;
+    const tick = () => {
+      if (document.visibilityState === 'visible') trackSession(user.id);
+    };
+    const interval = setInterval(tick, 60000);
+    const onVis = () => tick();
+    document.addEventListener('visibilitychange', onVis);
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', onVis);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
 
   useEffect(() => {
     supabase.auth.onAuthStateChange((event, session) => {
