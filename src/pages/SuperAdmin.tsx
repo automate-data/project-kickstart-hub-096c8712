@@ -499,21 +499,32 @@ export default function SuperAdmin() {
                   </TableHeader>
                   <TableBody>
                     {sessions?.map((s: any) => {
-                      const dur = s.logout_at
-                        ? Math.floor((new Date(s.logout_at).getTime() - new Date(s.login_at).getTime()) / 1000)
-                        : Math.floor((Date.now() - new Date(s.login_at).getTime()) / 1000);
+                      const endTs = s.logout_at
+                        ? new Date(s.logout_at).getTime()
+                        : new Date(s.last_seen_at || s.login_at).getTime();
+                      const dur = Math.floor((endTs - new Date(s.login_at).getTime()) / 1000);
+                      const lastSeen = new Date(s.last_seen_at || s.login_at).getTime();
+                      const isActive = !s.logout_at && (Date.now() - lastSeen) < 5 * 60 * 1000;
                       return (
                         <TableRow key={s.id}>
                           <TableCell>{getProfileName(s.user_id)}</TableCell>
                           <TableCell>{getCondName(s.condominium_id)}</TableCell>
                           <TableCell className="text-sm">{format(new Date(s.login_at), 'dd/MM HH:mm')}</TableCell>
-                          <TableCell className="text-sm">{s.logout_at ? format(new Date(s.logout_at), 'dd/MM HH:mm') : '—'}</TableCell>
+                          <TableCell className="text-sm">
+                            {s.logout_at
+                              ? format(new Date(s.logout_at), 'dd/MM HH:mm')
+                              : isActive
+                                ? '—'
+                                : `${format(new Date(s.last_seen_at || s.login_at), 'dd/MM HH:mm')} (inativo)`}
+                          </TableCell>
                           <TableCell>{formatDuration(dur)}</TableCell>
                           <TableCell>
                             {s.logout_at ? (
                               <Badge variant="secondary">Encerrada</Badge>
-                            ) : (
+                            ) : isActive ? (
                               <Badge className="bg-green-100 text-green-800 border-green-200" variant="outline">Ativo agora</Badge>
+                            ) : (
+                              <Badge variant="secondary">Inativa</Badge>
                             )}
                           </TableCell>
                         </TableRow>
@@ -524,9 +535,12 @@ export default function SuperAdmin() {
               </div>
               <div className="md:hidden space-y-3">
                 {sessions?.map((s: any) => {
-                  const dur = s.logout_at
-                    ? Math.floor((new Date(s.logout_at).getTime() - new Date(s.login_at).getTime()) / 1000)
-                    : Math.floor((Date.now() - new Date(s.login_at).getTime()) / 1000);
+                  const endTs = s.logout_at
+                    ? new Date(s.logout_at).getTime()
+                    : new Date(s.last_seen_at || s.login_at).getTime();
+                  const dur = Math.floor((endTs - new Date(s.login_at).getTime()) / 1000);
+                  const lastSeen = new Date(s.last_seen_at || s.login_at).getTime();
+                  const isActive = !s.logout_at && (Date.now() - lastSeen) < 5 * 60 * 1000;
                   return (
                     <Card key={s.id}>
                       <CardContent className="p-3 space-y-1">
@@ -534,8 +548,10 @@ export default function SuperAdmin() {
                           <span className="font-medium text-sm">{getProfileName(s.user_id)}</span>
                           {s.logout_at ? (
                             <Badge variant="secondary" className="text-xs">Encerrada</Badge>
-                          ) : (
+                          ) : isActive ? (
                             <Badge className="bg-green-100 text-green-800 border-green-200 text-xs" variant="outline">Ativo</Badge>
+                          ) : (
+                            <Badge variant="secondary" className="text-xs">Inativa</Badge>
                           )}
                         </div>
                         <p className="text-xs text-muted-foreground">{getCondName(s.condominium_id)} · {formatDuration(dur)}</p>
