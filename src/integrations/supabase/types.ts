@@ -813,6 +813,7 @@ export type Database = {
         Row: {
           condominium_id: string | null
           id: string
+          last_seen_at: string | null
           login_at: string | null
           logout_at: string | null
           user_id: string | null
@@ -820,6 +821,7 @@ export type Database = {
         Insert: {
           condominium_id?: string | null
           id?: string
+          last_seen_at?: string | null
           login_at?: string | null
           logout_at?: string | null
           user_id?: string | null
@@ -827,6 +829,7 @@ export type Database = {
         Update: {
           condominium_id?: string | null
           id?: string
+          last_seen_at?: string | null
           login_at?: string | null
           logout_at?: string | null
           user_id?: string | null
