@@ -154,8 +154,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = async () => {
     // Close open session
     if (user) {
+      const now = new Date().toISOString();
       supabase.from('user_sessions')
-        .update({ logout_at: new Date().toISOString() } as any)
+        .update({ logout_at: now, last_seen_at: now } as any)
         .eq('user_id', user.id)
         .is('logout_at', null)
         .then(() => {});
