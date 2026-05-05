@@ -430,7 +430,7 @@ export default function SuperAdmin() {
         <Card>
           <CardHeader>
             <CardTitle className="text-lg">Tendência de Encomendas</CardTitle>
-            <p className="text-xs text-muted-foreground">Período: {period === '1' ? 'Hoje' : `Últimos ${period} dias`}{condFilter !== 'all' ? ` · ${getCondName(condFilter)}` : ''}</p>
+            <p className="text-xs text-muted-foreground">Período: {exactDate ? format(new Date(exactDate + 'T00:00:00'), "dd 'de' MMM yyyy", { locale: ptBR }) : (period === '1' ? 'Hoje' : `Últimos ${period} dias`)}{condFilter !== 'all' ? ` · ${getCondName(condFilter)}` : ''}</p>
           </CardHeader>
           <CardContent>
             <div className="h-64">
