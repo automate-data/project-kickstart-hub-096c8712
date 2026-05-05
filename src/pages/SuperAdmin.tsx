@@ -475,7 +475,7 @@ export default function SuperAdmin() {
         <CardHeader>
           <CardTitle className="text-lg">Visão por Condomínio</CardTitle>
           <p className="text-xs text-muted-foreground">
-            Atividade no período: {customRangeKey ? format(new Date(customRangeKey + 'T00:00:00'), "dd 'de' MMM yyyy", { locale: ptBR }) : (period === '1' ? 'Hoje' : `Últimos ${period} dias`)} · Pendentes/Staff/Moradores são snapshot atual
+            Atividade no período: {customRangeActive ? `${format(new Date(dateFrom + 'T00:00:00'), 'dd/MM/yyyy')} – ${format(new Date(dateTo + 'T00:00:00'), 'dd/MM/yyyy')}` : (period === '1' ? 'Hoje' : `Últimos ${period} dias`)} · Pendentes/Staff/Moradores são snapshot atual
           </p>
         </CardHeader>
         <CardContent>
