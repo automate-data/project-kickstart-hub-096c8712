@@ -487,6 +487,14 @@ export default function SuperAdmin() {
                       return (
                         <TableRow key={s.condominium_id}>
                           <TableCell className="font-medium">{s.condominium_name}</TableCell>
+                          <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                            {s.condominium_created_at ? (
+                              <>
+                                {format(new Date(s.condominium_created_at), 'dd/MM/yyyy')}
+                                <span className="block text-[10px]">{differenceInDays(new Date(), new Date(s.condominium_created_at))}d</span>
+                              </>
+                            ) : '—'}
+                          </TableCell>
                           <TableCell className="text-center">{s.packages_pending}</TableCell>
                           <TableCell className="text-center">{ps.received}</TableCell>
                           <TableCell className="text-center">{ps.pickedUp}</TableCell>
