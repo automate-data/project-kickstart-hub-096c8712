@@ -300,24 +300,34 @@ export default function SuperAdmin() {
             <Button
               key={p}
               size="sm"
-              variant={!customRangeKey && period === p ? 'default' : 'outline'}
-              onClick={() => { setDateRange('',''); setPeriod(p); }}
+              variant={!customRangeActive && period === p ? 'default' : 'outline'}
+              onClick={() => { setDateFrom(''); setDateTo(''); setPeriod(p); }}
             >
               {p === '1' ? 'Hoje' : `${p} dias`}
             </Button>
           ))}
-          <div className="flex items-center gap-1">
+          <div className={`flex items-center gap-1 px-2 py-1 rounded-md ${customRangeActive ? 'bg-primary/10 ring-1 ring-primary' : ''}`}>
             <CalendarDays className="w-4 h-4 text-muted-foreground" />
             <Input
               type="date"
-              value={customRangeKey}
-              max={format(new Date(), 'yyyy-MM-dd')}
-              onChange={(e) => setExactDate(e.target.value)}
-              className={`w-[160px] h-9 ${customRangeKey ? 'border-primary ring-1 ring-primary' : ''}`}
-              title="Filtrar por data exata"
+              value={dateFrom}
+              max={dateTo || format(new Date(), 'yyyy-MM-dd')}
+              onChange={(e) => setDateFrom(e.target.value)}
+              className="w-[150px] h-9"
+              title="Data inicial"
             />
-            {customRangeKey && (
-              <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => setDateRange('','')} title="Limpar data">
+            <span className="text-muted-foreground text-sm">até</span>
+            <Input
+              type="date"
+              value={dateTo}
+              min={dateFrom || undefined}
+              max={format(new Date(), 'yyyy-MM-dd')}
+              onChange={(e) => setDateTo(e.target.value)}
+              className="w-[150px] h-9"
+              title="Data final"
+            />
+            {(dateFrom || dateTo) && (
+              <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => { setDateFrom(''); setDateTo(''); }} title="Limpar período">
                 <X className="w-4 h-4" />
               </Button>
             )}
