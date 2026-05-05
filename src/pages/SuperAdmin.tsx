@@ -281,10 +281,31 @@ export default function SuperAdmin() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-end gap-4">
         <div className="flex items-center gap-2 flex-wrap">
           {(['1', '7', '30', '90'] as Period[]).map(p => (
-            <Button key={p} size="sm" variant={period === p ? 'default' : 'outline'} onClick={() => setPeriod(p)}>
+            <Button
+              key={p}
+              size="sm"
+              variant={!exactDate && period === p ? 'default' : 'outline'}
+              onClick={() => { setExactDate(''); setPeriod(p); }}
+            >
               {p === '1' ? 'Hoje' : `${p} dias`}
             </Button>
           ))}
+          <div className="flex items-center gap-1">
+            <CalendarDays className="w-4 h-4 text-muted-foreground" />
+            <Input
+              type="date"
+              value={exactDate}
+              max={format(new Date(), 'yyyy-MM-dd')}
+              onChange={(e) => setExactDate(e.target.value)}
+              className={`w-[160px] h-9 ${exactDate ? 'border-primary ring-1 ring-primary' : ''}`}
+              title="Filtrar por data exata"
+            />
+            {exactDate && (
+              <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => setExactDate('')} title="Limpar data">
+                <X className="w-4 h-4" />
+              </Button>
+            )}
+          </div>
           <Select value={condFilter} onValueChange={setCondFilter}>
             <SelectTrigger className="w-[200px]">
               <SelectValue placeholder="Todos os condomínios" />
@@ -308,6 +329,56 @@ export default function SuperAdmin() {
           </Button>
         </div>
       </div>
+
+      {/* Início da operação — destaque */}
+      {condFilter !== 'all' && (() => {
+        const c = condStats?.find((s: any) => s.condominium_id === condFilter);
+        if (!c?.condominium_created_at) return null;
+        const start = new Date(c.condominium_created_at);
+        const days = differenceInDays(new Date(), start);
+        return (
+          <Card className="border-primary/40 bg-primary/5">
+            <CardContent className="p-5 flex flex-col sm:flex-row sm:items-center gap-4">
+              <div className="w-12 h-12 rounded-xl bg-primary/15 flex items-center justify-center shrink-0">
+                <Rocket className="w-6 h-6 text-primary" />
+              </div>
+              <div className="flex-1">
+                <p className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Início da operação</p>
+                <p className="text-xl font-bold">{c.condominium_name}</p>
+                <p className="text-sm text-muted-foreground">
+                  Em operação desde <strong className="text-foreground">{format(start, "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}</strong> · {days} {days === 1 ? 'dia' : 'dias'}
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        );
+      })()}
+      {condFilter === 'all' && condStats && condStats.length > 0 && (() => {
+        const sorted = [...condStats].filter((c: any) => c.condominium_created_at).sort((a: any, b: any) =>
+          new Date(a.condominium_created_at).getTime() - new Date(b.condominium_created_at).getTime()
+        );
+        const first = sorted[0];
+        if (!first) return null;
+        const start = new Date(first.condominium_created_at);
+        const days = differenceInDays(new Date(), start);
+        return (
+          <Card className="border-primary/40 bg-primary/5">
+            <CardContent className="p-5 flex flex-col sm:flex-row sm:items-center gap-4">
+              <div className="w-12 h-12 rounded-xl bg-primary/15 flex items-center justify-center shrink-0">
+                <Rocket className="w-6 h-6 text-primary" />
+              </div>
+              <div className="flex-1">
+                <p className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Início da operação (primeiro condomínio)</p>
+                <p className="text-xl font-bold">{first.condominium_name}</p>
+                <p className="text-sm text-muted-foreground">
+                  Em operação desde <strong className="text-foreground">{format(start, "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}</strong> · {days} {days === 1 ? 'dia' : 'dias'}
+                </p>
+              </div>
+              <Badge variant="outline" className="text-xs">{condStats.length} condomínios ativos</Badge>
+            </CardContent>
+          </Card>
+        );
+      })()}
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
