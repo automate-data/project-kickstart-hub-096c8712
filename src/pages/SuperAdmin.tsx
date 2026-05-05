@@ -469,6 +469,7 @@ export default function SuperAdmin() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Condomínio</TableHead>
+                      <TableHead title="Data de início da operação">Início</TableHead>
                       <TableHead className="text-center" title="Encomendas atualmente aguardando retirada (snapshot)">Pendentes*</TableHead>
                       <TableHead className="text-center" title="Encomendas recebidas no período">Recebidas</TableHead>
                       <TableHead className="text-center" title="Encomendas retiradas no período">Retiradas</TableHead>
