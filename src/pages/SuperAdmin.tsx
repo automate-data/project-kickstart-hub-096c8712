@@ -522,7 +522,13 @@ export default function SuperAdmin() {
                   return (
                     <Card key={s.condominium_id}>
                       <CardContent className="p-4">
-                        <p className="font-semibold mb-2">{s.condominium_name}</p>
+                        <p className="font-semibold mb-1">{s.condominium_name}</p>
+                        {s.condominium_created_at && (
+                          <p className="text-xs text-muted-foreground mb-2 flex items-center gap-1">
+                            <Rocket className="w-3 h-3" />
+                            Início: {format(new Date(s.condominium_created_at), 'dd/MM/yyyy')} ({differenceInDays(new Date(), new Date(s.condominium_created_at))}d)
+                          </p>
+                        )}
                         <div className="grid grid-cols-2 gap-2 text-sm">
                           <div>Pendentes*: <strong>{s.packages_pending}</strong></div>
                           <div>Recebidas: <strong>{ps.received}</strong></div>
