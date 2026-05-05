@@ -62,12 +62,13 @@ export default function SuperAdmin() {
 
   // Global metrics from system_logs
   const { data: logs, isLoading: logsLoading } = useQuery({
-    queryKey: ['sa-logs', period, condFilter],
+    queryKey: ['sa-logs', period, condFilter, exactDate],
     queryFn: async () => {
       let q = supabase
         .from('system_logs')
         .select('event_type, condominium_id, created_at')
         .gte('created_at', startDate);
+      if (endDate) q = q.lt('created_at', endDate);
       if (condFilter !== 'all') q = q.eq('condominium_id', condFilter);
       const { data } = await q;
       return data || [];
@@ -79,7 +80,7 @@ export default function SuperAdmin() {
   const { data: condStats, isLoading: statsLoading } = useQuery({
     queryKey: ['sa-cond-stats', condFilter],
     queryFn: async () => {
-      const condQuery = supabase.from('condominiums').select('id, name');
+      const condQuery = supabase.from('condominiums').select('id, name, created_at');
       const { data: conds } = condFilter !== 'all'
         ? await condQuery.eq('id', condFilter)
         : await condQuery.order('name');
@@ -103,6 +104,7 @@ export default function SuperAdmin() {
         return {
           condominium_id: c.id,
           condominium_name: c.name,
+          condominium_created_at: c.created_at,
           packages_pending: cp.filter((p: any) => p.status === 'pending').length,
           packages_picked_up: cp.filter((p: any) => p.status === 'picked_up').length,
           total_residents: residentsArr.filter((r: any) => r.condominium_id === c.id).length,
@@ -115,7 +117,7 @@ export default function SuperAdmin() {
 
   // Error logs
   const { data: errorLogs, isLoading: errorsLoading } = useQuery({
-    queryKey: ['sa-errors', period, condFilter],
+    queryKey: ['sa-errors', period, condFilter, exactDate],
     queryFn: async () => {
       let q = supabase
         .from('system_logs')
@@ -124,6 +126,7 @@ export default function SuperAdmin() {
         .gte('created_at', startDate)
         .order('created_at', { ascending: false })
         .limit(50);
+      if (endDate) q = q.lt('created_at', endDate);
       if (condFilter !== 'all') q = q.eq('condominium_id', condFilter);
       const { data } = await q;
       return data || [];
@@ -133,7 +136,7 @@ export default function SuperAdmin() {
 
   // User sessions
   const { data: sessions, isLoading: sessionsLoading } = useQuery({
-    queryKey: ['sa-sessions', period, condFilter],
+    queryKey: ['sa-sessions', period, condFilter, exactDate],
     queryFn: async () => {
       let q = supabase
         .from('user_sessions')
@@ -141,6 +144,7 @@ export default function SuperAdmin() {
         .gte('login_at', startDate)
         .order('login_at', { ascending: false })
         .limit(50);
+      if (endDate) q = q.lt('login_at', endDate);
       if (condFilter !== 'all') q = q.eq('condominium_id', condFilter);
       const { data } = await q;
       return data || [];
