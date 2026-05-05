@@ -67,7 +67,7 @@ export default function SuperAdmin() {
 
   // Global metrics from system_logs
   const { data: logs, isLoading: logsLoading } = useQuery({
-    queryKey: ['sa-logs', period, condFilter, customRangeKey],
+    queryKey: ['sa-logs', period, condFilter, dateFrom, dateTo],
     queryFn: async () => {
       let q = supabase
         .from('system_logs')
@@ -122,7 +122,7 @@ export default function SuperAdmin() {
 
   // Error logs
   const { data: errorLogs, isLoading: errorsLoading } = useQuery({
-    queryKey: ['sa-errors', period, condFilter, customRangeKey],
+    queryKey: ['sa-errors', period, condFilter, dateFrom, dateTo],
     queryFn: async () => {
       let q = supabase
         .from('system_logs')
@@ -141,7 +141,7 @@ export default function SuperAdmin() {
 
   // User sessions
   const { data: sessions, isLoading: sessionsLoading } = useQuery({
-    queryKey: ['sa-sessions', period, condFilter, customRangeKey],
+    queryKey: ['sa-sessions', period, condFilter, dateFrom, dateTo],
     queryFn: async () => {
       let q = supabase
         .from('user_sessions')
@@ -296,7 +296,7 @@ export default function SuperAdmin() {
               key={p}
               size="sm"
               variant={!customRangeKey && period === p ? 'default' : 'outline'}
-              onClick={() => { setExactDate(''); setPeriod(p); }}
+              onClick={() => { setDateRange('',''); setPeriod(p); }}
             >
               {p === '1' ? 'Hoje' : `${p} dias`}
             </Button>
@@ -312,7 +312,7 @@ export default function SuperAdmin() {
               title="Filtrar por data exata"
             />
             {customRangeKey && (
-              <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => setExactDate('')} title="Limpar data">
+              <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => setDateRange('','')} title="Limpar data">
                 <X className="w-4 h-4" />
               </Button>
             )}
