@@ -450,7 +450,7 @@ export default function SuperAdmin() {
         <Card>
           <CardHeader>
             <CardTitle className="text-lg">Tendência de Encomendas</CardTitle>
-            <p className="text-xs text-muted-foreground">Período: {customRangeKey ? format(new Date(customRangeKey + 'T00:00:00'), "dd 'de' MMM yyyy", { locale: ptBR }) : (period === '1' ? 'Hoje' : `Últimos ${period} dias`)}{condFilter !== 'all' ? ` · ${getCondName(condFilter)}` : ''}</p>
+            <p className="text-xs text-muted-foreground">Período: {customRangeActive ? `${format(new Date(dateFrom + 'T00:00:00'), 'dd/MM/yyyy')} – ${format(new Date(dateTo + 'T00:00:00'), 'dd/MM/yyyy')}` : (period === '1' ? 'Hoje' : `Últimos ${period} dias`)}{condFilter !== 'all' ? ` · ${getCondName(condFilter)}` : ''}</p>
           </CardHeader>
           <CardContent>
             <div className="h-64">
