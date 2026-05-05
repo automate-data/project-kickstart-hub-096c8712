@@ -243,10 +243,14 @@ export default function SuperAdmin() {
   const chartData = (() => {
     if (!logs) return [];
     const map: Record<string, { date: string; received: number; pickedUp: number }> = {};
-    if (customRangeKey) {
-      const d = new Date(customRangeKey + 'T00:00:00');
-      const key = format(d, 'yyyy-MM-dd');
-      map[key] = { date: format(d, 'dd/MM'), received: 0, pickedUp: 0 };
+    if (customRangeActive) {
+      const from = new Date(dateFrom + 'T00:00:00');
+      for (let i = 0; i < rangeDays; i++) {
+        const d = new Date(from);
+        d.setDate(from.getDate() + i);
+        const key = format(d, 'yyyy-MM-dd');
+        map[key] = { date: format(d, 'dd/MM'), received: 0, pickedUp: 0 };
+      }
     } else {
       const days = parseInt(period);
       for (let i = 0; i < days; i++) {
@@ -261,7 +265,8 @@ export default function SuperAdmin() {
         if (l.event_type === 'package_picked_up') map[d].pickedUp++;
       }
     });
-    return Object.values(map).reverse();
+    const arr = Object.values(map);
+    return customRangeActive ? arr : arr.reverse();
   })();
 
   const errorBadgeColor = (type: string) => {
