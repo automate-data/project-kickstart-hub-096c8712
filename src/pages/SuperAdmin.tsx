@@ -237,11 +237,17 @@ export default function SuperAdmin() {
   // Chart data: packages per day
   const chartData = (() => {
     if (!logs) return [];
-    const days = parseInt(period);
     const map: Record<string, { date: string; received: number; pickedUp: number }> = {};
-    for (let i = 0; i < days; i++) {
-      const d = format(subDays(new Date(), i), 'yyyy-MM-dd');
-      map[d] = { date: format(subDays(new Date(), i), 'dd/MM'), received: 0, pickedUp: 0 };
+    if (exactDate) {
+      const d = new Date(exactDate + 'T00:00:00');
+      const key = format(d, 'yyyy-MM-dd');
+      map[key] = { date: format(d, 'dd/MM'), received: 0, pickedUp: 0 };
+    } else {
+      const days = parseInt(period);
+      for (let i = 0; i < days; i++) {
+        const d = format(subDays(new Date(), i), 'yyyy-MM-dd');
+        map[d] = { date: format(subDays(new Date(), i), 'dd/MM'), received: 0, pickedUp: 0 };
+      }
     }
     logs.forEach((l: any) => {
       const d = format(new Date(l.created_at), 'yyyy-MM-dd');
