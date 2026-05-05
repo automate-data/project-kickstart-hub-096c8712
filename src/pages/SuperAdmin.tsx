@@ -6,13 +6,14 @@ import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Package, CheckCircle2, Clock, MessageSquare, AlertTriangle, Users, RefreshCw, LogOut, DollarSign, Brain, Cloud } from 'lucide-react';
+import { Package, CheckCircle2, Clock, MessageSquare, AlertTriangle, Users, RefreshCw, LogOut, DollarSign, Brain, Cloud, Rocket, CalendarDays, X } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { formatDistanceToNow, format, subDays } from 'date-fns';
+import { formatDistanceToNow, format, subDays, differenceInDays } from 'date-fns';
 // WhatsApp cost: Twilio $0.0050 + Meta Utility BR $0.0068 = $0.0118/msg
 import { ptBR } from 'date-fns/locale';
 
