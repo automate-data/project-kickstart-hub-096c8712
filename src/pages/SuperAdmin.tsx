@@ -6,13 +6,14 @@ import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Package, CheckCircle2, Clock, MessageSquare, AlertTriangle, Users, RefreshCw, LogOut, DollarSign, Brain, Cloud } from 'lucide-react';
+import { Package, CheckCircle2, Clock, MessageSquare, AlertTriangle, Users, RefreshCw, LogOut, DollarSign, Brain, Cloud, Rocket, CalendarDays, X } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { formatDistanceToNow, format, subDays } from 'date-fns';
+import { formatDistanceToNow, format, subDays, differenceInDays } from 'date-fns';
 // WhatsApp cost: Twilio $0.0050 + Meta Utility BR $0.0068 = $0.0118/msg
 import { ptBR } from 'date-fns/locale';
 
@@ -33,30 +34,41 @@ export default function SuperAdmin() {
   const navigate = useNavigate();
   const [period, setPeriod] = useState<Period>('30');
   const [condFilter, setCondFilter] = useState<string>('all');
+  const [exactDate, setExactDate] = useState<string>(''); // YYYY-MM-DD; when set overrides period
 
   useEffect(() => {
     toast({ title: `Bem-vindo ao painel de controle, ${user?.user_metadata?.full_name || 'Admin'}!` });
   }, []);
 
-  const startDate = subDays(new Date(), parseInt(period)).toISOString();
+  // Date range: exact date (single day) overrides period
+  const { startDate, endDate } = (() => {
+    if (exactDate) {
+      const d = new Date(exactDate + 'T00:00:00');
+      const next = new Date(d);
+      next.setDate(next.getDate() + 1);
+      return { startDate: d.toISOString(), endDate: next.toISOString() };
+    }
+    return { startDate: subDays(new Date(), parseInt(period)).toISOString(), endDate: null as string | null };
+  })();
 
-  // Fetch condominiums for filter
+  // Fetch condominiums for filter (includes created_at to display "início da operação")
   const { data: condominiums } = useQuery({
     queryKey: ['sa-condominiums'],
     queryFn: async () => {
-      const { data } = await supabase.from('condominiums').select('id, name').order('name');
+      const { data } = await supabase.from('condominiums').select('id, name, created_at').order('name');
       return data || [];
     },
   });
 
   // Global metrics from system_logs
   const { data: logs, isLoading: logsLoading } = useQuery({
-    queryKey: ['sa-logs', period, condFilter],
+    queryKey: ['sa-logs', period, condFilter, exactDate],
     queryFn: async () => {
       let q = supabase
         .from('system_logs')
         .select('event_type, condominium_id, created_at')
         .gte('created_at', startDate);
+      if (endDate) q = q.lt('created_at', endDate);
       if (condFilter !== 'all') q = q.eq('condominium_id', condFilter);
       const { data } = await q;
       return data || [];
@@ -68,7 +80,7 @@ export default function SuperAdmin() {
   const { data: condStats, isLoading: statsLoading } = useQuery({
     queryKey: ['sa-cond-stats', condFilter],
     queryFn: async () => {
-      const condQuery = supabase.from('condominiums').select('id, name');
+      const condQuery = supabase.from('condominiums').select('id, name, created_at');
       const { data: conds } = condFilter !== 'all'
         ? await condQuery.eq('id', condFilter)
         : await condQuery.order('name');
@@ -92,6 +104,7 @@ export default function SuperAdmin() {
         return {
           condominium_id: c.id,
           condominium_name: c.name,
+          condominium_created_at: c.created_at,
           packages_pending: cp.filter((p: any) => p.status === 'pending').length,
           packages_picked_up: cp.filter((p: any) => p.status === 'picked_up').length,
           total_residents: residentsArr.filter((r: any) => r.condominium_id === c.id).length,
@@ -104,7 +117,7 @@ export default function SuperAdmin() {
 
   // Error logs
   const { data: errorLogs, isLoading: errorsLoading } = useQuery({
-    queryKey: ['sa-errors', period, condFilter],
+    queryKey: ['sa-errors', period, condFilter, exactDate],
     queryFn: async () => {
       let q = supabase
         .from('system_logs')
@@ -113,6 +126,7 @@ export default function SuperAdmin() {
         .gte('created_at', startDate)
         .order('created_at', { ascending: false })
         .limit(50);
+      if (endDate) q = q.lt('created_at', endDate);
       if (condFilter !== 'all') q = q.eq('condominium_id', condFilter);
       const { data } = await q;
       return data || [];
@@ -122,7 +136,7 @@ export default function SuperAdmin() {
 
   // User sessions
   const { data: sessions, isLoading: sessionsLoading } = useQuery({
-    queryKey: ['sa-sessions', period, condFilter],
+    queryKey: ['sa-sessions', period, condFilter, exactDate],
     queryFn: async () => {
       let q = supabase
         .from('user_sessions')
@@ -130,6 +144,7 @@ export default function SuperAdmin() {
         .gte('login_at', startDate)
         .order('login_at', { ascending: false })
         .limit(50);
+      if (endDate) q = q.lt('login_at', endDate);
       if (condFilter !== 'all') q = q.eq('condominium_id', condFilter);
       const { data } = await q;
       return data || [];
@@ -222,11 +237,17 @@ export default function SuperAdmin() {
   // Chart data: packages per day
   const chartData = (() => {
     if (!logs) return [];
-    const days = parseInt(period);
     const map: Record<string, { date: string; received: number; pickedUp: number }> = {};
-    for (let i = 0; i < days; i++) {
-      const d = format(subDays(new Date(), i), 'yyyy-MM-dd');
-      map[d] = { date: format(subDays(new Date(), i), 'dd/MM'), received: 0, pickedUp: 0 };
+    if (exactDate) {
+      const d = new Date(exactDate + 'T00:00:00');
+      const key = format(d, 'yyyy-MM-dd');
+      map[key] = { date: format(d, 'dd/MM'), received: 0, pickedUp: 0 };
+    } else {
+      const days = parseInt(period);
+      for (let i = 0; i < days; i++) {
+        const d = format(subDays(new Date(), i), 'yyyy-MM-dd');
+        map[d] = { date: format(subDays(new Date(), i), 'dd/MM'), received: 0, pickedUp: 0 };
+      }
     }
     logs.forEach((l: any) => {
       const d = format(new Date(l.created_at), 'yyyy-MM-dd');
@@ -266,10 +287,31 @@ export default function SuperAdmin() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-end gap-4">
         <div className="flex items-center gap-2 flex-wrap">
           {(['1', '7', '30', '90'] as Period[]).map(p => (
-            <Button key={p} size="sm" variant={period === p ? 'default' : 'outline'} onClick={() => setPeriod(p)}>
+            <Button
+              key={p}
+              size="sm"
+              variant={!exactDate && period === p ? 'default' : 'outline'}
+              onClick={() => { setExactDate(''); setPeriod(p); }}
+            >
               {p === '1' ? 'Hoje' : `${p} dias`}
             </Button>
           ))}
+          <div className="flex items-center gap-1">
+            <CalendarDays className="w-4 h-4 text-muted-foreground" />
+            <Input
+              type="date"
+              value={exactDate}
+              max={format(new Date(), 'yyyy-MM-dd')}
+              onChange={(e) => setExactDate(e.target.value)}
+              className={`w-[160px] h-9 ${exactDate ? 'border-primary ring-1 ring-primary' : ''}`}
+              title="Filtrar por data exata"
+            />
+            {exactDate && (
+              <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => setExactDate('')} title="Limpar data">
+                <X className="w-4 h-4" />
+              </Button>
+            )}
+          </div>
           <Select value={condFilter} onValueChange={setCondFilter}>
             <SelectTrigger className="w-[200px]">
               <SelectValue placeholder="Todos os condomínios" />
@@ -293,6 +335,56 @@ export default function SuperAdmin() {
           </Button>
         </div>
       </div>
+
+      {/* Início da operação — destaque */}
+      {condFilter !== 'all' && (() => {
+        const c = condStats?.find((s: any) => s.condominium_id === condFilter);
+        if (!c?.condominium_created_at) return null;
+        const start = new Date(c.condominium_created_at);
+        const days = differenceInDays(new Date(), start);
+        return (
+          <Card className="border-primary/40 bg-primary/5">
+            <CardContent className="p-5 flex flex-col sm:flex-row sm:items-center gap-4">
+              <div className="w-12 h-12 rounded-xl bg-primary/15 flex items-center justify-center shrink-0">
+                <Rocket className="w-6 h-6 text-primary" />
+              </div>
+              <div className="flex-1">
+                <p className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Início da operação</p>
+                <p className="text-xl font-bold">{c.condominium_name}</p>
+                <p className="text-sm text-muted-foreground">
+                  Em operação desde <strong className="text-foreground">{format(start, "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}</strong> · {days} {days === 1 ? 'dia' : 'dias'}
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        );
+      })()}
+      {condFilter === 'all' && condStats && condStats.length > 0 && (() => {
+        const sorted = [...condStats].filter((c: any) => c.condominium_created_at).sort((a: any, b: any) =>
+          new Date(a.condominium_created_at).getTime() - new Date(b.condominium_created_at).getTime()
+        );
+        const first = sorted[0];
+        if (!first) return null;
+        const start = new Date(first.condominium_created_at);
+        const days = differenceInDays(new Date(), start);
+        return (
+          <Card className="border-primary/40 bg-primary/5">
+            <CardContent className="p-5 flex flex-col sm:flex-row sm:items-center gap-4">
+              <div className="w-12 h-12 rounded-xl bg-primary/15 flex items-center justify-center shrink-0">
+                <Rocket className="w-6 h-6 text-primary" />
+              </div>
+              <div className="flex-1">
+                <p className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Início da operação (primeiro condomínio)</p>
+                <p className="text-xl font-bold">{first.condominium_name}</p>
+                <p className="text-sm text-muted-foreground">
+                  Em operação desde <strong className="text-foreground">{format(start, "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}</strong> · {days} {days === 1 ? 'dia' : 'dias'}
+                </p>
+              </div>
+              <Badge variant="outline" className="text-xs">{condStats.length} condomínios ativos</Badge>
+            </CardContent>
+          </Card>
+        );
+      })()}
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
@@ -338,7 +430,7 @@ export default function SuperAdmin() {
         <Card>
           <CardHeader>
             <CardTitle className="text-lg">Tendência de Encomendas</CardTitle>
-            <p className="text-xs text-muted-foreground">Período: {period === '1' ? 'Hoje' : `Últimos ${period} dias`}{condFilter !== 'all' ? ` · ${getCondName(condFilter)}` : ''}</p>
+            <p className="text-xs text-muted-foreground">Período: {exactDate ? format(new Date(exactDate + 'T00:00:00'), "dd 'de' MMM yyyy", { locale: ptBR }) : (period === '1' ? 'Hoje' : `Últimos ${period} dias`)}{condFilter !== 'all' ? ` · ${getCondName(condFilter)}` : ''}</p>
           </CardHeader>
           <CardContent>
             <div className="h-64">
@@ -363,7 +455,7 @@ export default function SuperAdmin() {
         <CardHeader>
           <CardTitle className="text-lg">Visão por Condomínio</CardTitle>
           <p className="text-xs text-muted-foreground">
-            Atividade no período: {period === '1' ? 'Hoje' : `Últimos ${period} dias`} · Pendentes/Staff/Moradores são snapshot atual
+            Atividade no período: {exactDate ? format(new Date(exactDate + 'T00:00:00'), "dd 'de' MMM yyyy", { locale: ptBR }) : (period === '1' ? 'Hoje' : `Últimos ${period} dias`)} · Pendentes/Staff/Moradores são snapshot atual
           </p>
         </CardHeader>
         <CardContent>
@@ -377,6 +469,7 @@ export default function SuperAdmin() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Condomínio</TableHead>
+                      <TableHead title="Data de início da operação">Início</TableHead>
                       <TableHead className="text-center" title="Encomendas atualmente aguardando retirada (snapshot)">Pendentes*</TableHead>
                       <TableHead className="text-center" title="Encomendas recebidas no período">Recebidas</TableHead>
                       <TableHead className="text-center" title="Encomendas retiradas no período">Retiradas</TableHead>
@@ -394,6 +487,14 @@ export default function SuperAdmin() {
                       return (
                         <TableRow key={s.condominium_id}>
                           <TableCell className="font-medium">{s.condominium_name}</TableCell>
+                          <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                            {s.condominium_created_at ? (
+                              <>
+                                {format(new Date(s.condominium_created_at), 'dd/MM/yyyy')}
+                                <span className="block text-[10px]">{differenceInDays(new Date(), new Date(s.condominium_created_at))}d</span>
+                              </>
+                            ) : '—'}
+                          </TableCell>
                           <TableCell className="text-center">{s.packages_pending}</TableCell>
                           <TableCell className="text-center">{ps.received}</TableCell>
                           <TableCell className="text-center">{ps.pickedUp}</TableCell>
@@ -421,7 +522,13 @@ export default function SuperAdmin() {
                   return (
                     <Card key={s.condominium_id}>
                       <CardContent className="p-4">
-                        <p className="font-semibold mb-2">{s.condominium_name}</p>
+                        <p className="font-semibold mb-1">{s.condominium_name}</p>
+                        {s.condominium_created_at && (
+                          <p className="text-xs text-muted-foreground mb-2 flex items-center gap-1">
+                            <Rocket className="w-3 h-3" />
+                            Início: {format(new Date(s.condominium_created_at), 'dd/MM/yyyy')} ({differenceInDays(new Date(), new Date(s.condominium_created_at))}d)
+                          </p>
+                        )}
                         <div className="grid grid-cols-2 gap-2 text-sm">
                           <div>Pendentes*: <strong>{s.packages_pending}</strong></div>
                           <div>Recebidas: <strong>{ps.received}</strong></div>
