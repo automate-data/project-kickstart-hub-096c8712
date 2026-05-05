@@ -34,18 +34,28 @@ export default function SuperAdmin() {
   const navigate = useNavigate();
   const [period, setPeriod] = useState<Period>('30');
   const [condFilter, setCondFilter] = useState<string>('all');
+  const [exactDate, setExactDate] = useState<string>(''); // YYYY-MM-DD; when set overrides period
 
   useEffect(() => {
     toast({ title: `Bem-vindo ao painel de controle, ${user?.user_metadata?.full_name || 'Admin'}!` });
   }, []);
 
-  const startDate = subDays(new Date(), parseInt(period)).toISOString();
+  // Date range: exact date (single day) overrides period
+  const { startDate, endDate } = (() => {
+    if (exactDate) {
+      const d = new Date(exactDate + 'T00:00:00');
+      const next = new Date(d);
+      next.setDate(next.getDate() + 1);
+      return { startDate: d.toISOString(), endDate: next.toISOString() };
+    }
+    return { startDate: subDays(new Date(), parseInt(period)).toISOString(), endDate: null as string | null };
+  })();
 
-  // Fetch condominiums for filter
+  // Fetch condominiums for filter (includes created_at to display "início da operação")
   const { data: condominiums } = useQuery({
     queryKey: ['sa-condominiums'],
     queryFn: async () => {
-      const { data } = await supabase.from('condominiums').select('id, name').order('name');
+      const { data } = await supabase.from('condominiums').select('id, name, created_at').order('name');
       return data || [];
     },
   });
