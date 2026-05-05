@@ -34,21 +34,26 @@ export default function SuperAdmin() {
   const navigate = useNavigate();
   const [period, setPeriod] = useState<Period>('30');
   const [condFilter, setCondFilter] = useState<string>('all');
-  const [exactDate, setExactDate] = useState<string>(''); // YYYY-MM-DD; when set overrides period
+  const [dateFrom, setDateFrom] = useState<string>(''); // YYYY-MM-DD
+  const [dateTo, setDateTo] = useState<string>('');     // YYYY-MM-DD
+  const customRangeActive = !!(dateFrom && dateTo);
 
   useEffect(() => {
     toast({ title: `Bem-vindo ao painel de controle, ${user?.user_metadata?.full_name || 'Admin'}!` });
   }, []);
 
-  // Date range: exact date (single day) overrides period
-  const { startDate, endDate } = (() => {
-    if (exactDate) {
-      const d = new Date(exactDate + 'T00:00:00');
-      const next = new Date(d);
-      next.setDate(next.getDate() + 1);
-      return { startDate: d.toISOString(), endDate: next.toISOString() };
+  // Date range: custom from/to overrides period when both filled
+  const { startDate, endDate, rangeDays } = (() => {
+    if (customRangeActive) {
+      const from = new Date(dateFrom + 'T00:00:00');
+      const to = new Date(dateTo + 'T00:00:00');
+      const toExclusive = new Date(to);
+      toExclusive.setDate(toExclusive.getDate() + 1);
+      const days = Math.max(1, Math.ceil((toExclusive.getTime() - from.getTime()) / 86400000));
+      return { startDate: from.toISOString(), endDate: toExclusive.toISOString(), rangeDays: days };
     }
-    return { startDate: subDays(new Date(), parseInt(period)).toISOString(), endDate: null as string | null };
+    const days = parseInt(period);
+    return { startDate: subDays(new Date(), days).toISOString(), endDate: null as string | null, rangeDays: days };
   })();
 
   // Fetch condominiums for filter (includes created_at to display "início da operação")
@@ -62,7 +67,7 @@ export default function SuperAdmin() {
 
   // Global metrics from system_logs
   const { data: logs, isLoading: logsLoading } = useQuery({
-    queryKey: ['sa-logs', period, condFilter, exactDate],
+    queryKey: ['sa-logs', period, condFilter, dateFrom, dateTo],
     queryFn: async () => {
       let q = supabase
         .from('system_logs')
@@ -117,7 +122,7 @@ export default function SuperAdmin() {
 
   // Error logs
   const { data: errorLogs, isLoading: errorsLoading } = useQuery({
-    queryKey: ['sa-errors', period, condFilter, exactDate],
+    queryKey: ['sa-errors', period, condFilter, dateFrom, dateTo],
     queryFn: async () => {
       let q = supabase
         .from('system_logs')
@@ -136,7 +141,7 @@ export default function SuperAdmin() {
 
   // User sessions
   const { data: sessions, isLoading: sessionsLoading } = useQuery({
-    queryKey: ['sa-sessions', period, condFilter, exactDate],
+    queryKey: ['sa-sessions', period, condFilter, dateFrom, dateTo],
     queryFn: async () => {
       let q = supabase
         .from('user_sessions')
@@ -238,10 +243,14 @@ export default function SuperAdmin() {
   const chartData = (() => {
     if (!logs) return [];
     const map: Record<string, { date: string; received: number; pickedUp: number }> = {};
-    if (exactDate) {
-      const d = new Date(exactDate + 'T00:00:00');
-      const key = format(d, 'yyyy-MM-dd');
-      map[key] = { date: format(d, 'dd/MM'), received: 0, pickedUp: 0 };
+    if (customRangeActive) {
+      const from = new Date(dateFrom + 'T00:00:00');
+      for (let i = 0; i < rangeDays; i++) {
+        const d = new Date(from);
+        d.setDate(from.getDate() + i);
+        const key = format(d, 'yyyy-MM-dd');
+        map[key] = { date: format(d, 'dd/MM'), received: 0, pickedUp: 0 };
+      }
     } else {
       const days = parseInt(period);
       for (let i = 0; i < days; i++) {
@@ -256,7 +265,8 @@ export default function SuperAdmin() {
         if (l.event_type === 'package_picked_up') map[d].pickedUp++;
       }
     });
-    return Object.values(map).reverse();
+    const arr = Object.values(map);
+    return customRangeActive ? arr : arr.reverse();
   })();
 
   const errorBadgeColor = (type: string) => {
@@ -290,24 +300,34 @@ export default function SuperAdmin() {
             <Button
               key={p}
               size="sm"
-              variant={!exactDate && period === p ? 'default' : 'outline'}
-              onClick={() => { setExactDate(''); setPeriod(p); }}
+              variant={!customRangeActive && period === p ? 'default' : 'outline'}
+              onClick={() => { setDateFrom(''); setDateTo(''); setPeriod(p); }}
             >
               {p === '1' ? 'Hoje' : `${p} dias`}
             </Button>
           ))}
-          <div className="flex items-center gap-1">
+          <div className={`flex items-center gap-1 px-2 py-1 rounded-md ${customRangeActive ? 'bg-primary/10 ring-1 ring-primary' : ''}`}>
             <CalendarDays className="w-4 h-4 text-muted-foreground" />
             <Input
               type="date"
-              value={exactDate}
-              max={format(new Date(), 'yyyy-MM-dd')}
-              onChange={(e) => setExactDate(e.target.value)}
-              className={`w-[160px] h-9 ${exactDate ? 'border-primary ring-1 ring-primary' : ''}`}
-              title="Filtrar por data exata"
+              value={dateFrom}
+              max={dateTo || format(new Date(), 'yyyy-MM-dd')}
+              onChange={(e) => setDateFrom(e.target.value)}
+              className="w-[150px] h-9"
+              title="Data inicial"
             />
-            {exactDate && (
-              <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => setExactDate('')} title="Limpar data">
+            <span className="text-muted-foreground text-sm">até</span>
+            <Input
+              type="date"
+              value={dateTo}
+              min={dateFrom || undefined}
+              max={format(new Date(), 'yyyy-MM-dd')}
+              onChange={(e) => setDateTo(e.target.value)}
+              className="w-[150px] h-9"
+              title="Data final"
+            />
+            {(dateFrom || dateTo) && (
+              <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => { setDateFrom(''); setDateTo(''); }} title="Limpar período">
                 <X className="w-4 h-4" />
               </Button>
             )}
@@ -430,7 +450,7 @@ export default function SuperAdmin() {
         <Card>
           <CardHeader>
             <CardTitle className="text-lg">Tendência de Encomendas</CardTitle>
-            <p className="text-xs text-muted-foreground">Período: {exactDate ? format(new Date(exactDate + 'T00:00:00'), "dd 'de' MMM yyyy", { locale: ptBR }) : (period === '1' ? 'Hoje' : `Últimos ${period} dias`)}{condFilter !== 'all' ? ` · ${getCondName(condFilter)}` : ''}</p>
+            <p className="text-xs text-muted-foreground">Período: {customRangeActive ? `${format(new Date(dateFrom + 'T00:00:00'), 'dd/MM/yyyy')} – ${format(new Date(dateTo + 'T00:00:00'), 'dd/MM/yyyy')}` : (period === '1' ? 'Hoje' : `Últimos ${period} dias`)}{condFilter !== 'all' ? ` · ${getCondName(condFilter)}` : ''}</p>
           </CardHeader>
           <CardContent>
             <div className="h-64">
@@ -455,7 +475,7 @@ export default function SuperAdmin() {
         <CardHeader>
           <CardTitle className="text-lg">Visão por Condomínio</CardTitle>
           <p className="text-xs text-muted-foreground">
-            Atividade no período: {exactDate ? format(new Date(exactDate + 'T00:00:00'), "dd 'de' MMM yyyy", { locale: ptBR }) : (period === '1' ? 'Hoje' : `Últimos ${period} dias`)} · Pendentes/Staff/Moradores são snapshot atual
+            Atividade no período: {customRangeActive ? `${format(new Date(dateFrom + 'T00:00:00'), 'dd/MM/yyyy')} – ${format(new Date(dateTo + 'T00:00:00'), 'dd/MM/yyyy')}` : (period === '1' ? 'Hoje' : `Últimos ${period} dias`)} · Pendentes/Staff/Moradores são snapshot atual
           </p>
         </CardHeader>
         <CardContent>
