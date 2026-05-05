@@ -34,21 +34,26 @@ export default function SuperAdmin() {
   const navigate = useNavigate();
   const [period, setPeriod] = useState<Period>('30');
   const [condFilter, setCondFilter] = useState<string>('all');
-  const [exactDate, setExactDate] = useState<string>(''); // YYYY-MM-DD; when set overrides period
+  const [dateFrom, setDateFrom] = useState<string>(''); // YYYY-MM-DD
+  const [dateTo, setDateTo] = useState<string>('');     // YYYY-MM-DD
+  const customRangeActive = !!(dateFrom && dateTo);
 
   useEffect(() => {
     toast({ title: `Bem-vindo ao painel de controle, ${user?.user_metadata?.full_name || 'Admin'}!` });
   }, []);
 
-  // Date range: exact date (single day) overrides period
-  const { startDate, endDate } = (() => {
-    if (exactDate) {
-      const d = new Date(exactDate + 'T00:00:00');
-      const next = new Date(d);
-      next.setDate(next.getDate() + 1);
-      return { startDate: d.toISOString(), endDate: next.toISOString() };
+  // Date range: custom from/to overrides period when both filled
+  const { startDate, endDate, rangeDays } = (() => {
+    if (customRangeActive) {
+      const from = new Date(dateFrom + 'T00:00:00');
+      const to = new Date(dateTo + 'T00:00:00');
+      const toExclusive = new Date(to);
+      toExclusive.setDate(toExclusive.getDate() + 1);
+      const days = Math.max(1, Math.ceil((toExclusive.getTime() - from.getTime()) / 86400000));
+      return { startDate: from.toISOString(), endDate: toExclusive.toISOString(), rangeDays: days };
     }
-    return { startDate: subDays(new Date(), parseInt(period)).toISOString(), endDate: null as string | null };
+    const days = parseInt(period);
+    return { startDate: subDays(new Date(), days).toISOString(), endDate: null as string | null, rangeDays: days };
   })();
 
   // Fetch condominiums for filter (includes created_at to display "início da operação")
