@@ -67,7 +67,7 @@ export default function SuperAdmin() {
 
   // Global metrics from system_logs
   const { data: logs, isLoading: logsLoading } = useQuery({
-    queryKey: ['sa-logs', period, condFilter, exactDate],
+    queryKey: ['sa-logs', period, condFilter, customRangeKey],
     queryFn: async () => {
       let q = supabase
         .from('system_logs')
@@ -122,7 +122,7 @@ export default function SuperAdmin() {
 
   // Error logs
   const { data: errorLogs, isLoading: errorsLoading } = useQuery({
-    queryKey: ['sa-errors', period, condFilter, exactDate],
+    queryKey: ['sa-errors', period, condFilter, customRangeKey],
     queryFn: async () => {
       let q = supabase
         .from('system_logs')
@@ -141,7 +141,7 @@ export default function SuperAdmin() {
 
   // User sessions
   const { data: sessions, isLoading: sessionsLoading } = useQuery({
-    queryKey: ['sa-sessions', period, condFilter, exactDate],
+    queryKey: ['sa-sessions', period, condFilter, customRangeKey],
     queryFn: async () => {
       let q = supabase
         .from('user_sessions')
@@ -243,8 +243,8 @@ export default function SuperAdmin() {
   const chartData = (() => {
     if (!logs) return [];
     const map: Record<string, { date: string; received: number; pickedUp: number }> = {};
-    if (exactDate) {
-      const d = new Date(exactDate + 'T00:00:00');
+    if (customRangeKey) {
+      const d = new Date(customRangeKey + 'T00:00:00');
       const key = format(d, 'yyyy-MM-dd');
       map[key] = { date: format(d, 'dd/MM'), received: 0, pickedUp: 0 };
     } else {
@@ -295,7 +295,7 @@ export default function SuperAdmin() {
             <Button
               key={p}
               size="sm"
-              variant={!exactDate && period === p ? 'default' : 'outline'}
+              variant={!customRangeKey && period === p ? 'default' : 'outline'}
               onClick={() => { setExactDate(''); setPeriod(p); }}
             >
               {p === '1' ? 'Hoje' : `${p} dias`}
@@ -305,13 +305,13 @@ export default function SuperAdmin() {
             <CalendarDays className="w-4 h-4 text-muted-foreground" />
             <Input
               type="date"
-              value={exactDate}
+              value={customRangeKey}
               max={format(new Date(), 'yyyy-MM-dd')}
               onChange={(e) => setExactDate(e.target.value)}
-              className={`w-[160px] h-9 ${exactDate ? 'border-primary ring-1 ring-primary' : ''}`}
+              className={`w-[160px] h-9 ${customRangeKey ? 'border-primary ring-1 ring-primary' : ''}`}
               title="Filtrar por data exata"
             />
-            {exactDate && (
+            {customRangeKey && (
               <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => setExactDate('')} title="Limpar data">
                 <X className="w-4 h-4" />
               </Button>
@@ -435,7 +435,7 @@ export default function SuperAdmin() {
         <Card>
           <CardHeader>
             <CardTitle className="text-lg">Tendência de Encomendas</CardTitle>
-            <p className="text-xs text-muted-foreground">Período: {exactDate ? format(new Date(exactDate + 'T00:00:00'), "dd 'de' MMM yyyy", { locale: ptBR }) : (period === '1' ? 'Hoje' : `Últimos ${period} dias`)}{condFilter !== 'all' ? ` · ${getCondName(condFilter)}` : ''}</p>
+            <p className="text-xs text-muted-foreground">Período: {customRangeKey ? format(new Date(customRangeKey + 'T00:00:00'), "dd 'de' MMM yyyy", { locale: ptBR }) : (period === '1' ? 'Hoje' : `Últimos ${period} dias`)}{condFilter !== 'all' ? ` · ${getCondName(condFilter)}` : ''}</p>
           </CardHeader>
           <CardContent>
             <div className="h-64">
@@ -460,7 +460,7 @@ export default function SuperAdmin() {
         <CardHeader>
           <CardTitle className="text-lg">Visão por Condomínio</CardTitle>
           <p className="text-xs text-muted-foreground">
-            Atividade no período: {exactDate ? format(new Date(exactDate + 'T00:00:00'), "dd 'de' MMM yyyy", { locale: ptBR }) : (period === '1' ? 'Hoje' : `Últimos ${period} dias`)} · Pendentes/Staff/Moradores são snapshot atual
+            Atividade no período: {customRangeKey ? format(new Date(customRangeKey + 'T00:00:00'), "dd 'de' MMM yyyy", { locale: ptBR }) : (period === '1' ? 'Hoje' : `Últimos ${period} dias`)} · Pendentes/Staff/Moradores são snapshot atual
           </p>
         </CardHeader>
         <CardContent>
