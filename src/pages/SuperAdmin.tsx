@@ -65,18 +65,31 @@ export default function SuperAdmin() {
     },
   });
 
-  // Global metrics from system_logs
+  // Global metrics from system_logs (paginated to bypass PostgREST 1000-row cap)
   const { data: logs, isLoading: logsLoading } = useQuery({
     queryKey: ['sa-logs', period, condFilter, dateFrom, dateTo],
     queryFn: async () => {
-      let q = supabase
-        .from('system_logs')
-        .select('event_type, condominium_id, created_at')
-        .gte('created_at', startDate);
-      if (endDate) q = q.lt('created_at', endDate);
-      if (condFilter !== 'all') q = q.eq('condominium_id', condFilter);
-      const { data } = await q;
-      return data || [];
+      const PAGE = 1000;
+      let from = 0;
+      const all: any[] = [];
+      // eslint-disable-next-line no-constant-condition
+      while (true) {
+        let q = supabase
+          .from('system_logs')
+          .select('event_type, condominium_id, created_at')
+          .gte('created_at', startDate)
+          .order('created_at', { ascending: false })
+          .range(from, from + PAGE - 1);
+        if (endDate) q = q.lt('created_at', endDate);
+        if (condFilter !== 'all') q = q.eq('condominium_id', condFilter);
+        const { data, error } = await q;
+        if (error || !data) break;
+        all.push(...data);
+        if (data.length < PAGE) break;
+        from += PAGE;
+        if (from > 50000) break; // safety
+      }
+      return all;
     },
     refetchInterval: 60000,
   });
