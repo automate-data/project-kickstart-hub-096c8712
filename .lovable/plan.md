@@ -1,39 +1,44 @@
-# Recalibrar a área de assinatura
 
-## Objetivo
-Corrigir o desalinhamento progressivo entre a ponta da caneta e o traço desenhado em `SignatureCanvas`, garantindo precisão consistente em qualquer dispositivo, DPR, zoom ou momento da animação do Dialog.
+# Corrigir risco vertical fantasma na assinatura
 
-## Mudanças (apenas em `src/components/SignatureCanvas.tsx`)
+## Causa confirmada
+O botão **"Limpar"** só é renderizado depois do primeiro pixel desenhado (`{hasDrawn && <Button…>}`). Quando ele aparece:
 
-### 1. Usar o `devicePixelRatio` real
-Substituir o fator fixo `2` por `window.devicePixelRatio || 1` ao dimensionar o buffer e ao aplicar `ctx.scale`. Isso elimina o offset em telas com DPR ≠ 2 e quando o usuário dá zoom no navegador.
+1. O container ganha altura → layout shift empurra o canvas para cima.
+2. O `ResizeObserver` do canvas dispara `setupCanvas()` **no meio do traço**.
+3. `setupCanvas` faz `canvas.width = …` + `ctx.setTransform` + `ctx.scale`, o que **reseta o subpath atual** (o `beginPath`/`moveTo` do `pointerdown` é perdido).
+4. O próximo `lineTo(x, y)` do `pointermove` desenha uma linha do canto (0,0) até a posição atual da caneta → **risco vertical/diagonal fantasma**.
 
-### 2. Recalcular o buffer dinamicamente com `ResizeObserver`
-Encapsular a inicialização do canvas (medir `getBoundingClientRect`, ajustar `canvas.width/height`, `ctx.scale`, estilos de stroke) em uma função `setupCanvas()`. Chamá-la:
-- No mount.
-- Sempre que o `ResizeObserver` detectar mudança de tamanho do canvas (cobre fim da animação do Dialog, rotação, abertura do teclado, mudança de zoom, fontes carregando).
+## Mudanças (somente em `src/components/SignatureCanvas.tsx`)
 
-Quando o tamanho mudar **depois** que o usuário já desenhou, preservar o conteúdo: salvar `toDataURL()` antes do resize e re-desenhar via `drawImage` no novo buffer. Se ainda estiver vazio, apenas reconfigurar.
+### 1. Reservar o espaço do botão "Limpar" desde o mount
+Renderizar o botão sempre, alternando apenas `visibility`/`pointer-events` enquanto `!hasDrawn`. Sem layout shift → sem ResizeObserver disparando durante o traço.
 
-### 3. Bloquear gestos do navegador na área de assinatura
-Trocar `touch-action-manipulation` por `touch-none` (Tailwind) na `<canvas>`. Impede pinch-zoom e double-tap-zoom acidentais, que são a causa mais comum de "descalibração persistente" durante uma sessão.
+```tsx
+<Button
+  variant="ghost" size="sm" onClick={handleClear}
+  className={`gap-1 ${hasDrawn ? '' : 'invisible pointer-events-none'}`}
+>
+  <Eraser className="w-3 h-3" /> Limpar
+</Button>
+```
 
-### 4. Migrar para Pointer Events
-Substituir handlers `onMouseDown/Move/Up` e `onTouchStart/Move/End` por `onPointerDown/Move/Up/Cancel/Leave`. Vantagens:
-- Coordenadas unificadas para mouse, dedo e caneta.
-- `setPointerCapture` no `pointerdown` garante que o `pointermove`/`up` continue chegando mesmo se o ponteiro sair da área (evita traços "presos").
-- Filtragem opcional por `pointerType` ('pen', 'touch', 'mouse').
+### 2. Não reconfigurar o canvas enquanto o usuário desenha
+Em `setupCanvas()`, se `isDrawing.current === true`, sair imediatamente e marcar `pendingResize = true`. No `handlePointerUp`, se `pendingResize`, chamar `setupCanvas()` uma vez. Defesa em profundidade caso outro layout shift apareça no futuro.
 
-### 5. Cálculo de posição mais robusto
-Em `getPos`, usar sempre `e.clientX/Y - rect.left/top`. Não multiplicar por DPR (o `ctx.scale(dpr, dpr)` já cuida disso). Garantir que `rect` é lido a cada evento (não cachear), pois o Dialog pode ter se reposicionado.
+### 3. Remover listeners de `window resize` / `orientationchange`
+O `ResizeObserver` no próprio canvas já cobre mudanças reais de tamanho. Os eventos de `window` geram falsos positivos no mobile (barra de URL aparecendo/sumindo ao tocar a tela) que reiniciariam o path.
 
-### 6. Verificação manual após o fix
-Testar no preview mobile e em um device real:
-- Assinar logo após abrir o Dialog (cobre a animação).
-- Rotacionar o device com o Dialog aberto e assinar de novo.
-- Aplicar zoom de pinça fora do canvas e tentar assinar.
-- Repetir 5 assinaturas seguidas em diferentes Dialogs (`PickupDialog`, `TransferDialog`) sem recarregar a página.
+### 4. Reiniciar o path após qualquer `setupCanvas`
+Depois de `ctx.scale(dpr,dpr)` + `applyStrokeStyle`, chamar `ctx.beginPath()` para não deixar subpath pendurado.
+
+### 5. Descartar segmentos "impossíveis" como defesa final
+No `handlePointerMove`, se a distância entre `(lastX,lastY)` e `(x,y)` for maior que ~80% da menor dimensão do canvas em um único frame, ignorar o segmento (fazer só `moveTo`). Garante que mesmo um glitch residual não vire um risco enorme.
+
+## Verificação
+- Abrir `PickupDialog` / `TowerCollect` no mobile, dar um toque curtíssimo (2–3 px). Nenhum risco vertical do topo deve aparecer.
+- Repetir 10 assinaturas seguidas: o botão "Limpar" não causa layout shift visível, e o traço se preserva ao rotacionar o device.
 
 ## Fora de escopo
-- Não mexer em `PickupDialog.tsx` nem `CustodyDialogs.tsx` — só consomem o componente via ref, a API pública (`isEmpty`, `getSignatureData`, `clear`) continua igual.
-- Não trocar por bibliotecas externas (`signature_pad` etc.) nesta iteração; as correções acima resolvem a causa raiz com mudanças mínimas.
+- Não mexer em `PickupDialog`, `CustodyDialogs`, `TowerCollect`.
+- Não trocar por biblioteca externa.

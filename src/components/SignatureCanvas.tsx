@@ -18,6 +18,8 @@ export const SignatureCanvas = forwardRef<SignatureCanvasRef, SignatureCanvasPro
     const isDrawing = useRef(false);
     const activePointerId = useRef<number | null>(null);
     const hasDrawnRef = useRef(false);
+    const pendingResize = useRef(false);
+    const lastPos = useRef<{ x: number; y: number } | null>(null);
     const [hasDrawn, setHasDrawn] = useState(false);
 
     const markDrawn = useCallback(() => {
@@ -36,10 +38,17 @@ export const SignatureCanvas = forwardRef<SignatureCanvasRef, SignatureCanvasPro
     };
 
     // (Re)configure the canvas backing buffer to match its current CSS size and DPR.
-    // Preserves any existing drawing across resizes (animation finishing, rotation, zoom...).
+    // NEVER runs while the user is drawing — that would reset the active path and
+    // produce a phantom line from (0,0) to the pointer position.
     const setupCanvas = useCallback(() => {
       const canvas = canvasRef.current;
       if (!canvas) return;
+
+      if (isDrawing.current) {
+        pendingResize.current = true;
+        return;
+      }
+
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
 
@@ -50,10 +59,8 @@ export const SignatureCanvas = forwardRef<SignatureCanvasRef, SignatureCanvasPro
       const targetW = Math.round(rect.width * dpr);
       const targetH = Math.round(rect.height * dpr);
 
-      // Skip if nothing changed (avoids wiping the canvas on no-op observer ticks).
       if (canvas.width === targetW && canvas.height === targetH) return;
 
-      // Snapshot current drawing if any, so resizing doesn't erase the signature.
       let snapshot: HTMLImageElement | null = null;
       if (hasDrawnRef.current) {
         try {
@@ -70,6 +77,7 @@ export const SignatureCanvas = forwardRef<SignatureCanvasRef, SignatureCanvasPro
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.scale(dpr, dpr);
       applyStrokeStyle(ctx);
+      ctx.beginPath();
 
       if (snapshot) {
         const draw = () => ctx.drawImage(snapshot!, 0, 0, rect.width, rect.height);
@@ -94,8 +102,10 @@ export const SignatureCanvas = forwardRef<SignatureCanvasRef, SignatureCanvasPro
           const dpr = window.devicePixelRatio || 1;
           ctx.scale(dpr, dpr);
           applyStrokeStyle(ctx);
+          ctx.beginPath();
         }
         hasDrawnRef.current = false;
+        lastPos.current = null;
         setHasDrawn(false);
         onSignatureChange?.(false);
       },
@@ -110,14 +120,8 @@ export const SignatureCanvas = forwardRef<SignatureCanvasRef, SignatureCanvasPro
       const ro = new ResizeObserver(() => setupCanvas());
       ro.observe(canvas);
 
-      const onWindowChange = () => setupCanvas();
-      window.addEventListener('resize', onWindowChange);
-      window.addEventListener('orientationchange', onWindowChange);
-
       return () => {
         ro.disconnect();
-        window.removeEventListener('resize', onWindowChange);
-        window.removeEventListener('orientationchange', onWindowChange);
       };
     }, [setupCanvas]);
 
@@ -132,7 +136,6 @@ export const SignatureCanvas = forwardRef<SignatureCanvasRef, SignatureCanvasPro
     };
 
     const handlePointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
-      // Only primary button for mouse; allow all touch/pen input.
       if (e.pointerType === 'mouse' && e.button !== 0) return;
       e.preventDefault();
       const canvas = canvasRef.current;
@@ -148,9 +151,9 @@ export const SignatureCanvas = forwardRef<SignatureCanvasRef, SignatureCanvasPro
       isDrawing.current = true;
 
       const pos = getPos(e);
+      lastPos.current = pos;
       ctx.beginPath();
       ctx.moveTo(pos.x, pos.y);
-      // Draw a tiny dot so a quick tap leaves a visible mark.
       ctx.lineTo(pos.x + 0.01, pos.y + 0.01);
       ctx.stroke();
     };
@@ -159,11 +162,29 @@ export const SignatureCanvas = forwardRef<SignatureCanvasRef, SignatureCanvasPro
       if (!isDrawing.current) return;
       if (activePointerId.current !== null && e.pointerId !== activePointerId.current) return;
       e.preventDefault();
-      const ctx = canvasRef.current?.getContext('2d');
-      if (!ctx) return;
+      const canvas = canvasRef.current;
+      const ctx = canvas?.getContext('2d');
+      if (!ctx || !canvas) return;
       const pos = getPos(e);
+
+      // Defense-in-depth: discard impossibly long single-frame segments
+      // (these indicate the path state was reset mid-stroke).
+      if (lastPos.current) {
+        const rect = canvas.getBoundingClientRect();
+        const maxJump = Math.min(rect.width, rect.height) * 0.8;
+        const dx = pos.x - lastPos.current.x;
+        const dy = pos.y - lastPos.current.y;
+        if (Math.hypot(dx, dy) > maxJump) {
+          ctx.beginPath();
+          ctx.moveTo(pos.x, pos.y);
+          lastPos.current = pos;
+          return;
+        }
+      }
+
       ctx.lineTo(pos.x, pos.y);
       ctx.stroke();
+      lastPos.current = pos;
       markDrawn();
     };
 
@@ -171,6 +192,7 @@ export const SignatureCanvas = forwardRef<SignatureCanvasRef, SignatureCanvasPro
       if (activePointerId.current !== null && e.pointerId !== activePointerId.current) return;
       isDrawing.current = false;
       activePointerId.current = null;
+      lastPos.current = null;
       const canvas = canvasRef.current;
       if (canvas) {
         try {
@@ -179,8 +201,12 @@ export const SignatureCanvas = forwardRef<SignatureCanvasRef, SignatureCanvasPro
           /* no-op */
         }
       }
-      // A tap (down → up without move) should still count as a signature mark.
       markDrawn();
+
+      if (pendingResize.current) {
+        pendingResize.current = false;
+        setupCanvas();
+      }
     };
 
     const handleClear = () => {
@@ -193,8 +219,10 @@ export const SignatureCanvas = forwardRef<SignatureCanvasRef, SignatureCanvasPro
         const dpr = window.devicePixelRatio || 1;
         ctx.scale(dpr, dpr);
         applyStrokeStyle(ctx);
+        ctx.beginPath();
       }
       hasDrawnRef.current = false;
+      lastPos.current = null;
       setHasDrawn(false);
       onSignatureChange?.(false);
     };
@@ -209,19 +237,21 @@ export const SignatureCanvas = forwardRef<SignatureCanvasRef, SignatureCanvasPro
             onPointerMove={handlePointerMove}
             onPointerUp={handlePointerUp}
             onPointerCancel={handlePointerUp}
-            onPointerLeave={(e) => {
-              // Don't end the stroke just because the pointer left the box —
-              // pointer capture keeps move/up flowing. Only end if not captured.
-              if (activePointerId.current === null) return;
-            }}
           />
         </div>
-        {hasDrawn && (
-          <Button variant="ghost" size="sm" onClick={handleClear} className="gap-1">
-            <Eraser className="w-3 h-3" />
-            Limpar
-          </Button>
-        )}
+        {/* Always render to reserve layout space — avoids layout shift that would
+            trigger ResizeObserver mid-stroke and produce phantom lines. */}
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={handleClear}
+          className={`gap-1 ${hasDrawn ? '' : 'invisible pointer-events-none'}`}
+          aria-hidden={!hasDrawn}
+          tabIndex={hasDrawn ? 0 : -1}
+        >
+          <Eraser className="w-3 h-3" />
+          Limpar
+        </Button>
       </div>
     );
   }
