@@ -20,7 +20,13 @@ export const SignatureCanvas = forwardRef<SignatureCanvasRef, SignatureCanvasPro
     const hasDrawnRef = useRef(false);
     const pendingResize = useRef(false);
     const lastPos = useRef<{ x: number; y: number } | null>(null);
+    const prevPos = useRef<{ x: number; y: number } | null>(null);
     const [hasDrawn, setHasDrawn] = useState(false);
+
+    const midpoint = (a: { x: number; y: number }, b: { x: number; y: number }) => ({
+      x: (a.x + b.x) / 2,
+      y: (a.y + b.y) / 2,
+    });
 
     const markDrawn = useCallback(() => {
       if (!hasDrawnRef.current) {
@@ -106,6 +112,7 @@ export const SignatureCanvas = forwardRef<SignatureCanvasRef, SignatureCanvasPro
         }
         hasDrawnRef.current = false;
         lastPos.current = null;
+        prevPos.current = null;
         setHasDrawn(false);
         onSignatureChange?.(false);
       },
@@ -125,7 +132,7 @@ export const SignatureCanvas = forwardRef<SignatureCanvasRef, SignatureCanvasPro
       };
     }, [setupCanvas]);
 
-    const getPos = (e: React.PointerEvent) => {
+    const getPosFromEvent = (e: { clientX: number; clientY: number }) => {
       const canvas = canvasRef.current;
       if (!canvas) return { x: 0, y: 0 };
       const rect = canvas.getBoundingClientRect();
@@ -150,12 +157,16 @@ export const SignatureCanvas = forwardRef<SignatureCanvasRef, SignatureCanvasPro
       activePointerId.current = e.pointerId;
       isDrawing.current = true;
 
-      const pos = getPos(e);
+      const pos = getPosFromEvent(e);
       lastPos.current = pos;
+      prevPos.current = pos;
       ctx.beginPath();
       ctx.moveTo(pos.x, pos.y);
+      // tiny dot so a single tap still leaves a mark
       ctx.lineTo(pos.x + 0.01, pos.y + 0.01);
       ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(pos.x, pos.y);
     };
 
     const handlePointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
@@ -165,35 +176,77 @@ export const SignatureCanvas = forwardRef<SignatureCanvasRef, SignatureCanvasPro
       const canvas = canvasRef.current;
       const ctx = canvas?.getContext('2d');
       if (!ctx || !canvas) return;
-      const pos = getPos(e);
 
-      // Defense-in-depth: discard impossibly long single-frame segments
-      // (these indicate the path state was reset mid-stroke).
-      if (lastPos.current) {
-        const rect = canvas.getBoundingClientRect();
-        const maxJump = Math.min(rect.width, rect.height) * 0.8;
-        const dx = pos.x - lastPos.current.x;
-        const dy = pos.y - lastPos.current.y;
-        if (Math.hypot(dx, dy) > maxJump) {
-          ctx.beginPath();
-          ctx.moveTo(pos.x, pos.y);
-          lastPos.current = pos;
-          return;
+      const rect = canvas.getBoundingClientRect();
+      const maxJump = Math.min(rect.width, rect.height) * 0.8;
+
+      // Use coalesced events for high-frequency stylus input (120–240Hz).
+      // Falls back to the single event when unsupported.
+      const native = e.nativeEvent as PointerEvent;
+      const samples: Array<{ clientX: number; clientY: number }> =
+        typeof native.getCoalescedEvents === 'function'
+          ? (native.getCoalescedEvents() as PointerEvent[])
+          : [native];
+      if (samples.length === 0) samples.push(native);
+
+      for (const sample of samples) {
+        const pos = getPosFromEvent(sample);
+
+        // Defense-in-depth: discard impossibly long single-frame segments
+        // (these indicate the path state was reset mid-stroke).
+        if (lastPos.current) {
+          const dx = pos.x - lastPos.current.x;
+          const dy = pos.y - lastPos.current.y;
+          if (Math.hypot(dx, dy) > maxJump) {
+            ctx.beginPath();
+            ctx.moveTo(pos.x, pos.y);
+            lastPos.current = pos;
+            prevPos.current = pos;
+            continue;
+          }
         }
+
+        const last = lastPos.current;
+        const prev = prevPos.current;
+        if (last && prev) {
+          // Quadratic curve: from midpoint(prev,last) through last (control)
+          // to midpoint(last,pos). Yields a smooth, signature-pad-style stroke.
+          const cpStart = midpoint(prev, last);
+          const cpEnd = midpoint(last, pos);
+          ctx.beginPath();
+          ctx.moveTo(cpStart.x, cpStart.y);
+          ctx.quadraticCurveTo(last.x, last.y, cpEnd.x, cpEnd.y);
+          ctx.stroke();
+        }
+
+        prevPos.current = last;
+        lastPos.current = pos;
       }
 
-      ctx.lineTo(pos.x, pos.y);
-      ctx.stroke();
-      lastPos.current = pos;
       markDrawn();
     };
 
     const handlePointerUp = (e: React.PointerEvent<HTMLCanvasElement>) => {
       if (activePointerId.current !== null && e.pointerId !== activePointerId.current) return;
+
+      // Close the stroke: draw from the last midpoint to the final point
+      // so the tail isn't cut short.
+      const canvas = canvasRef.current;
+      const ctx = canvas?.getContext('2d');
+      const last = lastPos.current;
+      const prev = prevPos.current;
+      if (ctx && last && prev && (last.x !== prev.x || last.y !== prev.y)) {
+        const cpStart = midpoint(prev, last);
+        ctx.beginPath();
+        ctx.moveTo(cpStart.x, cpStart.y);
+        ctx.lineTo(last.x, last.y);
+        ctx.stroke();
+      }
+
       isDrawing.current = false;
       activePointerId.current = null;
       lastPos.current = null;
-      const canvas = canvasRef.current;
+      prevPos.current = null;
       if (canvas) {
         try {
           canvas.releasePointerCapture(e.pointerId);
@@ -223,6 +276,7 @@ export const SignatureCanvas = forwardRef<SignatureCanvasRef, SignatureCanvasPro
       }
       hasDrawnRef.current = false;
       lastPos.current = null;
+      prevPos.current = null;
       setHasDrawn(false);
       onSignatureChange?.(false);
     };

@@ -1,44 +1,58 @@
+# Suavização da assinatura: coalesced events + curva quadrática
 
-# Corrigir risco vertical fantasma na assinatura
+## Objetivo
+Tornar o traço da caneta visivelmente mais suave e fiel ao movimento, especialmente em:
+- Movimentos rápidos (hoje perdem pontos → traço com cantos).
+- Movimentos lentos (hoje aparece serrilhado pixel-a-pixel).
 
-## Causa confirmada
-O botão **"Limpar"** só é renderizado depois do primeiro pixel desenhado (`{hasDrawn && <Button…>}`). Quando ele aparece:
+Sem alterar layout, sem dependências novas, sem mexer em `PickupDialog`/`TowerCollect`/`CustodyDialogs`.
 
-1. O container ganha altura → layout shift empurra o canvas para cima.
-2. O `ResizeObserver` do canvas dispara `setupCanvas()` **no meio do traço**.
-3. `setupCanvas` faz `canvas.width = …` + `ctx.setTransform` + `ctx.scale`, o que **reseta o subpath atual** (o `beginPath`/`moveTo` do `pointerdown` é perdido).
-4. O próximo `lineTo(x, y)` do `pointermove` desenha uma linha do canto (0,0) até a posição atual da caneta → **risco vertical/diagonal fantasma**.
+## Arquivo afetado
+Apenas `src/components/SignatureCanvas.tsx`.
 
-## Mudanças (somente em `src/components/SignatureCanvas.tsx`)
+## Mudanças
 
-### 1. Reservar o espaço do botão "Limpar" desde o mount
-Renderizar o botão sempre, alternando apenas `visibility`/`pointer-events` enquanto `!hasDrawn`. Sem layout shift → sem ResizeObserver disparando durante o traço.
+### 1. Coalesced events no `pointermove`
+Pointer events nativos entregam 1 evento por frame mesmo quando a caneta amostra a 120–240Hz. Os pontos intermediários ficam dentro de `event.getCoalescedEvents()`.
 
-```tsx
-<Button
-  variant="ghost" size="sm" onClick={handleClear}
-  className={`gap-1 ${hasDrawn ? '' : 'invisible pointer-events-none'}`}
->
-  <Eraser className="w-3 h-3" /> Limpar
-</Button>
+- Em `handlePointerMove`, em vez de processar só `e`, iterar sobre `e.nativeEvent.getCoalescedEvents()` (fallback para `[e.nativeEvent]` quando indisponível).
+- Cada amostra coalesced passa pela mesma lógica de validação (descarte de salto impossível) e alimenta o buffer de pontos.
+
+Resultado: traço rápido deixa de ter "cantos" porque desenhamos todos os pontos que a caneta capturou.
+
+### 2. Suavização com `quadraticCurveTo`
+Trocar `lineTo(x,y)` por uma curva quadrática que usa o ponto médio entre amostras consecutivas como ponto de controle. Algoritmo padrão para signature pads:
+
+```text
+ponto anterior: P0
+ponto atual:    P1
+ponto novo:     P2
+ctx.quadraticCurveTo(P1.x, P1.y, midpoint(P1,P2).x, midpoint(P1,P2).y)
 ```
 
-### 2. Não reconfigurar o canvas enquanto o usuário desenha
-Em `setupCanvas()`, se `isDrawing.current === true`, sair imediatamente e marcar `pendingResize = true`. No `handlePointerUp`, se `pendingResize`, chamar `setupCanvas()` uma vez. Defesa em profundidade caso outro layout shift apareça no futuro.
+- Manter `lastPos` + um `prevPos` (penúltimo ponto) no ref.
+- No `pointerdown`: `moveTo(p)` e gravar `lastPos = prevPos = p`.
+- A cada amostra coalesced no `pointermove`: desenhar curva entre meio(prev,last) → last (controle) → meio(last,novo); shift dos pontos.
+- No `pointerup`: fechar com um `lineTo` no último ponto para não cortar o final do traço.
 
-### 3. Remover listeners de `window resize` / `orientationchange`
-O `ResizeObserver` no próprio canvas já cobre mudanças reais de tamanho. Os eventos de `window` geram falsos positivos no mobile (barra de URL aparecendo/sumindo ao tocar a tela) que reiniciariam o path.
+Resultado: traço lento deixa de ser serrilhado; finais e curvas ficam orgânicos.
 
-### 4. Reiniciar o path após qualquer `setupCanvas`
-Depois de `ctx.scale(dpr,dpr)` + `applyStrokeStyle`, chamar `ctx.beginPath()` para não deixar subpath pendurado.
+### 3. Preservar defesas existentes
+- Validação de "salto impossível" (>80% da menor dimensão em 1 frame) continua, aplicada por amostra coalesced. Se disparar, reinicia o subpath com `moveTo` e zera `prevPos`/`lastPos`.
+- `setupCanvas` bloqueado durante `isDrawing` permanece.
+- Botão "Limpar" continua sempre renderizado (sem layout shift).
+- `markDrawn()` chamado uma vez por `pointermove` (não por amostra coalesced) para não thrashar React state.
 
-### 5. Descartar segmentos "impossíveis" como defesa final
-No `handlePointerMove`, se a distância entre `(lastX,lastY)` e `(x,y)` for maior que ~80% da menor dimensão do canvas em um único frame, ignorar o segmento (fazer só `moveTo`). Garante que mesmo um glitch residual não vire um risco enorme.
+### 4. Sem rAF
+Decidido na conversa anterior: rAF adicionaria 1 frame de latência sem ganho perceptível neste cenário. O ganho de performance vem de fazer menos `stroke()` síncronos? Não — fazemos um `stroke()` ao final do batch de coalesced events em vez de um por amostra, o que já reduz custo de paint sem precisar de rAF.
+
+## Não incluso
+- Pressão variável (`e.pressure` → `lineWidth`): fica para um próximo passo se quiser.
+- Troca por biblioteca externa (signature_pad, perfect-freehand): fora de escopo.
+- Mudanças em qualquer dialog/página que usa `SignatureCanvas`.
 
 ## Verificação
-- Abrir `PickupDialog` / `TowerCollect` no mobile, dar um toque curtíssimo (2–3 px). Nenhum risco vertical do topo deve aparecer.
-- Repetir 10 assinaturas seguidas: o botão "Limpar" não causa layout shift visível, e o traço se preserva ao rotacionar o device.
-
-## Fora de escopo
-- Não mexer em `PickupDialog`, `CustodyDialogs`, `TowerCollect`.
-- Não trocar por biblioteca externa.
+1. Assinar rápido em mobile com caneta capacitiva: traço não deve mais mostrar segmentos retos "cortando" curvas.
+2. Assinar lentamente: linha contínua, sem serrilhado pixel-a-pixel.
+3. Toque curtíssimo (2–3 px): apenas um ponto/pequeno traço, sem risco fantasma vertical (defesa antiga preservada).
+4. 10 assinaturas seguidas no `PickupDialog` e `TowerCollect`: comportamento estável, sem regressão de layout.
