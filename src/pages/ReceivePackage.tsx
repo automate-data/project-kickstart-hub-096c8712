@@ -264,6 +264,14 @@ export default function ReceivePackage() {
 
   const handleSubmit = async () => {
     if (!photoFile || !user) return;
+    if (!selectedResident) {
+      toast({
+        title: 'Selecione o morador',
+        description: 'É necessário vincular a encomenda a um morador cadastrado.',
+        variant: 'destructive',
+      });
+      return;
+    }
     setIsSaving(true);
 
     try {
