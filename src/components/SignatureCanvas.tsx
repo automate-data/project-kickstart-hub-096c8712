@@ -276,6 +276,7 @@ export const SignatureCanvas = forwardRef<SignatureCanvasRef, SignatureCanvasPro
       }
       hasDrawnRef.current = false;
       lastPos.current = null;
+      prevPos.current = null;
       setHasDrawn(false);
       onSignatureChange?.(false);
     };
