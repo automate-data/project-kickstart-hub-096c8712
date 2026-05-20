@@ -604,7 +604,7 @@ export default function ReceivePackage() {
           </div>
 
           <div className="fixed bottom-20 left-0 right-0 p-4 bg-gradient-to-t from-background via-background to-transparent md:relative md:bottom-auto md:p-0 md:bg-transparent">
-            <Button onClick={handleSubmit} className="w-full h-14 text-lg" disabled={isSaving}>
+            <Button onClick={handleSubmit} className="w-full h-14 text-lg" disabled={isSaving || !selectedResident}>
               {isSaving ? (
                 <Loader2 className="w-5 h-5 animate-spin" />
               ) : (
