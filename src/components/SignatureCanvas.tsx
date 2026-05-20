@@ -20,7 +20,13 @@ export const SignatureCanvas = forwardRef<SignatureCanvasRef, SignatureCanvasPro
     const hasDrawnRef = useRef(false);
     const pendingResize = useRef(false);
     const lastPos = useRef<{ x: number; y: number } | null>(null);
+    const prevPos = useRef<{ x: number; y: number } | null>(null);
     const [hasDrawn, setHasDrawn] = useState(false);
+
+    const midpoint = (a: { x: number; y: number }, b: { x: number; y: number }) => ({
+      x: (a.x + b.x) / 2,
+      y: (a.y + b.y) / 2,
+    });
 
     const markDrawn = useCallback(() => {
       if (!hasDrawnRef.current) {
