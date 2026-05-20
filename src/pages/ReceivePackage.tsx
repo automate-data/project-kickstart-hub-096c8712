@@ -264,6 +264,14 @@ export default function ReceivePackage() {
 
   const handleSubmit = async () => {
     if (!photoFile || !user) return;
+    if (!selectedResident) {
+      toast({
+        title: 'Selecione o morador',
+        description: 'É necessário vincular a encomenda a um morador cadastrado.',
+        variant: 'destructive',
+      });
+      return;
+    }
     setIsSaving(true);
 
     try {
@@ -519,7 +527,7 @@ export default function ReceivePackage() {
             <Label>Morador</Label>
             <Popover open={residentSearchOpen} onOpenChange={setResidentSearchOpen}>
               <PopoverTrigger asChild>
-                <Button variant="outline" role="combobox" className="w-full justify-between h-12 text-left font-normal">
+                <Button variant="outline" role="combobox" className={`w-full justify-between h-12 text-left font-normal ${!selectedResident ? 'border-destructive/50' : ''}`}>
                   {selectedResident ? (
                     <span className="truncate">{selectedResident.full_name} - {selectedResident.block}/{selectedResident.apartment}</span>
                   ) : (
@@ -560,6 +568,16 @@ export default function ReceivePackage() {
             </Popover>
           </div>
 
+          {!selectedResident && (
+            <div className="flex items-start gap-3 p-4 rounded-lg border border-destructive/50 bg-destructive/10 text-destructive">
+              <Search className="w-5 h-5 mt-0.5 flex-shrink-0" />
+              <div>
+                <p className="font-medium text-sm">Selecione o morador para confirmar o recebimento</p>
+                <p className="text-xs mt-1 text-destructive/80">Se o destinatário não estiver cadastrado, cadastre-o em Moradores antes de continuar.</p>
+              </div>
+            </div>
+          )}
+
           {selectedResident && selectedResident.whatsapp_enabled === false && (
             <div className="flex items-start gap-3 p-4 rounded-lg border border-destructive/50 bg-destructive/10 text-destructive">
               <MessageSquare className="w-5 h-5 mt-0.5 flex-shrink-0" />
@@ -586,7 +604,7 @@ export default function ReceivePackage() {
           </div>
 
           <div className="fixed bottom-20 left-0 right-0 p-4 bg-gradient-to-t from-background via-background to-transparent md:relative md:bottom-auto md:p-0 md:bg-transparent">
-            <Button onClick={handleSubmit} className="w-full h-14 text-lg" disabled={isSaving}>
+            <Button onClick={handleSubmit} className="w-full h-14 text-lg" disabled={isSaving || !selectedResident}>
               {isSaving ? (
                 <Loader2 className="w-5 h-5 animate-spin" />
               ) : (
