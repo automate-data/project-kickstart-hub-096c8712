@@ -527,7 +527,7 @@ export default function ReceivePackage() {
             <Label>Morador</Label>
             <Popover open={residentSearchOpen} onOpenChange={setResidentSearchOpen}>
               <PopoverTrigger asChild>
-                <Button variant="outline" role="combobox" className="w-full justify-between h-12 text-left font-normal">
+                <Button variant="outline" role="combobox" className={`w-full justify-between h-12 text-left font-normal ${!selectedResident ? 'border-destructive/50' : ''}`}>
                   {selectedResident ? (
                     <span className="truncate">{selectedResident.full_name} - {selectedResident.block}/{selectedResident.apartment}</span>
                   ) : (
