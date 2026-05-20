@@ -568,6 +568,16 @@ export default function ReceivePackage() {
             </Popover>
           </div>
 
+          {!selectedResident && (
+            <div className="flex items-start gap-3 p-4 rounded-lg border border-destructive/50 bg-destructive/10 text-destructive">
+              <Search className="w-5 h-5 mt-0.5 flex-shrink-0" />
+              <div>
+                <p className="font-medium text-sm">Selecione o morador para confirmar o recebimento</p>
+                <p className="text-xs mt-1 text-destructive/80">Se o destinatário não estiver cadastrado, cadastre-o em Moradores antes de continuar.</p>
+              </div>
+            </div>
+          )}
+
           {selectedResident && selectedResident.whatsapp_enabled === false && (
             <div className="flex items-start gap-3 p-4 rounded-lg border border-destructive/50 bg-destructive/10 text-destructive">
               <MessageSquare className="w-5 h-5 mt-0.5 flex-shrink-0" />
