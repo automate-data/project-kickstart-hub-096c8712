@@ -881,6 +881,7 @@ export type Database = {
         Args: { _target_user_id: string; _user_id: string }
         Returns: boolean
       }
+      user_condominium_ids: { Args: { _user_id: string }; Returns: string[] }
     }
     Enums: {
       app_role:
