@@ -197,10 +197,20 @@ export default function SuperAdmin() {
   const AI_COST_PER_CALL = 0.0035;
   const CLOUD_FIXED_MONTHLY = 25.0;
 
-  // Compute metrics
+  // Compute metrics — dedupe package events by package_id so that duplicate
+  // log rows (e.g. double-click on pickup confirm) don't inflate the counts.
+  const countDistinctPkg = (rows: any[]) => {
+    const set = new Set<string>();
+    let nullCount = 0;
+    rows.forEach(r => {
+      if (r.package_id) set.add(r.package_id);
+      else nullCount++;
+    });
+    return set.size + nullCount;
+  };
   const metrics = {
-    received: logs?.filter(l => (l as any).event_type === 'package_received').length || 0,
-    pickedUp: logs?.filter(l => (l as any).event_type === 'package_picked_up').length || 0,
+    received: countDistinctPkg((logs || []).filter((l: any) => l.event_type === 'package_received')),
+    pickedUp: countDistinctPkg((logs || []).filter((l: any) => l.event_type === 'package_picked_up')),
     whatsappSent: logs?.filter(l => (l as any).event_type === 'whatsapp_sent').length || 0,
     errors: logs?.filter(l => ['error', 'whatsapp_failed', 'ai_label_failed'].includes((l as any).event_type)).length || 0,
   };
@@ -225,8 +235,8 @@ export default function SuperAdmin() {
       const condLogs = logs.filter((l: any) => l.condominium_id === condId);
       out[condId] = {
         whatsapp: condLogs.filter((l: any) => l.event_type === 'whatsapp_sent').length,
-        received: condLogs.filter((l: any) => l.event_type === 'package_received').length,
-        pickedUp: condLogs.filter((l: any) => l.event_type === 'package_picked_up').length,
+        received: countDistinctPkg(condLogs.filter((l: any) => l.event_type === 'package_received')),
+        pickedUp: countDistinctPkg(condLogs.filter((l: any) => l.event_type === 'package_picked_up')),
         errors: condLogs.filter((l: any) => ['error', 'whatsapp_failed', 'ai_label_failed'].includes(l.event_type)).length,
       };
     });
