@@ -235,8 +235,8 @@ export default function SuperAdmin() {
       const condLogs = logs.filter((l: any) => l.condominium_id === condId);
       out[condId] = {
         whatsapp: condLogs.filter((l: any) => l.event_type === 'whatsapp_sent').length,
-        received: condLogs.filter((l: any) => l.event_type === 'package_received').length,
-        pickedUp: condLogs.filter((l: any) => l.event_type === 'package_picked_up').length,
+        received: countDistinctPkg(condLogs.filter((l: any) => l.event_type === 'package_received')),
+        pickedUp: countDistinctPkg(condLogs.filter((l: any) => l.event_type === 'package_picked_up')),
         errors: condLogs.filter((l: any) => ['error', 'whatsapp_failed', 'ai_label_failed'].includes(l.event_type)).length,
       };
     });
