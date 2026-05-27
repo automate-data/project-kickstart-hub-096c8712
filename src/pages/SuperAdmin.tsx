@@ -76,7 +76,7 @@ export default function SuperAdmin() {
       while (true) {
         let q = supabase
           .from('system_logs')
-          .select('event_type, condominium_id, created_at')
+          .select('event_type, condominium_id, created_at, package_id')
           .gte('created_at', startDate)
           .order('created_at', { ascending: false })
           .range(from, from + PAGE - 1);
