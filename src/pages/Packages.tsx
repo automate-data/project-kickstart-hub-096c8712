@@ -583,6 +583,53 @@ export default function Packages() {
     setAllocatePkg(null);
     queryClient.invalidateQueries({ queryKey: ['packages'] });
     fetchCounts();
+    fetchInLocker();
+  };
+
+  const handleConfirmLockerPickup = async (pkg: Package) => {
+    if (confirmingLockerId) return;
+    setConfirmingLockerId(pkg.id);
+    try {
+      const pickedUpAt = new Date().toISOString();
+      // Extract locker reference from last allocation event, if any
+      const events = (pkg as any).events as Array<any> | undefined;
+      const lastLockerEvent = events
+        ?.slice()
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+        .find((e) => e.to_location?.type === 'locker');
+      const refMatch = (lastLockerEvent?.notes as string | undefined)?.match(/locker_reference:([^,;\n\r]+)/i);
+      const ref = refMatch?.[1].trim() || (pkg as any).current_location?.name || 'Armário';
+
+      const { error } = await supabase
+        .from('packages')
+        .update({
+          status: 'picked_up',
+          picked_up_at: pickedUpAt,
+          picked_up_by: `Armário ${ref}`,
+          signature_data: null,
+          pickup_confirmation_sent: true,
+        })
+        .eq('id', pkg.id);
+
+      if (error) {
+        toast.error('Erro ao confirmar retirada');
+        return;
+      }
+
+      insertLog({
+        event_type: 'package_picked_up_from_locker',
+        package_id: pkg.id,
+        condominium_id: condominium?.id,
+        metadata: { locker_reference: ref },
+      });
+
+      toast.success('Encomenda removida da lista');
+      queryClient.invalidateQueries({ queryKey: ['packages'] });
+      fetchCounts();
+      fetchInLocker();
+    } finally {
+      setConfirmingLockerId(null);
+    }
   };
 
   const openBatchAllocateForGroup = (pkgs: Package[]) => {
