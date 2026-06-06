@@ -41,6 +41,7 @@ async function fetchPackagesPage({
   centralLocationId,
   userLocationId,
   isSimpleLocker,
+  lockerIds,
   pageParam = 0,
 }: {
   condominiumId: string;
@@ -49,6 +50,7 @@ async function fetchPackagesPage({
   centralLocationId?: string | null;
   userLocationId?: string | null;
   isSimpleLocker?: boolean;
+  lockerIds?: string[];
   pageParam?: number;
 }) {
   const from = pageParam * PAGE_SIZE;
@@ -64,13 +66,18 @@ async function fetchPackagesPage({
     .order('received_at', { ascending: false })
     .range(from, to);
 
+  const lockerIdsCsv = (lockerIds ?? []).join(',');
+
   if (userLocationId) {
     // Tower-scoped user: only see packages currently at their location
     query = query.eq('status', status).eq('current_location_id', userLocationId);
   } else if (isSimpleLocker) {
-    // Simple locker: pendentes (na central, órfãos ou em armário) ficam em "Aguardando".
-    // Apenas status='picked_up' aparece em "Retiradas".
+    // Simple locker: pendentes na central/órfãos ficam em "Aguardando".
+    // Pacotes em armário ficam numa seção separada (não nesta query).
     query = query.eq('status', status);
+    if (status === 'pending' && lockerIdsCsv) {
+      query = query.not('current_location_id', 'in', `(${lockerIdsCsv})`);
+    }
   } else if (centralLocationId && status === 'pending') {
     // Aguardando na central: pendentes na central OU órfãos (sem location)
     query = query
@@ -86,6 +93,7 @@ async function fetchPackagesPage({
   }
 
   const { data, count, error } = await query;
+
 
   if (error) throw error;
 
@@ -119,6 +127,9 @@ export default function Packages() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [batchOpen, setBatchOpen] = useState(false);
   const [batchPackages, setBatchPackages] = useState<Package[]>([]);
+  const [inLockerPackages, setInLockerPackages] = useState<Package[]>([]);
+  const [inLockerCount, setInLockerCount] = useState(0);
+  const [confirmingLockerId, setConfirmingLockerId] = useState<string | null>(null);
 
   // Fetch central location for multi_custody/simple_locker modes + check if user is tower-scoped
   useEffect(() => {
@@ -150,13 +161,11 @@ export default function Packages() {
               .is('deleted_at', null)
               .limit(1)
           : Promise.resolve({ data: [] as any[] }),
-        isSimpleLockerMode
-          ? supabase
-              .from('locations')
-              .select('*')
-              .eq('condominium_id', condominium.id)
-              .eq('type', 'locker')
-          : Promise.resolve({ data: [] as any[] }),
+        supabase
+          .from('locations')
+          .select('*')
+          .eq('condominium_id', condominium.id)
+          .eq('type', 'locker'),
       ]);
       setCentralLocationId(centralRes.data?.id || null);
       const scopedRow = scopedRes.data?.[0];
@@ -168,7 +177,30 @@ export default function Packages() {
 
   useEffect(() => {
     fetchCounts();
-  }, [condominium?.id, centralLocationId, isTowerScopedUser, userLocationId]);
+    fetchInLocker();
+  }, [condominium?.id, centralLocationId, isTowerScopedUser, userLocationId, lockers]);
+
+  const fetchInLocker = async () => {
+    if (!condominium?.id || lockers.length === 0 || userLocationId) {
+      setInLockerPackages([]);
+      setInLockerCount(0);
+      return;
+    }
+    const ids = lockers.map((l) => l.id);
+    const { data, count } = await supabase
+      .from('packages')
+      .select(
+        `*, resident:residents(*), current_location:locations!current_location_id(name, type), events:package_events(*, from_location:locations!from_location_id(name, type), to_location:locations!to_location_id(name, type))`,
+        { count: 'exact' }
+      )
+      .eq('condominium_id', condominium.id)
+      .eq('status', 'pending')
+      .in('current_location_id', ids)
+      .order('received_at', { ascending: false })
+      .limit(200);
+    setInLockerPackages((data ?? []) as unknown as Package[]);
+    setInLockerCount(count ?? 0);
+  };
 
   const fetchCounts = async () => {
     if (!condominium?.id) {
@@ -179,6 +211,8 @@ export default function Packages() {
     }
 
     const todayIso = startOfDay(new Date()).toISOString();
+    const lockIds = lockers.map((l) => l.id);
+    const lockerCsv = lockIds.join(',');
 
     // Tower-scoped: simple location-based counts
     if (userLocationId) {
@@ -205,15 +239,18 @@ export default function Packages() {
 
     const isSimpleLockerMode = condominium?.custody_mode === 'simple_locker';
 
-    // Simple locker: pendentes ficam em "Aguardando" mesmo alocadas em armário.
-    // Retiradas hoje = apenas status='picked_up' no dia.
+    // Simple locker: pendentes fora do armário ficam em "Aguardando".
     if (isSimpleLockerMode) {
+      let pendingQ = supabase
+        .from('packages')
+        .select('id', { count: 'exact', head: true })
+        .eq('condominium_id', condominium.id)
+        .eq('status', 'pending');
+      if (lockerCsv) {
+        pendingQ = pendingQ.not('current_location_id', 'in', `(${lockerCsv})`);
+      }
       const [pendingRes, pickedUpRes] = await Promise.all([
-        supabase
-          .from('packages')
-          .select('id', { count: 'exact', head: true })
-          .eq('condominium_id', condominium.id)
-          .eq('status', 'pending'),
+        pendingQ,
         supabase
           .from('packages')
           .select('id', { count: 'exact', head: true })
@@ -270,10 +307,17 @@ export default function Packages() {
       elsewhereQuery ?? Promise.resolve({ count: 0 } as any),
     ]);
 
+    // For multi_custody, "elsewhere" includes lockers — they're now in a separate section.
+    // Subtract in-locker from elsewhere to avoid double-counting.
+    const inLocker = lockIds.length;
     setPendingCount(pendingRes.count ?? 0);
     setPickedUpTodayCount(pickedUpRes.count ?? 0);
     setPendingElsewhereCount(elsewhereRes?.count ?? 0);
   };
+
+
+  const lockerIds = lockers.map((l) => l.id);
+  const lockerIdsKey = lockerIds.join(',');
 
   const {
     data,
@@ -282,7 +326,7 @@ export default function Packages() {
     isFetchingNextPage,
     isLoading,
   } = useInfiniteQuery({
-    queryKey: ['packages', condominium?.id, filter, centralLocationId, userLocationId, condominium?.custody_mode],
+    queryKey: ['packages', condominium?.id, filter, centralLocationId, userLocationId, condominium?.custody_mode, lockerIdsKey],
     queryFn: ({ pageParam }) =>
       fetchPackagesPage({
         condominiumId: condominium!.id,
@@ -291,6 +335,7 @@ export default function Packages() {
         centralLocationId,
         userLocationId,
         isSimpleLocker: condominium?.custody_mode === 'simple_locker',
+        lockerIds,
         pageParam: pageParam as number,
       }),
     initialPageParam: 0,
@@ -490,15 +535,10 @@ export default function Packages() {
       return;
     }
 
-    const pickedUpAt = new Date().toISOString();
     const { error: updErr } = await supabase
       .from('packages')
       .update({
         current_location_id: targetLocker.id,
-        status: 'picked_up',
-        picked_up_at: pickedUpAt,
-        picked_up_by: `Armário ${ref}`,
-        pickup_confirmation_sent: true,
       })
       .eq('id', allocatePkg.id);
 
@@ -543,6 +583,53 @@ export default function Packages() {
     setAllocatePkg(null);
     queryClient.invalidateQueries({ queryKey: ['packages'] });
     fetchCounts();
+    fetchInLocker();
+  };
+
+  const handleConfirmLockerPickup = async (pkg: Package) => {
+    if (confirmingLockerId) return;
+    setConfirmingLockerId(pkg.id);
+    try {
+      const pickedUpAt = new Date().toISOString();
+      // Extract locker reference from last allocation event, if any
+      const events = (pkg as any).events as Array<any> | undefined;
+      const lastLockerEvent = events
+        ?.slice()
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+        .find((e) => e.to_location?.type === 'locker');
+      const refMatch = (lastLockerEvent?.notes as string | undefined)?.match(/locker_reference:([^,;\n\r]+)/i);
+      const ref = refMatch?.[1].trim() || (pkg as any).current_location?.name || 'Armário';
+
+      const { error } = await supabase
+        .from('packages')
+        .update({
+          status: 'picked_up',
+          picked_up_at: pickedUpAt,
+          picked_up_by: `Armário ${ref}`,
+          signature_data: null,
+          pickup_confirmation_sent: true,
+        })
+        .eq('id', pkg.id);
+
+      if (error) {
+        toast.error('Erro ao confirmar retirada');
+        return;
+      }
+
+      insertLog({
+        event_type: 'package_picked_up_from_locker',
+        package_id: pkg.id,
+        condominium_id: condominium?.id,
+        metadata: { locker_reference: ref },
+      });
+
+      toast.success('Encomenda removida da lista');
+      queryClient.invalidateQueries({ queryKey: ['packages'] });
+      fetchCounts();
+      fetchInLocker();
+    } finally {
+      setConfirmingLockerId(null);
+    }
   };
 
   const openBatchAllocateForGroup = (pkgs: Package[]) => {
@@ -567,15 +654,10 @@ export default function Packages() {
 
     const ids = batchAllocatePkgs.map(p => p.id);
 
-    const pickedUpAt = new Date().toISOString();
     const { error: updErr } = await supabase
       .from('packages')
       .update({
         current_location_id: targetLocker.id,
-        status: 'picked_up',
-        picked_up_at: pickedUpAt,
-        picked_up_by: `Armário ${ref}`,
-        pickup_confirmation_sent: true,
       })
       .in('id', ids);
 
@@ -627,6 +709,7 @@ export default function Packages() {
     setSelectedIds(new Set());
     queryClient.invalidateQueries({ queryKey: ['packages'] });
     fetchCounts();
+    fetchInLocker();
   };
 
   const getLocationBadge = (pkg: Package): { label: string; className: string } | null => {
@@ -906,6 +989,80 @@ export default function Packages() {
     );
   };
 
+  const InLockerCard = ({
+    pkg,
+    isConfirming,
+    onConfirm,
+  }: {
+    pkg: Package;
+    isConfirming: boolean;
+    onConfirm: () => void;
+  }) => {
+    const events = (pkg as any).events as Array<any> | undefined;
+    const lastLockerEvent = events
+      ?.slice()
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+      .find((e) => e.to_location?.type === 'locker');
+    const refMatch = (lastLockerEvent?.notes as string | undefined)?.match(/locker_reference:([^,;\n\r]+)/i);
+    const lockerRef =
+      refMatch?.[1].trim() || (pkg as any).current_location?.name || 'Armário';
+
+    return (
+      <Card
+        className="overflow-hidden cursor-pointer hover:bg-accent/50 transition-colors"
+        onClick={() => { setDetailsPackage(pkg); setDetailsDialogOpen(true); }}
+      >
+        <CardContent className="p-0">
+          <div className="flex">
+            <div className="w-24 h-24 flex-shrink-0">
+              <PackagePhoto photoUrl={pkg.photo_url} className="w-full h-full object-cover" />
+            </div>
+            <div className="flex-1 p-4 min-w-0">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="font-medium truncate">
+                    {pkg.resident?.full_name || 'Não identificado'}
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    {pkg.resident ? `${pkg.resident.block}/${pkg.resident.apartment}` : '—'}
+                  </p>
+                </div>
+                <Badge className="text-xs gap-1 bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20 flex-shrink-0">
+                  Armário {lockerRef}
+                </Badge>
+              </div>
+              <div className="flex items-center justify-between mt-2 gap-2 flex-wrap">
+                <Badge variant="outline" className="text-xs gap-1">
+                  <Timer className="w-3 h-3" />
+                  {formatStayDuration(pkg.received_at, pkg.picked_up_at)}
+                </Badge>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={isConfirming}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onConfirm();
+                  }}
+                >
+                  {isConfirming ? (
+                    <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                  ) : (
+                    <CheckCircle2 className="w-4 h-4 mr-1" />
+                  )}
+                  Confirmar retirada
+                </Button>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  };
+
+
+
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -980,7 +1137,7 @@ export default function Packages() {
                 </Card>
               ))}
             </div>
-          ) : allPackages.length === 0 ? (
+          ) : allPackages.length === 0 && (filter !== 'pending' || inLockerPackages.length === 0) ? (
             <Card>
               <CardContent className="p-8 text-center">
                 <PackageIcon className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
@@ -1022,8 +1179,32 @@ export default function Packages() {
                   </p>
                 ) : null}
               </div>
+
+              {filter === 'pending' && inLockerPackages.length > 0 && (
+                <div className="space-y-2 pt-4">
+                  <div className="flex items-center gap-2 px-1">
+                    <Boxes className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                    <h3 className="text-sm font-semibold text-foreground">
+                      No armário — aguardando morador retirar
+                    </h3>
+                    <Badge variant="secondary" className="ml-auto">{inLockerPackages.length}</Badge>
+                  </div>
+                  <p className="text-xs text-muted-foreground px-1">
+                    O fluxo já foi encerrado no momento da alocação. Confirme apenas quando o morador efetivamente retirar.
+                  </p>
+                  {inLockerPackages.map((pkg) => (
+                    <InLockerCard
+                      key={pkg.id}
+                      pkg={pkg}
+                      isConfirming={confirmingLockerId === pkg.id}
+                      onConfirm={() => handleConfirmLockerPickup(pkg)}
+                    />
+                  ))}
+                </div>
+              )}
             </div>
           )}
+
         </TabsContent>
       </Tabs>
 

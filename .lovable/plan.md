@@ -1,53 +1,41 @@
-# Dois ajustes no fluxo de encomendas
+# Encomendas alocadas em armário: seção separada em Aguardando
 
-## 1) Alocou no armário → fluxo encerrado
+## Comportamento
 
-Hoje, no modo `multi_custody`, alocar uma encomenda no armário só move a localização. A encomenda continua "Aguardando retirada" e mostra o botão **Retirar** (com assinatura), como na imagem.
+Hoje, ao alocar no armário, marcamos `picked_up` automaticamente. Mas:
+- Itens legados (alocados antes da mudança) continuam `pending` e aparecem misturados no topo de Aguardando.
+- O botão "Retirar" ainda pede assinatura e dispara WhatsApp, mesmo o fluxo já tendo encerrado.
 
-A regra "armário = fim do fluxo" passa a valer para **todos os modos** (multi_custody e simple_locker):
+Novo comportamento:
 
-- Ao alocar no armário (individual ou em lote), o sistema marca automaticamente como `picked_up`:
-  - `status = 'picked_up'`
-  - `picked_up_at = now()`
-  - `picked_up_by = 'Armário <ref>'`
-  - `signature_data = null` (sem assinatura falsa)
-- A encomenda sai de **Aguardando** e vai para **Retiradas** imediatamente.
-- O morador recebe **uma única** notificação WhatsApp informando o número do armário (comportamento já existente).
-- O evento `package_allocated_to_locker` continua sendo registrado.
-- O botão **Retirar** deixa de aparecer para encomendas já em armário (defesa adicional caso reste algum item legado nesse estado).
-
-## 2) Retirada em lote por apartamento (não por morador)
-
-Hoje o agrupamento usa `resident_id + current_location_id`. Encomendas de moradores diferentes que dividem o mesmo apto (ex.: marido e esposa em A/53) ficam em grupos separados.
-
-Mudança:
-
-- A chave de agrupamento passa a ser **`block + apartment + current_location_id`**.
-- O cabeçalho do grupo (faixa azul "Retirar todas") passa a mostrar o apartamento (ex.: `A/53 — 2 encomendas`) em vez de um único nome.
-- Seleção manual via checkbox passa a permitir múltiplos moradores do mesmo apto/local. Mensagem de erro atualizada: "Selecione encomendas do mesmo apartamento e local."
-- Diálogo de confirmação de retirada em lote (`BatchPickupDialog`):
-  - Cabeçalho mostra o apartamento.
-  - Lista por linha mostra nome do morador de cada encomenda (já mostra hoje).
-  - Texto da assinatura: "Assinatura de quem está retirando" (sem assumir um nome só).
-- Notificação WhatsApp de confirmação: envia **uma mensagem por morador distinto** presente no lote (ex.: 1 para o marido se as 2 encomendas dele saíram, 1 para a esposa se houver encomenda dela), respeitando `whatsapp_enabled` de cada um.
+1. **Alocação não marca mais `picked_up`**. O pacote continua `pending`, mas passa a viver numa seção própria.
+2. **Aba Aguardando ganha duas seções**:
+   - **"Aguardando recebimento"** (topo) — encomendas ainda na portaria/central. Fluxo normal: Alocar / Retirar (com assinatura + notificação).
+   - **"No armário — aguardando morador retirar"** (abaixo, colapsável) — encomendas já alocadas. Cada card mostra apenas um botão **"Confirmar retirada"** (um toque, sem assinatura, sem notificação WhatsApp). Header da seção mostra contagem.
+3. **Contadores no topo** (`Aguardando retirada` / `Retiradas hoje`): "Aguardando retirada" passa a contar apenas encomendas fora de armário. Encomendas no armário contam num terceiro indicador discreto ("No armário: N") ou no header da própria seção — vou usar o header da seção para não poluir o topo.
+4. **"Confirmar retirada"** num toque:
+   - `status = 'picked_up'`, `picked_up_at = now()`, `picked_up_by = "Armário <ref>"`, `signature_data = null`.
+   - Registra evento `package_picked_up_from_locker`.
+   - **Não** envia WhatsApp.
+5. **Backfill**: itens legados `pending` em location do tipo `locker` aparecem automaticamente nessa nova seção (mesma regra de filtragem).
+6. Em `simple_locker` (Dashboard rápido), o card também deixa de marcar `picked_up` na alocação; a confirmação acontece em Packages.
 
 ## Detalhes técnicos
 
-Arquivos afetados:
+Arquivos:
 
 - `src/pages/Packages.tsx`
-  - `getGroupKey`: usar `block|apartment` no lugar de `resident_id`.
-  - `toggleSelect`: ajustar mensagens.
-  - `handleConfirmAllocation` / `handleConfirmBatchAllocation`: marcar `picked_up` + `picked_up_at` + `picked_up_by`.
-  - `handleConfirmBatchPickup`: agrupar moradores distintos do lote e disparar um `send-pickup-confirmation` por morador.
-  - `PackageCard`: esconder botão Retirar quando `current_location_id` for de um locker.
+  - `handleConfirmAllocation` / `handleConfirmBatchAllocation`: remover `status='picked_up'` / `picked_up_at` / `picked_up_by`. Manter apenas a mudança de `current_location_id` + evento `package_allocated_to_locker` + notificação WhatsApp do armário.
+  - Filtros de listagem e contagem (modos `simple_locker` e `multi_custody`): em "Aguardando retirada" e no contador `pendingCount`, **excluir** pacotes cuja `current_location` é do tipo `locker` (carregar IDs de lockers do condomínio via `locations`).
+  - Nova consulta paralela: `inLockerPackages` = `status='pending'` AND `current_location_id IN (lockerIds)`.
+  - Render: dentro da aba Aguardando, renderizar primeiro os grupos atuais; depois um bloco "No armário — N encomendas" listando `inLockerPackages` com card simplificado e botão único "Confirmar retirada".
+  - Novo handler `handleConfirmLockerPickup(pkg)`: update direto + evento, sem dialog, sem WhatsApp. Toast "Encomenda removida da lista".
 - `src/pages/Dashboard.tsx`
-  - `handleConfirmAllocation`: mesma marcação `picked_up`.
-- `src/components/BatchPickupDialog.tsx`
-  - Cabeçalho/labels para apartamento em vez de morador único.
-- Sem mudanças de schema, edge functions ou templates Twilio.
+  - `handleConfirmAllocation`: remover marcação `picked_up`; manter só transferência + evento + WhatsApp do armário. Após alocar, o card some da lista "Aguardando retirada" do dashboard (que já filtra por status pending na central).
+- Sem mudanças de schema, edge function ou template Twilio.
 
 ## O que NÃO muda
 
-- Recebimento de encomendas (OCR), transferências entre torres/armários, retirada individual fora do armário.
-- Templates do WhatsApp (segue usando o template singular aprovado).
+- Alocação ainda dispara WhatsApp informando o número do armário (fluxo encerrado para o morador).
+- Retirada normal (fora de armário) continua exigindo assinatura.
+- Agrupamento por apartamento e retirada em lote da seção "Aguardando recebimento" permanecem como estão.
