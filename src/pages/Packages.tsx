@@ -842,9 +842,22 @@ export default function Packages() {
             </Card>
           ) : (
             <div className="space-y-3">
-              {filteredPackages.map((pkg) => (
-                <PackageCard key={pkg.id} pkg={pkg} />
-              ))}
+              {(() => {
+                const seenGroups = new Set<string>();
+                const nodes: React.ReactNode[] = [];
+                for (const pkg of filteredPackages) {
+                  const key = getGroupKey(pkg);
+                  if (key && filter === 'pending' && !seenGroups.has(key)) {
+                    const groupPkgs = pendingGroups.get(key) ?? [];
+                    if (groupPkgs.length >= 2) {
+                      nodes.push(<GroupHeader key={`h-${key}`} pkgs={groupPkgs} />);
+                    }
+                    seenGroups.add(key);
+                  }
+                  nodes.push(<PackageCard key={pkg.id} pkg={pkg} />);
+                }
+                return nodes;
+              })()}
 
               {/* Load more / end of list */}
               <div className="py-4 text-center">
