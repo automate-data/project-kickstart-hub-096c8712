@@ -125,6 +125,7 @@ interface LockerDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   pkg: Package | null;
+  packages?: Package[];
   towerName: string;
   onConfirm: (lockerReference: string, sendWhatsApp: boolean) => Promise<void>;
 }
@@ -133,6 +134,7 @@ export function LockerDialog({
   open,
   onOpenChange,
   pkg,
+  packages,
   towerName,
   onConfirm,
 }: LockerDialogProps) {
@@ -140,7 +142,10 @@ export function LockerDialog({
   const [sendWhatsApp, setSendWhatsApp] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const residentFirstName = pkg?.resident?.full_name?.split(' ')[0] || 'Morador';
+  const headPkg = (packages && packages.length > 0 ? packages[0] : pkg) || null;
+  const count = packages && packages.length > 0 ? packages.length : 1;
+  const isBatch = count > 1;
+  const residentFirstName = headPkg?.resident?.full_name?.split(' ')[0] || 'Morador';
 
   const handleConfirm = async () => {
     if (!lockerRef.trim()) return;
@@ -154,21 +159,23 @@ export function LockerDialog({
     }
   };
 
-  if (!pkg) return null;
+  if (!headPkg) return null;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-sm mx-auto">
         <DialogHeader>
-          <DialogTitle className="text-center">Alocar em Armário</DialogTitle>
+          <DialogTitle className="text-center">
+            {isBatch ? `Alocar ${count} encomendas em Armário` : 'Alocar em Armário'}
+          </DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
           {/* Resident info */}
           <div className="text-center">
-            <p className="font-medium text-foreground">{pkg.resident?.full_name || 'Não identificado'}</p>
-            {pkg.resident && (
+            <p className="font-medium text-foreground">{headPkg.resident?.full_name || 'Não identificado'}</p>
+            {headPkg.resident && (
               <p className="text-sm text-muted-foreground">
-                Bloco {pkg.resident.block} - Apto {pkg.resident.apartment}
+                Bloco {headPkg.resident.block} - Apto {headPkg.resident.apartment}
               </p>
             )}
           </div>
