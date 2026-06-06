@@ -899,6 +899,39 @@ export default function Packages() {
         towerName="Portaria"
         onConfirm={handleConfirmAllocation}
       />
+
+      <BatchPickupDialog
+        open={batchOpen}
+        onOpenChange={(o) => {
+          setBatchOpen(o);
+          if (!o) setBatchPackages([]);
+        }}
+        packages={batchPackages}
+        onConfirm={handleConfirmBatchPickup}
+      />
+
+      {selectedIds.size > 0 && !batchOpen && (
+        <div className="fixed bottom-0 left-0 right-0 z-40 bg-background border-t shadow-lg p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
+          <div className="max-w-2xl mx-auto flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-sm font-medium truncate">
+                {selectedIds.size} selecionada{selectedIds.size > 1 ? 's' : ''}
+                {selectionResident && ` — ${selectionResident.full_name}`}
+              </p>
+            </div>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <Button variant="ghost" size="sm" onClick={() => setSelectedIds(new Set())}>
+                <X className="w-4 h-4 mr-1" />
+                Limpar
+              </Button>
+              <Button size="sm" onClick={openBatchForSelection}>
+                <CheckCircle2 className="w-4 h-4 mr-1" />
+                Retirar selecionadas
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
