@@ -150,13 +150,11 @@ export default function Packages() {
               .is('deleted_at', null)
               .limit(1)
           : Promise.resolve({ data: [] as any[] }),
-        isSimpleLockerMode
-          ? supabase
-              .from('locations')
-              .select('*')
-              .eq('condominium_id', condominium.id)
-              .eq('type', 'locker')
-          : Promise.resolve({ data: [] as any[] }),
+        supabase
+          .from('locations')
+          .select('*')
+          .eq('condominium_id', condominium.id)
+          .eq('type', 'locker'),
       ]);
       setCentralLocationId(centralRes.data?.id || null);
       const scopedRow = scopedRes.data?.[0];
