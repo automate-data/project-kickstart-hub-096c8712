@@ -1000,6 +1000,18 @@ export default function Packages() {
         onConfirm={handleConfirmAllocation}
       />
 
+      <LockerDialog
+        open={batchAllocateOpen}
+        onOpenChange={(o) => {
+          setBatchAllocateOpen(o);
+          if (!o) setBatchAllocatePkgs([]);
+        }}
+        pkg={batchAllocatePkgs[0] || null}
+        packages={batchAllocatePkgs}
+        towerName="Portaria"
+        onConfirm={handleConfirmBatchAllocation}
+      />
+
       <BatchPickupDialog
         open={batchOpen}
         onOpenChange={(o) => {
