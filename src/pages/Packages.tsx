@@ -177,7 +177,30 @@ export default function Packages() {
 
   useEffect(() => {
     fetchCounts();
-  }, [condominium?.id, centralLocationId, isTowerScopedUser, userLocationId]);
+    fetchInLocker();
+  }, [condominium?.id, centralLocationId, isTowerScopedUser, userLocationId, lockers]);
+
+  const fetchInLocker = async () => {
+    if (!condominium?.id || lockers.length === 0 || userLocationId) {
+      setInLockerPackages([]);
+      setInLockerCount(0);
+      return;
+    }
+    const ids = lockers.map((l) => l.id);
+    const { data, count } = await supabase
+      .from('packages')
+      .select(
+        `*, resident:residents(*), current_location:locations!current_location_id(name, type), events:package_events(*, from_location:locations!from_location_id(name, type), to_location:locations!to_location_id(name, type))`,
+        { count: 'exact' }
+      )
+      .eq('condominium_id', condominium.id)
+      .eq('status', 'pending')
+      .in('current_location_id', ids)
+      .order('received_at', { ascending: false })
+      .limit(200);
+    setInLockerPackages((data ?? []) as unknown as Package[]);
+    setInLockerCount(count ?? 0);
+  };
 
   const fetchCounts = async () => {
     if (!condominium?.id) {
@@ -188,6 +211,8 @@ export default function Packages() {
     }
 
     const todayIso = startOfDay(new Date()).toISOString();
+    const lockIds = lockers.map((l) => l.id);
+    const lockerCsv = lockIds.join(',');
 
     // Tower-scoped: simple location-based counts
     if (userLocationId) {
@@ -214,15 +239,18 @@ export default function Packages() {
 
     const isSimpleLockerMode = condominium?.custody_mode === 'simple_locker';
 
-    // Simple locker: pendentes ficam em "Aguardando" mesmo alocadas em armário.
-    // Retiradas hoje = apenas status='picked_up' no dia.
+    // Simple locker: pendentes fora do armário ficam em "Aguardando".
     if (isSimpleLockerMode) {
+      let pendingQ = supabase
+        .from('packages')
+        .select('id', { count: 'exact', head: true })
+        .eq('condominium_id', condominium.id)
+        .eq('status', 'pending');
+      if (lockerCsv) {
+        pendingQ = pendingQ.not('current_location_id', 'in', `(${lockerCsv})`);
+      }
       const [pendingRes, pickedUpRes] = await Promise.all([
-        supabase
-          .from('packages')
-          .select('id', { count: 'exact', head: true })
-          .eq('condominium_id', condominium.id)
-          .eq('status', 'pending'),
+        pendingQ,
         supabase
           .from('packages')
           .select('id', { count: 'exact', head: true })
@@ -279,10 +307,14 @@ export default function Packages() {
       elsewhereQuery ?? Promise.resolve({ count: 0 } as any),
     ]);
 
+    // For multi_custody, "elsewhere" includes lockers — they're now in a separate section.
+    // Subtract in-locker from elsewhere to avoid double-counting.
+    const inLocker = lockIds.length;
     setPendingCount(pendingRes.count ?? 0);
     setPickedUpTodayCount(pickedUpRes.count ?? 0);
     setPendingElsewhereCount(elsewhereRes?.count ?? 0);
   };
+
 
   const lockerIds = lockers.map((l) => l.id);
   const lockerIdsKey = lockerIds.join(',');
