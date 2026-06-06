@@ -600,7 +600,7 @@ export default function Packages() {
     fetchCounts();
   };
 
-
+  const getLocationBadge = (pkg: Package): { label: string; className: string } | null => {
     if (!isMultiCustody) return null;
     const events = (pkg as any).events as Array<any> | undefined;
     const lastEvent = events
