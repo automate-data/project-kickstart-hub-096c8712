@@ -233,7 +233,7 @@ export default function TowerDashboard() {
 
     const lockerId = lockerLocs?.[0]?.id || null;
 
-    // Insert package_event
+    // Insert package_event (transfer to locker)
     const { error: eventErr } = await supabase.from('package_events').insert({
       package_id: lockerPkg.id,
       from_location_id: towerLocationId,
@@ -245,6 +245,24 @@ export default function TowerDashboard() {
     if (eventErr) {
       toast.error('Erro ao registrar alocação no armário');
       throw eventErr;
+    }
+
+    // Locker allocation = end of flow: mark package as picked_up.
+    // The WhatsApp message with the locker number is the receipt; no
+    // signature, no second "pickup confirmed" message later.
+    const pickedUpAt = new Date().toISOString();
+    const { error: pkgErr } = await supabase
+      .from('packages')
+      .update({
+        status: 'picked_up',
+        picked_up_at: pickedUpAt,
+        picked_up_by: `Armário ${lockerReference}`,
+        pickup_confirmation_sent: true,
+      })
+      .eq('id', lockerPkg.id);
+
+    if (pkgErr) {
+      console.error('[TowerDashboard] Failed to mark package as picked_up after locker allocation:', pkgErr);
     }
 
     // Send WhatsApp notification if enabled
