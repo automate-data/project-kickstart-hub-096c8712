@@ -1063,7 +1063,7 @@ export default function Packages() {
                 </Card>
               ))}
             </div>
-          ) : allPackages.length === 0 ? (
+          ) : allPackages.length === 0 && (filter !== 'pending' || inLockerPackages.length === 0) ? (
             <Card>
               <CardContent className="p-8 text-center">
                 <PackageIcon className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
@@ -1105,8 +1105,32 @@ export default function Packages() {
                   </p>
                 ) : null}
               </div>
+
+              {filter === 'pending' && inLockerPackages.length > 0 && (
+                <div className="space-y-2 pt-4">
+                  <div className="flex items-center gap-2 px-1">
+                    <Boxes className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                    <h3 className="text-sm font-semibold text-foreground">
+                      No armário — aguardando morador retirar
+                    </h3>
+                    <Badge variant="secondary" className="ml-auto">{inLockerPackages.length}</Badge>
+                  </div>
+                  <p className="text-xs text-muted-foreground px-1">
+                    O fluxo já foi encerrado no momento da alocação. Confirme apenas quando o morador efetivamente retirar.
+                  </p>
+                  {inLockerPackages.map((pkg) => (
+                    <InLockerCard
+                      key={pkg.id}
+                      pkg={pkg}
+                      isConfirming={confirmingLockerId === pkg.id}
+                      onConfirm={() => handleConfirmLockerPickup(pkg)}
+                    />
+                  ))}
+                </div>
+              )}
             </div>
           )}
+
         </TabsContent>
       </Tabs>
 
