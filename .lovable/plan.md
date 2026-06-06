@@ -1,35 +1,22 @@
-## Objetivo
+# Mensagem WhatsApp — Mudanças no fluxo de encomendas
 
-Espelhar o botão "Retirar todas" com "Alocar todas" no cabeçalho do grupo (mesmo morador + mesma localização) na página de Encomendas, permitindo alocar várias encomendas no mesmo armário em uma única operação e enviar **apenas 1 notificação WhatsApp** para o morador.
+## Formato
+Mensagem curta, amigável, direto no celular (WhatsApp), com emojis e tópicos.
 
-## Onde
+## Tom
+Informal e amigável — como se estivesse conversando com o porteiro.
 
-- `src/pages/Packages.tsx` — `GroupHeader` e estado de batch
-- `src/components/custody/CustodyDialogs.tsx` — `LockerDialog` aceita 1+ pacotes
+## Conteúdo coberto
+1. **Retirada em lote ("Retirar todas")** — Quando um morador tem 2+ encomendas pendentes, aparece um botão "Retirar todas" no topo do grupo. O morador assina **uma vez só** e todas são retiradas. Também dá pra selecionar manualmente com checkboxes.
+2. **Uma notificação só por lote** — Se o morador retirou 5 encomendas, ele recebe 1 mensagem de confirmação no WhatsApp (não 5 iguais).
+3. **Armário = fim do fluxo** — Quando uma encomenda vai pro armário, o sistema já marca como "retirada" automaticamente. Não precisa mais assinar depois, nem enviar mensagem de "retirada" no dia seguinte. O morador recebe só o número do armário e pronto.
+4. **Alocar todas no armário** — Igual ao "Retirar todas", agora tem "Alocar todas" pro armário. Se o morador tem várias encomendas e você quer alocar tudo no armário de uma vez, clica no botão e manda tudo junto. Uma notificação só pro morador.
+5. **Template plural no WhatsApp** — Estamos aguardando aprovação de um novo template no Twilio pra mensagem ficar no plural quando forem várias encomendas (hoje ainda manda no singular, mas funciona).
 
-## Mudanças
+## O que NÃO mudou
+- Recebimento de encomendas (OCR, etc.) continua igual.
+- Transferências entre torres/lockers continuam iguais.
+- Retirada individual (uma por uma) ainda funciona normalmente.
 
-### 1. `LockerDialog` (CustodyDialogs.tsx)
-- Aceitar `pkgs: Package[]` (manter `pkg` opcional para compat ou migrar tudo). Mais simples: adicionar prop opcional `packages?: Package[]`. Quando presente e length > 1, o título vira "Alocar N encomendas em Armário" e o preview do WhatsApp menciona "suas N encomendas estão disponíveis no armário X".
-- Resident info usa o primeiro pacote (mesmo morador no grupo).
-- `onConfirm(lockerReference, sendWhatsApp)` mantém a mesma assinatura — o caller decide o que fazer com a lista.
-
-### 2. `Packages.tsx`
-- Novo estado `batchAllocatePkgs: Package[]` + `batchAllocateOpen`.
-- Novo handler `handleConfirmBatchAllocation(ref, sendWhatsApp)`:
-  - Resolve `targetLocker` (igual ao single).
-  - `UPDATE packages SET current_location_id = targetLocker.id WHERE id IN (...ids)`.
-  - Insere N rows em `package_events` (uma por pacote) com `notes: 'locker_reference:<ref>'`.
-  - 1 `insertLog` por pacote (event_type `package_allocated_to_locker`).
-  - **Apenas 1** chamada `send-locker-notification` com o telefone do morador (mesma lógica de "Retirar todas").
-  - Invalida queries, fecha dialog, limpa seleção.
-- `GroupHeader`: adicionar botão "Alocar todas" ao lado de "Retirar todas", visível somente quando `isSimpleLocker` e os pacotes ainda estão na central (mesma condição do botão "Alocar" individual). Abre o `LockerDialog` em modo batch.
-- Seleção via checkbox também ganha botão flutuante "Alocar selecionadas" análogo ao existente de retirada (se já houver UI flutuante; senão, manter apenas no header do grupo nesta primeira iteração).
-
-### 3. Comportamento pós-alocação
-- Permanece como já implementado para o caso individual: a alocação **não** marca como `picked_up` aqui em `Packages.tsx` (só `TowerDashboard.tsx` faz isso). Mantemos consistência com o fluxo atual da página Encomendas — sem mudar regra de negócio.
-
-## Fora de escopo
-- Mudar comportamento de "picked_up" automático ao alocar (já tratado em TowerDashboard).
-- Alocar em armários diferentes na mesma operação — single locker por batch.
-- Layout/UX de seleção múltipla nova.
+## Entregável
+Um texto pronto pra copiar e colar no WhatsApp (ou enviar como documento/print).
