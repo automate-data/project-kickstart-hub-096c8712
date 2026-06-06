@@ -41,6 +41,7 @@ async function fetchPackagesPage({
   centralLocationId,
   userLocationId,
   isSimpleLocker,
+  lockerIds,
   pageParam = 0,
 }: {
   condominiumId: string;
@@ -49,6 +50,7 @@ async function fetchPackagesPage({
   centralLocationId?: string | null;
   userLocationId?: string | null;
   isSimpleLocker?: boolean;
+  lockerIds?: string[];
   pageParam?: number;
 }) {
   const from = pageParam * PAGE_SIZE;
@@ -64,13 +66,18 @@ async function fetchPackagesPage({
     .order('received_at', { ascending: false })
     .range(from, to);
 
+  const lockerIdsCsv = (lockerIds ?? []).join(',');
+
   if (userLocationId) {
     // Tower-scoped user: only see packages currently at their location
     query = query.eq('status', status).eq('current_location_id', userLocationId);
   } else if (isSimpleLocker) {
-    // Simple locker: pendentes (na central, órfãos ou em armário) ficam em "Aguardando".
-    // Apenas status='picked_up' aparece em "Retiradas".
+    // Simple locker: pendentes na central/órfãos ficam em "Aguardando".
+    // Pacotes em armário ficam numa seção separada (não nesta query).
     query = query.eq('status', status);
+    if (status === 'pending' && lockerIdsCsv) {
+      query = query.not('current_location_id', 'in', `(${lockerIdsCsv})`);
+    }
   } else if (centralLocationId && status === 'pending') {
     // Aguardando na central: pendentes na central OU órfãos (sem location)
     query = query
@@ -86,6 +93,7 @@ async function fetchPackagesPage({
   }
 
   const { data, count, error } = await query;
+
 
   if (error) throw error;
 
