@@ -284,6 +284,9 @@ export default function Packages() {
     setPendingElsewhereCount(elsewhereRes?.count ?? 0);
   };
 
+  const lockerIds = lockers.map((l) => l.id);
+  const lockerIdsKey = lockerIds.join(',');
+
   const {
     data,
     fetchNextPage,
@@ -291,7 +294,7 @@ export default function Packages() {
     isFetchingNextPage,
     isLoading,
   } = useInfiniteQuery({
-    queryKey: ['packages', condominium?.id, filter, centralLocationId, userLocationId, condominium?.custody_mode],
+    queryKey: ['packages', condominium?.id, filter, centralLocationId, userLocationId, condominium?.custody_mode, lockerIdsKey],
     queryFn: ({ pageParam }) =>
       fetchPackagesPage({
         condominiumId: condominium!.id,
@@ -300,6 +303,7 @@ export default function Packages() {
         centralLocationId,
         userLocationId,
         isSimpleLocker: condominium?.custody_mode === 'simple_locker',
+        lockerIds,
         pageParam: pageParam as number,
       }),
     initialPageParam: 0,
