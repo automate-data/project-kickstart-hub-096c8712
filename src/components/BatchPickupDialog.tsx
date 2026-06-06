@@ -50,7 +50,7 @@ export function BatchPickupDialog({ open, onOpenChange, packages, onConfirm }: B
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-sm mx-auto">
+      <DialogContent className="w-[calc(100%-2rem)] max-w-sm mx-auto p-6">
         <DialogHeader>
           <DialogTitle className="text-center">
             Confirmar retirada de {count} encomendas
