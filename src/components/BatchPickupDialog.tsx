@@ -84,7 +84,7 @@ export function BatchPickupDialog({ open, onOpenChange, packages, onConfirm }: B
             </ul>
           </ScrollArea>
 
-          <div className="space-y-2">
+          <div className="space-y-3 my-2">
             <p className="text-center text-sm text-muted-foreground">
               Assinatura de quem está retirando
             </p>

@@ -73,12 +73,12 @@ export function PickupDialog({ open, onOpenChange, pkg, onConfirm }: PickupDialo
             </div>
           </div>
 
-          <div className="space-y-2">
+          <div className="space-y-3 my-2">
             <p className="text-center text-sm text-muted-foreground">
               Assine para confirmar a retirada
             </p>
             <SignatureCanvas ref={signatureRef} onSignatureChange={setHasSignature} />
-            <p className="text-center text-xs text-muted-foreground">
+            <p className="text-center text-xs text-muted-foreground mt-2">
               {pkg.resident?.full_name || 'Morador'}
             </p>
           </div>
