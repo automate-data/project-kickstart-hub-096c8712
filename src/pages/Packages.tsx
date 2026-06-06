@@ -989,6 +989,80 @@ export default function Packages() {
     );
   };
 
+  const InLockerCard = ({
+    pkg,
+    isConfirming,
+    onConfirm,
+  }: {
+    pkg: Package;
+    isConfirming: boolean;
+    onConfirm: () => void;
+  }) => {
+    const events = (pkg as any).events as Array<any> | undefined;
+    const lastLockerEvent = events
+      ?.slice()
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+      .find((e) => e.to_location?.type === 'locker');
+    const refMatch = (lastLockerEvent?.notes as string | undefined)?.match(/locker_reference:([^,;\n\r]+)/i);
+    const lockerRef =
+      refMatch?.[1].trim() || (pkg as any).current_location?.name || 'Armário';
+
+    return (
+      <Card
+        className="overflow-hidden cursor-pointer hover:bg-accent/50 transition-colors"
+        onClick={() => { setDetailsPackage(pkg); setDetailsDialogOpen(true); }}
+      >
+        <CardContent className="p-0">
+          <div className="flex">
+            <div className="w-24 h-24 flex-shrink-0">
+              <PackagePhoto photoUrl={pkg.photo_url} className="w-full h-full object-cover" />
+            </div>
+            <div className="flex-1 p-4 min-w-0">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="font-medium truncate">
+                    {pkg.resident?.full_name || 'Não identificado'}
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    {pkg.resident ? `${pkg.resident.block}/${pkg.resident.apartment}` : '—'}
+                  </p>
+                </div>
+                <Badge className="text-xs gap-1 bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20 flex-shrink-0">
+                  Armário {lockerRef}
+                </Badge>
+              </div>
+              <div className="flex items-center justify-between mt-2 gap-2 flex-wrap">
+                <Badge variant="outline" className="text-xs gap-1">
+                  <Timer className="w-3 h-3" />
+                  {formatStayDuration(pkg.received_at, pkg.picked_up_at)}
+                </Badge>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={isConfirming}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onConfirm();
+                  }}
+                >
+                  {isConfirming ? (
+                    <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                  ) : (
+                    <CheckCircle2 className="w-4 h-4 mr-1" />
+                  )}
+                  Confirmar retirada
+                </Button>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  };
+
+
+
 
   return (
     <div className="space-y-6 animate-fade-in">
