@@ -114,6 +114,8 @@ export default function Packages() {
   const [lockers, setLockers] = useState<Location[]>([]);
   const [allocatePkg, setAllocatePkg] = useState<Package | null>(null);
   const [allocateOpen, setAllocateOpen] = useState(false);
+  const [batchAllocatePkgs, setBatchAllocatePkgs] = useState<Package[]>([]);
+  const [batchAllocateOpen, setBatchAllocateOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [batchOpen, setBatchOpen] = useState(false);
   const [batchPackages, setBatchPackages] = useState<Package[]>([]);
