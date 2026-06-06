@@ -37,7 +37,6 @@ export default function TowerDashboard() {
   const [hasLockers, setHasLockers] = useState(false);
   const [packages, setPackages] = useState<TowerPackage[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [lockerPickupLoading, setLockerPickupLoading] = useState<string | null>(null);
 
   // Pickup dialog
   const [pickupPkg, setPickupPkg] = useState<PackageType | null>(null);
@@ -47,12 +46,8 @@ export default function TowerDashboard() {
   const [lockerPkg, setLockerPkg] = useState<PackageType | null>(null);
   const [lockerOpen, setLockerOpen] = useState(false);
 
-  // Locker pickup confirmation dialog
-  const [lockerPickupTarget, setLockerPickupTarget] = useState<TowerPackage | null>(null);
-
-  // Counters
-  const lockerCount = packages.filter(p => p.locker_reference).length;
-  const blockCount = packages.length - lockerCount;
+  // Counter (only pending packages in this tower)
+  const blockCount = packages.length;
 
   // Fetch user's tower location
   useEffect(() => {
