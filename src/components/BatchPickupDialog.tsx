@@ -30,6 +30,10 @@ export function BatchPickupDialog({ open, onOpenChange, packages, onConfirm }: B
 
   const resident = packages[0].resident;
   const count = packages.length;
+  const unitLabel = resident ? `${resident.block}/${resident.apartment}` : 'Apartamento';
+  const uniqueNames = Array.from(
+    new Set(packages.map((p) => p.resident?.full_name).filter(Boolean) as string[])
+  );
 
   const handleConfirm = async () => {
     if (!signatureRef.current || signatureRef.current.isEmpty()) return;
@@ -55,11 +59,9 @@ export function BatchPickupDialog({ open, onOpenChange, packages, onConfirm }: B
 
         <div className="space-y-4">
           <div className="text-center">
-            <p className="font-medium text-foreground">{resident?.full_name || 'Não identificado'}</p>
-            {resident && (
-              <p className="text-sm text-muted-foreground">
-                Bloco {resident.block} - Apto {resident.apartment}
-              </p>
+            <p className="font-medium text-foreground">Apartamento {unitLabel}</p>
+            {uniqueNames.length > 0 && (
+              <p className="text-sm text-muted-foreground">{uniqueNames.join(', ')}</p>
             )}
           </div>
 
@@ -71,8 +73,9 @@ export function BatchPickupDialog({ open, onOpenChange, packages, onConfirm }: B
                     <PackagePhoto photoUrl={pkg.photo_url} className="w-full h-full object-cover" />
                   </div>
                   <div className="flex-1 min-w-0 text-sm">
-                    <p className="truncate font-medium">{pkg.carrier || 'Transportadora não identificada'}</p>
-                    <p className="text-xs text-muted-foreground">
+                    <p className="truncate font-medium">{pkg.resident?.full_name || 'Sem destinatário'}</p>
+                    <p className="text-xs text-muted-foreground truncate">
+                      {pkg.carrier || 'Transportadora não identificada'} ·{' '}
                       {format(new Date(pkg.received_at), "dd/MM 'às' HH:mm", { locale: ptBR })}
                     </p>
                   </div>
@@ -83,12 +86,9 @@ export function BatchPickupDialog({ open, onOpenChange, packages, onConfirm }: B
 
           <div className="space-y-2">
             <p className="text-center text-sm text-muted-foreground">
-              Assine para confirmar a retirada de todas as encomendas
+              Assinatura de quem está retirando
             </p>
             <SignatureCanvas ref={signatureRef} onSignatureChange={setHasSignature} />
-            <p className="text-center text-xs text-muted-foreground">
-              {resident?.full_name || 'Morador'}
-            </p>
           </div>
 
           <Button

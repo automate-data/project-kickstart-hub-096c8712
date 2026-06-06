@@ -403,32 +403,47 @@ export default function Packages() {
       })
     );
 
-    // Single WhatsApp notification for the whole batch (template is generic)
-    const firstPkg = batchPackages[0];
-    if (firstPkg?.resident?.phone) {
+    // One WhatsApp per distinct resident in the batch (apartment may have multiple residents)
+    const successIdsByResident = new Map<string, string[]>();
+    const residentInfo = new Map<string, { phone: string; name: string; enabled: boolean }>();
+    results.forEach((r, i) => {
+      if (r.status !== 'fulfilled') return;
+      const pkg = batchPackages[i];
+      const rid = pkg.resident_id;
+      const phone = pkg.resident?.phone;
+      if (!rid || !phone) return;
+      if (!successIdsByResident.has(rid)) successIdsByResident.set(rid, []);
+      successIdsByResident.get(rid)!.push(pkg.id);
+      if (!residentInfo.has(rid)) {
+        residentInfo.set(rid, {
+          phone,
+          name: pkg.resident!.full_name,
+          enabled: pkg.resident?.whatsapp_enabled !== false,
+        });
+      }
+    });
+
+    for (const [rid, ids] of successIdsByResident.entries()) {
+      const info = residentInfo.get(rid);
+      if (!info || !info.enabled) continue;
       try {
         const { data: confirmResult, error: confirmError } = await supabase.functions.invoke(
           'send-pickup-confirmation',
           {
             body: {
-              phone: firstPkg.resident.phone,
-              resident_name: firstPkg.resident.full_name,
+              phone: info.phone,
+              resident_name: info.name,
               picked_up_at: pickedUpAt,
-              package_id: firstPkg.id,
+              package_id: ids[0],
               condominium_id: condominium?.id,
             },
           }
         );
         if (!confirmError && !confirmResult?.error && confirmResult?.success) {
-          const successIds = results
-            .map((r, i) => (r.status === 'fulfilled' ? batchPackages[i].id : null))
-            .filter((id): id is string => id !== null);
-          if (successIds.length > 0) {
-            await supabase
-              .from('packages')
-              .update({ pickup_confirmation_sent: true })
-              .in('id', successIds);
-          }
+          await supabase
+            .from('packages')
+            .update({ pickup_confirmation_sent: true })
+            .in('id', ids);
         }
       } catch (e) {
         console.error('[BatchPickup] WhatsApp failed:', e);
@@ -475,9 +490,16 @@ export default function Packages() {
       return;
     }
 
+    const pickedUpAt = new Date().toISOString();
     const { error: updErr } = await supabase
       .from('packages')
-      .update({ current_location_id: targetLocker.id })
+      .update({
+        current_location_id: targetLocker.id,
+        status: 'picked_up',
+        picked_up_at: pickedUpAt,
+        picked_up_by: `Armário ${ref}`,
+        pickup_confirmation_sent: true,
+      })
       .eq('id', allocatePkg.id);
 
     if (updErr) {
@@ -545,9 +567,16 @@ export default function Packages() {
 
     const ids = batchAllocatePkgs.map(p => p.id);
 
+    const pickedUpAt = new Date().toISOString();
     const { error: updErr } = await supabase
       .from('packages')
-      .update({ current_location_id: targetLocker.id })
+      .update({
+        current_location_id: targetLocker.id,
+        status: 'picked_up',
+        picked_up_at: pickedUpAt,
+        picked_up_by: `Armário ${ref}`,
+        pickup_confirmation_sent: true,
+      })
       .in('id', ids);
 
     if (updErr) {
@@ -641,11 +670,14 @@ export default function Packages() {
     };
   };
 
-  // Group key for batch operations: same resident + same location
+  // Group key for batch operations: same apartment + same location
   const getGroupKey = (pkg: Package): string | null => {
-    if (!pkg.resident_id || pkg.status !== 'pending') return null;
+    if (pkg.status !== 'pending') return null;
+    const block = pkg.resident?.block?.trim();
+    const apartment = pkg.resident?.apartment?.trim();
+    if (!block || !apartment) return null;
     const currentLocId = (pkg as any).current_location_id ?? 'null';
-    return `${pkg.resident_id}:${currentLocId}`;
+    return `${block.toLowerCase()}|${apartment.toLowerCase()}:${currentLocId}`;
   };
 
   // Map of groupKey -> all pending pkgs in that group (from currently loaded list)
@@ -668,15 +700,18 @@ export default function Packages() {
 
   const selectedPackages = filteredPackages.filter((p) => selectedIds.has(p.id));
   const selectionResident = selectedPackages[0]?.resident;
+  const selectionUnit = selectionResident
+    ? `${selectionResident.block}/${selectionResident.apartment}`
+    : null;
 
   const toggleSelect = (pkg: Package) => {
     const key = getGroupKey(pkg);
     if (!key) {
-      toast.error('Pacotes sem morador identificado precisam ser retirados individualmente.');
+      toast.error('Encomendas sem apartamento identificado precisam ser retiradas individualmente.');
       return;
     }
     if (selectionKey && selectionKey !== key) {
-      toast.error('Selecione encomendas de um único morador no mesmo local.');
+      toast.error('Selecione encomendas do mesmo apartamento e local.');
       return;
     }
     setSelectedIds((prev) => {
@@ -711,11 +746,13 @@ export default function Packages() {
       currentLocId != null &&
       currentLocId !== centralLocationId;
     const isPickedUp = pkg.status === 'picked_up';
+    const currentLocType = (pkg as any).current_location?.type as string | undefined;
+    const isInLocker = currentLocType === 'locker';
     const isClickable = isPickedUp || isTransferredAway;
     const locationBadge = pkg.status === 'pending' && !isTransferredAway ? getLocationBadge(pkg) : null;
     const groupKey = getGroupKey(pkg);
     const isSelectable =
-      pkg.status === 'pending' && !isTransferredAway && !!groupKey;
+      pkg.status === 'pending' && !isTransferredAway && !isInLocker && !!groupKey;
     const isSelected = selectedIds.has(pkg.id);
 
     // Last transfer event leaving the central
@@ -788,28 +825,36 @@ export default function Packages() {
                   </Badge>
                 ) : pkg.status === 'pending' ? (
                   <div className="flex items-center gap-2">
-                    {isSimpleLocker && (currentLocId == null || currentLocId === centralLocationId) && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={(e) => handleAllocateClick(pkg, e)}
-                      >
-                        <Boxes className="w-4 h-4 mr-1" />
-                        Alocar
-                      </Button>
+                    {isInLocker ? (
+                      <Badge className="text-xs gap-1 bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20">
+                        Aguardando morador no armário
+                      </Badge>
+                    ) : (
+                      <>
+                        {isSimpleLocker && (currentLocId == null || currentLocId === centralLocationId) && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={(e) => handleAllocateClick(pkg, e)}
+                          >
+                            <Boxes className="w-4 h-4 mr-1" />
+                            Alocar
+                          </Button>
+                        )}
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            handlePickUpClick(pkg);
+                          }}
+                        >
+                          <CheckCircle2 className="w-4 h-4 mr-1" />
+                          Retirar
+                        </Button>
+                      </>
                     )}
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        handlePickUpClick(pkg);
-                      }}
-                    >
-                      <CheckCircle2 className="w-4 h-4 mr-1" />
-                      Retirar
-                    </Button>
                   </div>
                 ) : null}
               </div>
@@ -825,16 +870,20 @@ export default function Packages() {
     const firstLocId = (pkgs[0] as any).current_location_id;
     const canAllocate =
       isSimpleLocker && (firstLocId == null || firstLocId === centralLocationId);
+    const unitLabel = r ? `${r.block}/${r.apartment}` : 'Apartamento';
+    const uniqueNames = Array.from(
+      new Set(pkgs.map((p) => p.resident?.full_name).filter(Boolean) as string[])
+    );
     return (
       <div className="flex items-center justify-between gap-3 px-3 py-2 rounded-lg bg-primary/5 border border-primary/20">
         <div className="flex items-center gap-2 min-w-0">
           <Users className="w-4 h-4 text-primary flex-shrink-0" />
           <div className="min-w-0">
             <p className="text-sm font-medium truncate">
-              {r?.full_name || 'Morador'}
-              {r && (
+              {unitLabel}
+              {uniqueNames.length > 0 && (
                 <span className="text-muted-foreground font-normal">
-                  {' '}— {r.block}/{r.apartment}
+                  {' '}— {uniqueNames.join(', ')}
                 </span>
               )}
             </p>
@@ -1032,7 +1081,7 @@ export default function Packages() {
               <div className="min-w-0">
                 <p className="text-sm font-medium truncate">
                   {selectedIds.size} selecionada{selectedIds.size > 1 ? 's' : ''}
-                  {selectionResident && ` — ${selectionResident.full_name}`}
+                  {selectionUnit && ` — ${selectionUnit}`}
                 </p>
               </div>
               <div className="flex items-center gap-2 flex-shrink-0">

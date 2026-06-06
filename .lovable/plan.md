@@ -1,22 +1,53 @@
-# Mensagem WhatsApp — Mudanças no fluxo de encomendas
+# Dois ajustes no fluxo de encomendas
 
-## Formato
-Mensagem curta, amigável, direto no celular (WhatsApp), com emojis e tópicos.
+## 1) Alocou no armário → fluxo encerrado
 
-## Tom
-Informal e amigável — como se estivesse conversando com o porteiro.
+Hoje, no modo `multi_custody`, alocar uma encomenda no armário só move a localização. A encomenda continua "Aguardando retirada" e mostra o botão **Retirar** (com assinatura), como na imagem.
 
-## Conteúdo coberto
-1. **Retirada em lote ("Retirar todas")** — Quando um morador tem 2+ encomendas pendentes, aparece um botão "Retirar todas" no topo do grupo. O morador assina **uma vez só** e todas são retiradas. Também dá pra selecionar manualmente com checkboxes.
-2. **Uma notificação só por lote** — Se o morador retirou 5 encomendas, ele recebe 1 mensagem de confirmação no WhatsApp (não 5 iguais).
-3. **Armário = fim do fluxo** — Quando uma encomenda vai pro armário, o sistema já marca como "retirada" automaticamente. Não precisa mais assinar depois, nem enviar mensagem de "retirada" no dia seguinte. O morador recebe só o número do armário e pronto.
-4. **Alocar todas no armário** — Igual ao "Retirar todas", agora tem "Alocar todas" pro armário. Se o morador tem várias encomendas e você quer alocar tudo no armário de uma vez, clica no botão e manda tudo junto. Uma notificação só pro morador.
-5. **Template plural no WhatsApp** — Estamos aguardando aprovação de um novo template no Twilio pra mensagem ficar no plural quando forem várias encomendas (hoje ainda manda no singular, mas funciona).
+A regra "armário = fim do fluxo" passa a valer para **todos os modos** (multi_custody e simple_locker):
 
-## O que NÃO mudou
-- Recebimento de encomendas (OCR, etc.) continua igual.
-- Transferências entre torres/lockers continuam iguais.
-- Retirada individual (uma por uma) ainda funciona normalmente.
+- Ao alocar no armário (individual ou em lote), o sistema marca automaticamente como `picked_up`:
+  - `status = 'picked_up'`
+  - `picked_up_at = now()`
+  - `picked_up_by = 'Armário <ref>'`
+  - `signature_data = null` (sem assinatura falsa)
+- A encomenda sai de **Aguardando** e vai para **Retiradas** imediatamente.
+- O morador recebe **uma única** notificação WhatsApp informando o número do armário (comportamento já existente).
+- O evento `package_allocated_to_locker` continua sendo registrado.
+- O botão **Retirar** deixa de aparecer para encomendas já em armário (defesa adicional caso reste algum item legado nesse estado).
 
-## Entregável
-Um texto pronto pra copiar e colar no WhatsApp (ou enviar como documento/print).
+## 2) Retirada em lote por apartamento (não por morador)
+
+Hoje o agrupamento usa `resident_id + current_location_id`. Encomendas de moradores diferentes que dividem o mesmo apto (ex.: marido e esposa em A/53) ficam em grupos separados.
+
+Mudança:
+
+- A chave de agrupamento passa a ser **`block + apartment + current_location_id`**.
+- O cabeçalho do grupo (faixa azul "Retirar todas") passa a mostrar o apartamento (ex.: `A/53 — 2 encomendas`) em vez de um único nome.
+- Seleção manual via checkbox passa a permitir múltiplos moradores do mesmo apto/local. Mensagem de erro atualizada: "Selecione encomendas do mesmo apartamento e local."
+- Diálogo de confirmação de retirada em lote (`BatchPickupDialog`):
+  - Cabeçalho mostra o apartamento.
+  - Lista por linha mostra nome do morador de cada encomenda (já mostra hoje).
+  - Texto da assinatura: "Assinatura de quem está retirando" (sem assumir um nome só).
+- Notificação WhatsApp de confirmação: envia **uma mensagem por morador distinto** presente no lote (ex.: 1 para o marido se as 2 encomendas dele saíram, 1 para a esposa se houver encomenda dela), respeitando `whatsapp_enabled` de cada um.
+
+## Detalhes técnicos
+
+Arquivos afetados:
+
+- `src/pages/Packages.tsx`
+  - `getGroupKey`: usar `block|apartment` no lugar de `resident_id`.
+  - `toggleSelect`: ajustar mensagens.
+  - `handleConfirmAllocation` / `handleConfirmBatchAllocation`: marcar `picked_up` + `picked_up_at` + `picked_up_by`.
+  - `handleConfirmBatchPickup`: agrupar moradores distintos do lote e disparar um `send-pickup-confirmation` por morador.
+  - `PackageCard`: esconder botão Retirar quando `current_location_id` for de um locker.
+- `src/pages/Dashboard.tsx`
+  - `handleConfirmAllocation`: mesma marcação `picked_up`.
+- `src/components/BatchPickupDialog.tsx`
+  - Cabeçalho/labels para apartamento em vez de morador único.
+- Sem mudanças de schema, edge functions ou templates Twilio.
+
+## O que NÃO muda
+
+- Recebimento de encomendas (OCR), transferências entre torres/armários, retirada individual fora do armário.
+- Templates do WhatsApp (segue usando o template singular aprovado).
