@@ -488,15 +488,10 @@ export default function Packages() {
       return;
     }
 
-    const pickedUpAt = new Date().toISOString();
     const { error: updErr } = await supabase
       .from('packages')
       .update({
         current_location_id: targetLocker.id,
-        status: 'picked_up',
-        picked_up_at: pickedUpAt,
-        picked_up_by: `Armário ${ref}`,
-        pickup_confirmation_sent: true,
       })
       .eq('id', allocatePkg.id);
 
