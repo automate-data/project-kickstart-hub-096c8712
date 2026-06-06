@@ -822,6 +822,9 @@ export default function Packages() {
 
   const GroupHeader = ({ pkgs }: { pkgs: Package[] }) => {
     const r = pkgs[0].resident;
+    const firstLocId = (pkgs[0] as any).current_location_id;
+    const canAllocate =
+      isSimpleLocker && (firstLocId == null || firstLocId === centralLocationId);
     return (
       <div className="flex items-center justify-between gap-3 px-3 py-2 rounded-lg bg-primary/5 border border-primary/20">
         <div className="flex items-center gap-2 min-w-0">
@@ -838,13 +841,22 @@ export default function Packages() {
           </div>
           <Badge variant="secondary" className="flex-shrink-0">{pkgs.length} encomendas</Badge>
         </div>
-        <Button size="sm" onClick={() => openBatchForGroup(pkgs)}>
-          <CheckCircle2 className="w-4 h-4 mr-1" />
-          Retirar todas
-        </Button>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          {canAllocate && (
+            <Button size="sm" variant="outline" onClick={() => openBatchAllocateForGroup(pkgs)}>
+              <Boxes className="w-4 h-4 mr-1" />
+              Alocar todas
+            </Button>
+          )}
+          <Button size="sm" onClick={() => openBatchForGroup(pkgs)}>
+            <CheckCircle2 className="w-4 h-4 mr-1" />
+            Retirar todas
+          </Button>
+        </div>
       </div>
     );
   };
+
 
   return (
     <div className="space-y-6 animate-fade-in">
