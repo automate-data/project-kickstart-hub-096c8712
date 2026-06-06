@@ -311,23 +311,14 @@ export default function TowerDashboard() {
           <p className="text-muted-foreground text-sm">Gerencie as encomendas do seu Bloco</p>
         </div>
 
-        {/* Section 1 — Counter cards */}
-        <div className="grid grid-cols-2 gap-4">
-          <Card>
-            <CardContent className="pt-6 flex flex-col items-center gap-2">
-              <Package className="w-8 h-8 text-primary" />
-              <span className="text-3xl font-bold text-foreground">{blockCount}</span>
-              <span className="text-sm text-muted-foreground">No Bloco</span>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-6 flex flex-col items-center gap-2">
-              <Archive className="w-8 h-8 text-amber-500" />
-              <span className="text-3xl font-bold text-foreground">{lockerCount}</span>
-              <span className="text-sm text-muted-foreground">No Armário</span>
-            </CardContent>
-          </Card>
-        </div>
+        {/* Section 1 — Counter card */}
+        <Card>
+          <CardContent className="pt-6 flex flex-col items-center gap-2">
+            <Package className="w-8 h-8 text-primary" />
+            <span className="text-3xl font-bold text-foreground">{blockCount}</span>
+            <span className="text-sm text-muted-foreground">Aguardando retirada</span>
+          </CardContent>
+        </Card>
 
         {/* Section 2 — Collect from central button */}
         <Card className="border-dashed border-2 border-primary/30 bg-primary/5">
