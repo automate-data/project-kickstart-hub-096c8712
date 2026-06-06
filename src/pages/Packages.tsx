@@ -397,33 +397,42 @@ export default function Packages() {
           condominium_id: condominium?.id,
         });
 
-        if (pkg.resident?.phone) {
-          try {
-            const { data: confirmResult, error: confirmError } = await supabase.functions.invoke(
-              'send-pickup-confirmation',
-              {
-                body: {
-                  phone: pkg.resident.phone,
-                  resident_name: pkg.resident.full_name,
-                  picked_up_at: pickedUpAt,
-                  package_id: pkg.id,
-                  condominium_id: condominium?.id,
-                },
-              }
-            );
-            if (!confirmError && !confirmResult?.error) {
-              await supabase
-                .from('packages')
-                .update({ pickup_confirmation_sent: confirmResult?.success || false })
-                .eq('id', pkg.id);
-            }
-          } catch (e) {
-            console.error('[BatchPickup] WhatsApp failed:', e);
-          }
-        }
         return pkg.id;
       })
     );
+
+    // Single WhatsApp notification for the whole batch (template is generic)
+    const firstPkg = batchPackages[0];
+    if (firstPkg?.resident?.phone) {
+      try {
+        const { data: confirmResult, error: confirmError } = await supabase.functions.invoke(
+          'send-pickup-confirmation',
+          {
+            body: {
+              phone: firstPkg.resident.phone,
+              resident_name: firstPkg.resident.full_name,
+              picked_up_at: pickedUpAt,
+              package_id: firstPkg.id,
+              condominium_id: condominium?.id,
+            },
+          }
+        );
+        if (!confirmError && !confirmResult?.error && confirmResult?.success) {
+          const successIds = results
+            .map((r, i) => (r.status === 'fulfilled' ? batchPackages[i].id : null))
+            .filter((id): id is string => id !== null);
+          if (successIds.length > 0) {
+            await supabase
+              .from('packages')
+              .update({ pickup_confirmation_sent: true })
+              .in('id', successIds);
+          }
+        }
+      } catch (e) {
+        console.error('[BatchPickup] WhatsApp failed:', e);
+      }
+    }
+
 
     const succeeded = results.filter((r) => r.status === 'fulfilled').length;
     const failed = results.length - succeeded;
