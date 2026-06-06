@@ -825,28 +825,36 @@ export default function Packages() {
                   </Badge>
                 ) : pkg.status === 'pending' ? (
                   <div className="flex items-center gap-2">
-                    {isSimpleLocker && (currentLocId == null || currentLocId === centralLocationId) && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={(e) => handleAllocateClick(pkg, e)}
-                      >
-                        <Boxes className="w-4 h-4 mr-1" />
-                        Alocar
-                      </Button>
+                    {isInLocker ? (
+                      <Badge className="text-xs gap-1 bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20">
+                        Aguardando morador no armário
+                      </Badge>
+                    ) : (
+                      <>
+                        {isSimpleLocker && (currentLocId == null || currentLocId === centralLocationId) && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={(e) => handleAllocateClick(pkg, e)}
+                          >
+                            <Boxes className="w-4 h-4 mr-1" />
+                            Alocar
+                          </Button>
+                        )}
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            handlePickUpClick(pkg);
+                          }}
+                        >
+                          <CheckCircle2 className="w-4 h-4 mr-1" />
+                          Retirar
+                        </Button>
+                      </>
                     )}
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        handlePickUpClick(pkg);
-                      }}
-                    >
-                      <CheckCircle2 className="w-4 h-4 mr-1" />
-                      Retirar
-                    </Button>
                   </div>
                 ) : null}
               </div>
