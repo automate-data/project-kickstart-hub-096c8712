@@ -1,31 +1,60 @@
-# Exigir morador identificado no recebimento
+# Retirada em lote por morador
 
-## Problema
-No fluxo de **Receber encomenda** (`src/pages/ReceivePackage.tsx`), o botão "Confirmar recebimento" hoje só verifica `isSaving`. Se a IA não identificar o morador e o porteiro não selecionar um na lista, o pacote é gravado com `resident_id = NULL` — exatamente o que aconteceu no registro `d70317b2-...`, sem rastreabilidade.
+## Objetivo
+Permitir que o porteiro selecione várias encomendas pendentes do **mesmo morador** e finalize a retirada com **uma única assinatura**, sem alterar a lógica atual de retirada individual nem nenhum fluxo já em produção (recebimento, transferências, lockers, notificações).
 
-## Mudança proposta (somente UI)
-Bloquear a confirmação enquanto **não houver morador selecionado**.
+## Escopo (somente UI + chamadas já existentes)
+- Tela afetada: `src/pages/Packages.tsx` (aba "Aguardando").
+- Novo componente: `src/components/BatchPickupDialog.tsx` (variação do `PickupDialog` para múltiplos pacotes).
+- **Sem mudanças** em banco, RLS, triggers, Edge Functions, tipos ou no `PickupDialog` atual.
 
-### Em `src/pages/ReceivePackage.tsx`
+## Comportamento
 
-1. **Desabilitar o botão** quando `selectedResident` for `null`:
-   ```tsx
-   disabled={isSaving || !selectedResident}
-   ```
+### 1. Agrupamento visual na aba "Aguardando"
+- Quando houver 2+ encomendas pendentes do mesmo `resident_id`, agrupar visualmente sob o nome do morador com um cabeçalho contendo:
+  - Nome + Bloco/Apto
+  - Badge `N encomendas`
+  - Botão **"Retirar todas"** (abre `BatchPickupDialog` com todos os pacotes do grupo)
+- Encomendas únicas (morador com 1 pacote) e pacotes com `resident_id NULL` continuam exibidas como hoje, com botão "Retirar" individual.
+- Cards continuam clicáveis individualmente; cada card mantém um **checkbox** opcional para seleção manual de um subconjunto.
 
-2. **Aviso visual** logo abaixo do seletor de morador quando nenhum estiver selecionado (após a etapa de processamento da IA), no mesmo estilo do alerta de WhatsApp desligado:
-   - Ícone de alerta + texto curto:
-     "Selecione o morador para confirmar o recebimento. Se o destinatário não estiver cadastrado, cadastre-o em Moradores antes de continuar."
+### 2. Seleção manual (subconjunto)
+- Ao marcar checkboxes em cards do **mesmo morador**, surge uma **barra de ação fixa** no rodapé:
+  - `N selecionadas — [Nome do morador]`
+  - Botões: **Limpar** | **Retirar selecionadas**
+- Restrições:
+  - Seleção só funciona dentro de encomendas pendentes do mesmo morador. Tentar marcar pacote de outro morador exibe toast `Selecione encomendas de um único morador` e ignora o clique.
+  - Pacotes sem morador (`resident_id NULL`) não são selecionáveis em lote — só retirada individual.
+  - Em modo `simple_locker`/`multi_custody`, lote só é permitido entre pacotes com o **mesmo `current_location_id`** (não misturar armário com central). Caso contrário, toast equivalente.
 
-3. **Destaque do seletor** quando vazio após a IA rodar: borda `border-destructive/50` no `PopoverTrigger` enquanto `selectedResident` for `null` e `step === 'confirm'`. Isso direciona o olhar do porteiro.
+### 3. `BatchPickupDialog`
+Espelha o `PickupDialog` atual, mas recebe `packages: Package[]`:
+- Cabeçalho: "Confirmar retirada de N encomendas"
+- Resumo do morador (nome + unidade)
+- Lista compacta com miniatura + transportadora + horário de cada pacote (ScrollArea, mesmo padrão do `TransferDialog`)
+- Canvas único de assinatura (`SignatureCanvas`)
+- Botão único **"Confirmar retirada de N encomendas"**
 
-4. **Guard extra no `handleSubmit`**: early-return com toast de erro se `!selectedResident`, para proteger contra qualquer caminho que escape do disabled.
+### 4. Persistência
+Reaproveita a lógica existente do `handleConfirmPickup`, executada em loop sobre o array:
+- `UPDATE packages SET status='picked_up', picked_up_at, picked_up_by, signature_data` — mesma assinatura aplicada a todos.
+- `insertLog('package_picked_up', package_id)` por pacote.
+- WhatsApp: **uma chamada** `send-pickup-confirmation` por pacote (mantém comportamento atual e contagem por encomenda), envolvida em `Promise.allSettled` para não bloquear se algum falhar.
+- `pickup_confirmation_sent` atualizado individualmente conforme cada chamada.
+- `queryClient.invalidateQueries(['packages'])` + `fetchCounts()` ao final.
+- Estados de erro: se algum `UPDATE` falhar, toast com `X de N concluídas` e mantém pendentes os que falharam.
+
+### 5. Estados visuais
+- Card em modo seleção: borda `border-primary/40` + checkbox visível.
+- Cabeçalho de grupo: card sutilmente recolhido com avatar/iniciais do morador.
+- Barra de ação fixa: `sticky bottom-0`, sombra superior, respeita safe-area mobile.
+- Loading no dialog: spinner + texto `Registrando N retiradas...`.
 
 ## O que NÃO muda
-- Sem alterações de banco, RLS, triggers ou Edge Functions.
-- Fluxo de OCR/IA continua igual — apenas a confirmação manual exige escolha explícita.
-- Pacotes antigos com `resident_id NULL` não são afetados.
-- Retirada (`PickupDialog`) não é alterada nesta tarefa.
+- `PickupDialog` original permanece intacto e ainda é usado para retirada individual.
+- Nenhuma alteração em recebimento (`/receive`), transferências, lockers, edge functions, RLS, schema.
+- Notificações WhatsApp continuam 1:1 por encomenda (mesma tarifa e template já aprovados).
+- Histórico/assinatura: cada pacote armazena a mesma `signature_data` (string base64), preservando rastreabilidade individual.
 
 ## Resultado esperado
-Impossível registrar um novo pacote sem vincular a um morador cadastrado, eliminando a classe de problema do pacote `d70317b2-...`.
+Porteiro retira 9 encomendas do mesmo morador em **1 assinatura + 1 clique**, em vez de 9 ciclos de diálogo. Operações grandes ficam viáveis sem alterar nada do que já roda em produção.

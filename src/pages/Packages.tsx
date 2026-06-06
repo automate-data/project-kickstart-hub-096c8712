@@ -11,8 +11,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Package as PackageIcon, Clock, CheckCircle2, Search, Timer, BellOff, Loader2, Boxes } from 'lucide-react';
 import { differenceInMinutes, differenceInHours, differenceInDays, startOfDay } from 'date-fns';
 import { PickupDialog } from '@/components/PickupDialog';
+import { BatchPickupDialog } from '@/components/BatchPickupDialog';
 import { PackageDetailsDialog } from '@/components/PackageDetailsDialog';
 import { LockerDialog } from '@/components/custody/CustodyDialogs';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Users, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { PackagePhoto } from '@/components/PackagePhoto';
 import { Input } from '@/components/ui/input';
@@ -111,6 +114,9 @@ export default function Packages() {
   const [lockers, setLockers] = useState<Location[]>([]);
   const [allocatePkg, setAllocatePkg] = useState<Package | null>(null);
   const [allocateOpen, setAllocateOpen] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [batchOpen, setBatchOpen] = useState(false);
+  const [batchPackages, setBatchPackages] = useState<Package[]>([]);
 
   // Fetch central location for multi_custody/simple_locker modes + check if user is tower-scoped
   useEffect(() => {
@@ -367,6 +373,72 @@ export default function Packages() {
     setSelectedPackage(null);
   };
 
+  const handleConfirmBatchPickup = async (signatureData: string) => {
+    if (batchPackages.length === 0) return;
+    const pickedUpAt = new Date().toISOString();
+
+    const results = await Promise.allSettled(
+      batchPackages.map(async (pkg) => {
+        const { error } = await supabase
+          .from('packages')
+          .update({
+            status: 'picked_up',
+            picked_up_at: pickedUpAt,
+            picked_up_by: pkg.resident?.full_name || 'Morador',
+            signature_data: signatureData,
+          })
+          .eq('id', pkg.id);
+
+        if (error) throw error;
+
+        insertLog({
+          event_type: 'package_picked_up',
+          package_id: pkg.id,
+          condominium_id: condominium?.id,
+        });
+
+        if (pkg.resident?.phone) {
+          try {
+            const { data: confirmResult, error: confirmError } = await supabase.functions.invoke(
+              'send-pickup-confirmation',
+              {
+                body: {
+                  phone: pkg.resident.phone,
+                  resident_name: pkg.resident.full_name,
+                  picked_up_at: pickedUpAt,
+                  package_id: pkg.id,
+                  condominium_id: condominium?.id,
+                },
+              }
+            );
+            if (!confirmError && !confirmResult?.error) {
+              await supabase
+                .from('packages')
+                .update({ pickup_confirmation_sent: confirmResult?.success || false })
+                .eq('id', pkg.id);
+            }
+          } catch (e) {
+            console.error('[BatchPickup] WhatsApp failed:', e);
+          }
+        }
+        return pkg.id;
+      })
+    );
+
+    const succeeded = results.filter((r) => r.status === 'fulfilled').length;
+    const failed = results.length - succeeded;
+    if (failed > 0) {
+      toast.error(`${succeeded} de ${results.length} retiradas concluídas. ${failed} falharam.`);
+    } else {
+      toast.success(`${succeeded} encomendas retiradas com sucesso.`);
+    }
+
+    queryClient.invalidateQueries({ queryKey: ['packages'] });
+    fetchCounts();
+    setSelectedIds(new Set());
+    setBatchPackages([]);
+  };
+
   const isMultiCustody = condominium?.custody_mode === 'multi_custody' || condominium?.custody_mode === 'simple_locker';
   const isSimpleLocker = condominium?.custody_mode === 'simple_locker';
 
@@ -481,6 +553,64 @@ export default function Packages() {
     };
   };
 
+  // Group key for batch operations: same resident + same location
+  const getGroupKey = (pkg: Package): string | null => {
+    if (!pkg.resident_id || pkg.status !== 'pending') return null;
+    const currentLocId = (pkg as any).current_location_id ?? 'null';
+    return `${pkg.resident_id}:${currentLocId}`;
+  };
+
+  // Map of groupKey -> all pending pkgs in that group (from currently loaded list)
+  const pendingGroups = new Map<string, Package[]>();
+  for (const pkg of filteredPackages) {
+    const key = getGroupKey(pkg);
+    if (!key) continue;
+    const arr = pendingGroups.get(key) ?? [];
+    arr.push(pkg);
+    pendingGroups.set(key, arr);
+  }
+
+  const selectionKey = (() => {
+    if (selectedIds.size === 0) return null;
+    for (const pkg of filteredPackages) {
+      if (selectedIds.has(pkg.id)) return getGroupKey(pkg);
+    }
+    return null;
+  })();
+
+  const selectedPackages = filteredPackages.filter((p) => selectedIds.has(p.id));
+  const selectionResident = selectedPackages[0]?.resident;
+
+  const toggleSelect = (pkg: Package) => {
+    const key = getGroupKey(pkg);
+    if (!key) {
+      toast.error('Pacotes sem morador identificado precisam ser retirados individualmente.');
+      return;
+    }
+    if (selectionKey && selectionKey !== key) {
+      toast.error('Selecione encomendas de um único morador no mesmo local.');
+      return;
+    }
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(pkg.id)) next.delete(pkg.id);
+      else next.add(pkg.id);
+      return next;
+    });
+  };
+
+  const openBatchForGroup = (pkgs: Package[]) => {
+    setBatchPackages(pkgs);
+    setSelectedIds(new Set(pkgs.map((p) => p.id)));
+    setBatchOpen(true);
+  };
+
+  const openBatchForSelection = () => {
+    if (selectedPackages.length === 0) return;
+    setBatchPackages(selectedPackages);
+    setBatchOpen(true);
+  };
+
   const PackageCard = ({ pkg }: { pkg: Package }) => {
     const events = (pkg as any).events as Array<any> | undefined;
     // Transferred-away = pending but not in central anymore (only meaningful in multi_custody)
@@ -495,6 +625,10 @@ export default function Packages() {
     const isPickedUp = pkg.status === 'picked_up';
     const isClickable = isPickedUp || isTransferredAway;
     const locationBadge = pkg.status === 'pending' && !isTransferredAway ? getLocationBadge(pkg) : null;
+    const groupKey = getGroupKey(pkg);
+    const isSelectable =
+      pkg.status === 'pending' && !isTransferredAway && !!groupKey;
+    const isSelected = selectedIds.has(pkg.id);
 
     // Last transfer event leaving the central
     const transferEvent = events
@@ -504,11 +638,19 @@ export default function Packages() {
 
     return (
       <Card
-        className={`overflow-hidden ${isClickable ? 'cursor-pointer hover:bg-accent/50 transition-colors' : ''}`}
+        className={`overflow-hidden ${isClickable ? 'cursor-pointer hover:bg-accent/50 transition-colors' : ''} ${isSelected ? 'border-primary/60 ring-1 ring-primary/30' : ''}`}
         onClick={isClickable ? () => { setDetailsPackage(pkg); setDetailsDialogOpen(true); } : undefined}
       >
         <CardContent className="p-0">
           <div className="flex">
+            {isSelectable && (
+              <div
+                className="flex items-center justify-center pl-3"
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleSelect(pkg); }}
+              >
+                <Checkbox checked={isSelected} aria-label="Selecionar encomenda" />
+              </div>
+            )}
             <div className="w-24 h-24 flex-shrink-0">
               <PackagePhoto photoUrl={pkg.photo_url} className="w-full h-full object-cover" />
             </div>
@@ -587,6 +729,32 @@ export default function Packages() {
           </div>
         </CardContent>
       </Card>
+    );
+  };
+
+  const GroupHeader = ({ pkgs }: { pkgs: Package[] }) => {
+    const r = pkgs[0].resident;
+    return (
+      <div className="flex items-center justify-between gap-3 px-3 py-2 rounded-lg bg-primary/5 border border-primary/20">
+        <div className="flex items-center gap-2 min-w-0">
+          <Users className="w-4 h-4 text-primary flex-shrink-0" />
+          <div className="min-w-0">
+            <p className="text-sm font-medium truncate">
+              {r?.full_name || 'Morador'}
+              {r && (
+                <span className="text-muted-foreground font-normal">
+                  {' '}— {r.block}/{r.apartment}
+                </span>
+              )}
+            </p>
+          </div>
+          <Badge variant="secondary" className="flex-shrink-0">{pkgs.length} encomendas</Badge>
+        </div>
+        <Button size="sm" onClick={() => openBatchForGroup(pkgs)}>
+          <CheckCircle2 className="w-4 h-4 mr-1" />
+          Retirar todas
+        </Button>
+      </div>
     );
   };
 
@@ -674,9 +842,22 @@ export default function Packages() {
             </Card>
           ) : (
             <div className="space-y-3">
-              {filteredPackages.map((pkg) => (
-                <PackageCard key={pkg.id} pkg={pkg} />
-              ))}
+              {(() => {
+                const seenGroups = new Set<string>();
+                const nodes: React.ReactNode[] = [];
+                for (const pkg of filteredPackages) {
+                  const key = getGroupKey(pkg);
+                  if (key && filter === 'pending' && !seenGroups.has(key)) {
+                    const groupPkgs = pendingGroups.get(key) ?? [];
+                    if (groupPkgs.length >= 2) {
+                      nodes.push(<GroupHeader key={`h-${key}`} pkgs={groupPkgs} />);
+                    }
+                    seenGroups.add(key);
+                  }
+                  nodes.push(<PackageCard key={pkg.id} pkg={pkg} />);
+                }
+                return nodes;
+              })()}
 
               {/* Load more / end of list */}
               <div className="py-4 text-center">
@@ -718,6 +899,39 @@ export default function Packages() {
         towerName="Portaria"
         onConfirm={handleConfirmAllocation}
       />
+
+      <BatchPickupDialog
+        open={batchOpen}
+        onOpenChange={(o) => {
+          setBatchOpen(o);
+          if (!o) setBatchPackages([]);
+        }}
+        packages={batchPackages}
+        onConfirm={handleConfirmBatchPickup}
+      />
+
+      {selectedIds.size > 0 && !batchOpen && (
+        <div className="fixed bottom-0 left-0 right-0 z-40 bg-background border-t shadow-lg p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
+          <div className="max-w-2xl mx-auto flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-sm font-medium truncate">
+                {selectedIds.size} selecionada{selectedIds.size > 1 ? 's' : ''}
+                {selectionResident && ` — ${selectionResident.full_name}`}
+              </p>
+            </div>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <Button variant="ghost" size="sm" onClick={() => setSelectedIds(new Set())}>
+                <X className="w-4 h-4 mr-1" />
+                Limpar
+              </Button>
+              <Button size="sm" onClick={openBatchForSelection}>
+                <CheckCircle2 className="w-4 h-4 mr-1" />
+                Retirar selecionadas
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
