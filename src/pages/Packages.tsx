@@ -655,11 +655,14 @@ export default function Packages() {
     };
   };
 
-  // Group key for batch operations: same resident + same location
+  // Group key for batch operations: same apartment + same location
   const getGroupKey = (pkg: Package): string | null => {
-    if (!pkg.resident_id || pkg.status !== 'pending') return null;
+    if (pkg.status !== 'pending') return null;
+    const block = pkg.resident?.block?.trim();
+    const apartment = pkg.resident?.apartment?.trim();
+    if (!block || !apartment) return null;
     const currentLocId = (pkg as any).current_location_id ?? 'null';
-    return `${pkg.resident_id}:${currentLocId}`;
+    return `${block.toLowerCase()}|${apartment.toLowerCase()}:${currentLocId}`;
   };
 
   // Map of groupKey -> all pending pkgs in that group (from currently loaded list)
@@ -682,15 +685,18 @@ export default function Packages() {
 
   const selectedPackages = filteredPackages.filter((p) => selectedIds.has(p.id));
   const selectionResident = selectedPackages[0]?.resident;
+  const selectionUnit = selectionResident
+    ? `${selectionResident.block}/${selectionResident.apartment}`
+    : null;
 
   const toggleSelect = (pkg: Package) => {
     const key = getGroupKey(pkg);
     if (!key) {
-      toast.error('Pacotes sem morador identificado precisam ser retirados individualmente.');
+      toast.error('Encomendas sem apartamento identificado precisam ser retiradas individualmente.');
       return;
     }
     if (selectionKey && selectionKey !== key) {
-      toast.error('Selecione encomendas de um único morador no mesmo local.');
+      toast.error('Selecione encomendas do mesmo apartamento e local.');
       return;
     }
     setSelectedIds((prev) => {
