@@ -10,21 +10,10 @@ import { LockerDialog } from '@/components/custody/CustodyDialogs';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
 import { PackagePhoto } from '@/components/PackagePhoto';
 import {
   ArrowDownToLine,
   Package,
-  Archive,
   Loader2,
   CheckCircle2,
   LocateFixed,
@@ -48,7 +37,6 @@ export default function TowerDashboard() {
   const [hasLockers, setHasLockers] = useState(false);
   const [packages, setPackages] = useState<TowerPackage[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [lockerPickupLoading, setLockerPickupLoading] = useState<string | null>(null);
 
   // Pickup dialog
   const [pickupPkg, setPickupPkg] = useState<PackageType | null>(null);
@@ -58,12 +46,8 @@ export default function TowerDashboard() {
   const [lockerPkg, setLockerPkg] = useState<PackageType | null>(null);
   const [lockerOpen, setLockerOpen] = useState(false);
 
-  // Locker pickup confirmation dialog
-  const [lockerPickupTarget, setLockerPickupTarget] = useState<TowerPackage | null>(null);
-
-  // Counters
-  const lockerCount = packages.filter(p => p.locker_reference).length;
-  const blockCount = packages.length - lockerCount;
+  // Counter (only pending packages in this tower)
+  const blockCount = packages.length;
 
   // Fetch user's tower location
   useEffect(() => {
@@ -234,63 +218,7 @@ export default function TowerDashboard() {
     fetchPackages();
   };
 
-  // Handle locker pickup (no signature needed)
-  const confirmLockerPickup = async () => {
-    const pkg = lockerPickupTarget;
-    if (!pkg || !user) return;
 
-    setLockerPickupLoading(pkg.id);
-    const pickedUpAt = new Date().toISOString();
-
-    try {
-      const { error } = await supabase
-        .from('packages')
-        .update({
-          status: 'picked_up',
-          picked_up_at: pickedUpAt,
-          picked_up_by: pkg.resident?.full_name || 'Morador',
-        })
-        .eq('id', pkg.id);
-
-      if (error) {
-        toast.error('Erro ao registrar retirada');
-        return;
-      }
-
-      // Send WhatsApp pickup confirmation
-      if (pkg.resident?.phone) {
-        try {
-          const { data: confirmResult, error: confirmError } = await supabase.functions.invoke('send-pickup-confirmation', {
-            body: {
-              phone: pkg.resident.phone,
-              resident_name: pkg.resident.full_name,
-              picked_up_at: pickedUpAt,
-              package_id: pkg.id,
-              condominium_id: condominium?.id,
-              locker_reference: pkg.locker_reference,
-            },
-          });
-
-          if (confirmError || confirmResult?.error) {
-            console.error('[TowerDashboard] WhatsApp pickup confirmation failed:', confirmError?.message || confirmResult?.error);
-          } else {
-            await supabase
-              .from('packages')
-              .update({ pickup_confirmation_sent: confirmResult?.success || false })
-              .eq('id', pkg.id);
-          }
-        } catch (e: any) {
-          console.error('[TowerDashboard] WhatsApp pickup confirmation error:', e);
-        }
-      }
-
-      toast.success('Retirada confirmada com sucesso!');
-      setLockerPickupTarget(null);
-      fetchPackages();
-    } finally {
-      setLockerPickupLoading(null);
-    }
-  };
 
   const handleLockerConfirm = async (lockerReference: string, sendWhatsApp: boolean) => {
     if (!lockerPkg || !user || !towerLocationId) return;
@@ -305,7 +233,7 @@ export default function TowerDashboard() {
 
     const lockerId = lockerLocs?.[0]?.id || null;
 
-    // Insert package_event
+    // Insert package_event (transfer to locker)
     const { error: eventErr } = await supabase.from('package_events').insert({
       package_id: lockerPkg.id,
       from_location_id: towerLocationId,
@@ -317,6 +245,24 @@ export default function TowerDashboard() {
     if (eventErr) {
       toast.error('Erro ao registrar alocação no armário');
       throw eventErr;
+    }
+
+    // Locker allocation = end of flow: mark package as picked_up.
+    // The WhatsApp message with the locker number is the receipt; no
+    // signature, no second "pickup confirmed" message later.
+    const pickedUpAt = new Date().toISOString();
+    const { error: pkgErr } = await supabase
+      .from('packages')
+      .update({
+        status: 'picked_up',
+        picked_up_at: pickedUpAt,
+        picked_up_by: `Armário ${lockerReference}`,
+        pickup_confirmation_sent: true,
+      })
+      .eq('id', lockerPkg.id);
+
+    if (pkgErr) {
+      console.error('[TowerDashboard] Failed to mark package as picked_up after locker allocation:', pkgErr);
     }
 
     // Send WhatsApp notification if enabled
@@ -365,23 +311,14 @@ export default function TowerDashboard() {
           <p className="text-muted-foreground text-sm">Gerencie as encomendas do seu Bloco</p>
         </div>
 
-        {/* Section 1 — Counter cards */}
-        <div className="grid grid-cols-2 gap-4">
-          <Card>
-            <CardContent className="pt-6 flex flex-col items-center gap-2">
-              <Package className="w-8 h-8 text-primary" />
-              <span className="text-3xl font-bold text-foreground">{blockCount}</span>
-              <span className="text-sm text-muted-foreground">No Bloco</span>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-6 flex flex-col items-center gap-2">
-              <Archive className="w-8 h-8 text-amber-500" />
-              <span className="text-3xl font-bold text-foreground">{lockerCount}</span>
-              <span className="text-sm text-muted-foreground">No Armário</span>
-            </CardContent>
-          </Card>
-        </div>
+        {/* Section 1 — Counter card */}
+        <Card>
+          <CardContent className="pt-6 flex flex-col items-center gap-2">
+            <Package className="w-8 h-8 text-primary" />
+            <span className="text-3xl font-bold text-foreground">{blockCount}</span>
+            <span className="text-sm text-muted-foreground">Aguardando retirada</span>
+          </CardContent>
+        </Card>
 
         {/* Section 2 — Collect from central button */}
         <Card className="border-dashed border-2 border-primary/30 bg-primary/5">
@@ -457,19 +394,9 @@ export default function TowerDashboard() {
                         </div>
                         <div className="grid grid-cols-2 gap-2 pt-2">
                           {pkg.locker_reference ? (
-                            <Button
-                              size="sm"
-                              className="col-span-2 w-full justify-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white"
-                              disabled={lockerPickupLoading === pkg.id}
-                              onClick={() => setLockerPickupTarget(pkg)}
-                            >
-                              {lockerPickupLoading === pkg.id ? (
-                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                              ) : (
-                                <CheckCircle2 className="w-3.5 h-3.5" />
-                              )}
-                              Confirmar Retirada
-                            </Button>
+                            <div className="col-span-2 text-center text-xs text-muted-foreground py-2">
+                              Encomenda alocada. Aguardando retirada pelo morador.
+                            </div>
                           ) : (
                             <>
                               <Button
@@ -525,71 +452,6 @@ export default function TowerDashboard() {
         towerName={towerName}
         onConfirm={handleLockerConfirm}
       />
-
-      <AlertDialog
-        open={!!lockerPickupTarget}
-        onOpenChange={(open) => {
-          if (!open && !lockerPickupLoading) setLockerPickupTarget(null);
-        }}
-      >
-        <AlertDialogContent className="max-w-sm mx-auto rounded-2xl">
-          <AlertDialogHeader className="items-center text-center space-y-3">
-            <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center">
-              <Archive className="w-7 h-7 text-primary" />
-            </div>
-            <AlertDialogTitle className="text-center text-xl">
-              Confirmar retirada do armário
-            </AlertDialogTitle>
-            <AlertDialogDescription asChild>
-              <div className="space-y-3 pt-2">
-                <p className="text-center text-sm text-muted-foreground">
-                  O morador retirou a encomenda do armário?
-                </p>
-                {lockerPickupTarget && (
-                  <div className="rounded-xl bg-muted/60 p-4 space-y-1.5 text-center">
-                    <p className="font-semibold text-foreground text-base">
-                      {lockerPickupTarget.resident?.full_name || 'Morador'}
-                    </p>
-                    {lockerPickupTarget.resident && (
-                      <p className="text-sm text-muted-foreground">
-                        {condominium?.group_label || 'Bloco'} {lockerPickupTarget.resident.block} — {condominium?.unit_label || 'Apto'} {lockerPickupTarget.resident.apartment}
-                      </p>
-                    )}
-                    <div className="pt-2">
-                      <Badge className="bg-amber-100 text-amber-800 border-amber-200 text-sm px-3 py-1">
-                        Armário {lockerPickupTarget.locker_reference}
-                      </Badge>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter className="flex-col-reverse sm:flex-col-reverse gap-2 sm:gap-2 sm:space-x-0">
-            <AlertDialogCancel
-              className="w-full mt-0 rounded-xl"
-              disabled={!!lockerPickupLoading}
-            >
-              Cancelar
-            </AlertDialogCancel>
-            <AlertDialogAction
-              className="w-full rounded-xl gap-2"
-              disabled={!!lockerPickupLoading}
-              onClick={(e) => {
-                e.preventDefault();
-                confirmLockerPickup();
-              }}
-            >
-              {lockerPickupLoading ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <CheckCircle2 className="w-4 h-4" />
-              )}
-              Confirmar Retirada
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </AppLayout>
   );
 }
