@@ -845,16 +845,20 @@ export default function Packages() {
     const firstLocId = (pkgs[0] as any).current_location_id;
     const canAllocate =
       isSimpleLocker && (firstLocId == null || firstLocId === centralLocationId);
+    const unitLabel = r ? `${r.block}/${r.apartment}` : 'Apartamento';
+    const uniqueNames = Array.from(
+      new Set(pkgs.map((p) => p.resident?.full_name).filter(Boolean) as string[])
+    );
     return (
       <div className="flex items-center justify-between gap-3 px-3 py-2 rounded-lg bg-primary/5 border border-primary/20">
         <div className="flex items-center gap-2 min-w-0">
           <Users className="w-4 h-4 text-primary flex-shrink-0" />
           <div className="min-w-0">
             <p className="text-sm font-medium truncate">
-              {r?.full_name || 'Morador'}
-              {r && (
+              {unitLabel}
+              {uniqueNames.length > 0 && (
                 <span className="text-muted-foreground font-normal">
-                  {' '}— {r.block}/{r.apartment}
+                  {' '}— {uniqueNames.join(', ')}
                 </span>
               )}
             </p>
