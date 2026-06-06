@@ -553,6 +553,64 @@ export default function Packages() {
     };
   };
 
+  // Group key for batch operations: same resident + same location
+  const getGroupKey = (pkg: Package): string | null => {
+    if (!pkg.resident_id || pkg.status !== 'pending') return null;
+    const currentLocId = (pkg as any).current_location_id ?? 'null';
+    return `${pkg.resident_id}:${currentLocId}`;
+  };
+
+  // Map of groupKey -> all pending pkgs in that group (from currently loaded list)
+  const pendingGroups = new Map<string, Package[]>();
+  for (const pkg of filteredPackages) {
+    const key = getGroupKey(pkg);
+    if (!key) continue;
+    const arr = pendingGroups.get(key) ?? [];
+    arr.push(pkg);
+    pendingGroups.set(key, arr);
+  }
+
+  const selectionKey = (() => {
+    if (selectedIds.size === 0) return null;
+    for (const pkg of filteredPackages) {
+      if (selectedIds.has(pkg.id)) return getGroupKey(pkg);
+    }
+    return null;
+  })();
+
+  const selectedPackages = filteredPackages.filter((p) => selectedIds.has(p.id));
+  const selectionResident = selectedPackages[0]?.resident;
+
+  const toggleSelect = (pkg: Package) => {
+    const key = getGroupKey(pkg);
+    if (!key) {
+      toast.error('Pacotes sem morador identificado precisam ser retirados individualmente.');
+      return;
+    }
+    if (selectionKey && selectionKey !== key) {
+      toast.error('Selecione encomendas de um único morador no mesmo local.');
+      return;
+    }
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(pkg.id)) next.delete(pkg.id);
+      else next.add(pkg.id);
+      return next;
+    });
+  };
+
+  const openBatchForGroup = (pkgs: Package[]) => {
+    setBatchPackages(pkgs);
+    setSelectedIds(new Set(pkgs.map((p) => p.id)));
+    setBatchOpen(true);
+  };
+
+  const openBatchForSelection = () => {
+    if (selectedPackages.length === 0) return;
+    setBatchPackages(selectedPackages);
+    setBatchOpen(true);
+  };
+
   const PackageCard = ({ pkg }: { pkg: Package }) => {
     const events = (pkg as any).events as Array<any> | undefined;
     // Transferred-away = pending but not in central anymore (only meaningful in multi_custody)
@@ -567,6 +625,10 @@ export default function Packages() {
     const isPickedUp = pkg.status === 'picked_up';
     const isClickable = isPickedUp || isTransferredAway;
     const locationBadge = pkg.status === 'pending' && !isTransferredAway ? getLocationBadge(pkg) : null;
+    const groupKey = getGroupKey(pkg);
+    const isSelectable =
+      pkg.status === 'pending' && !isTransferredAway && !!groupKey;
+    const isSelected = selectedIds.has(pkg.id);
 
     // Last transfer event leaving the central
     const transferEvent = events
@@ -576,11 +638,19 @@ export default function Packages() {
 
     return (
       <Card
-        className={`overflow-hidden ${isClickable ? 'cursor-pointer hover:bg-accent/50 transition-colors' : ''}`}
+        className={`overflow-hidden ${isClickable ? 'cursor-pointer hover:bg-accent/50 transition-colors' : ''} ${isSelected ? 'border-primary/60 ring-1 ring-primary/30' : ''}`}
         onClick={isClickable ? () => { setDetailsPackage(pkg); setDetailsDialogOpen(true); } : undefined}
       >
         <CardContent className="p-0">
           <div className="flex">
+            {isSelectable && (
+              <div
+                className="flex items-center justify-center pl-3"
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleSelect(pkg); }}
+              >
+                <Checkbox checked={isSelected} aria-label="Selecionar encomenda" />
+              </div>
+            )}
             <div className="w-24 h-24 flex-shrink-0">
               <PackagePhoto photoUrl={pkg.photo_url} className="w-full h-full object-cover" />
             </div>
@@ -659,6 +729,32 @@ export default function Packages() {
           </div>
         </CardContent>
       </Card>
+    );
+  };
+
+  const GroupHeader = ({ pkgs }: { pkgs: Package[] }) => {
+    const r = pkgs[0].resident;
+    return (
+      <div className="flex items-center justify-between gap-3 px-3 py-2 rounded-lg bg-primary/5 border border-primary/20">
+        <div className="flex items-center gap-2 min-w-0">
+          <Users className="w-4 h-4 text-primary flex-shrink-0" />
+          <div className="min-w-0">
+            <p className="text-sm font-medium truncate">
+              {r?.full_name || 'Morador'}
+              {r && (
+                <span className="text-muted-foreground font-normal">
+                  {' '}— {r.block}/{r.apartment}
+                </span>
+              )}
+            </p>
+          </div>
+          <Badge variant="secondary" className="flex-shrink-0">{pkgs.length} encomendas</Badge>
+        </div>
+        <Button size="sm" onClick={() => openBatchForGroup(pkgs)}>
+          <CheckCircle2 className="w-4 h-4 mr-1" />
+          Retirar todas
+        </Button>
+      </div>
     );
   };
 
