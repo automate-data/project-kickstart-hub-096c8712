@@ -119,6 +119,9 @@ export default function Packages() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [batchOpen, setBatchOpen] = useState(false);
   const [batchPackages, setBatchPackages] = useState<Package[]>([]);
+  const [inLockerPackages, setInLockerPackages] = useState<Package[]>([]);
+  const [inLockerCount, setInLockerCount] = useState(0);
+  const [confirmingLockerId, setConfirmingLockerId] = useState<string | null>(null);
 
   // Fetch central location for multi_custody/simple_locker modes + check if user is tower-scoped
   useEffect(() => {
