@@ -709,6 +709,7 @@ export default function Packages() {
     setSelectedIds(new Set());
     queryClient.invalidateQueries({ queryKey: ['packages'] });
     fetchCounts();
+    fetchInLocker();
   };
 
   const getLocationBadge = (pkg: Package): { label: string; className: string } | null => {
