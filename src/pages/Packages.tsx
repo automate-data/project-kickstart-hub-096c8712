@@ -403,32 +403,47 @@ export default function Packages() {
       })
     );
 
-    // Single WhatsApp notification for the whole batch (template is generic)
-    const firstPkg = batchPackages[0];
-    if (firstPkg?.resident?.phone) {
+    // One WhatsApp per distinct resident in the batch (apartment may have multiple residents)
+    const successIdsByResident = new Map<string, string[]>();
+    const residentInfo = new Map<string, { phone: string; name: string; enabled: boolean }>();
+    results.forEach((r, i) => {
+      if (r.status !== 'fulfilled') return;
+      const pkg = batchPackages[i];
+      const rid = pkg.resident_id;
+      const phone = pkg.resident?.phone;
+      if (!rid || !phone) return;
+      if (!successIdsByResident.has(rid)) successIdsByResident.set(rid, []);
+      successIdsByResident.get(rid)!.push(pkg.id);
+      if (!residentInfo.has(rid)) {
+        residentInfo.set(rid, {
+          phone,
+          name: pkg.resident!.full_name,
+          enabled: pkg.resident?.whatsapp_enabled !== false,
+        });
+      }
+    });
+
+    for (const [rid, ids] of successIdsByResident.entries()) {
+      const info = residentInfo.get(rid);
+      if (!info || !info.enabled) continue;
       try {
         const { data: confirmResult, error: confirmError } = await supabase.functions.invoke(
           'send-pickup-confirmation',
           {
             body: {
-              phone: firstPkg.resident.phone,
-              resident_name: firstPkg.resident.full_name,
+              phone: info.phone,
+              resident_name: info.name,
               picked_up_at: pickedUpAt,
-              package_id: firstPkg.id,
+              package_id: ids[0],
               condominium_id: condominium?.id,
             },
           }
         );
         if (!confirmError && !confirmResult?.error && confirmResult?.success) {
-          const successIds = results
-            .map((r, i) => (r.status === 'fulfilled' ? batchPackages[i].id : null))
-            .filter((id): id is string => id !== null);
-          if (successIds.length > 0) {
-            await supabase
-              .from('packages')
-              .update({ pickup_confirmation_sent: true })
-              .in('id', successIds);
-          }
+          await supabase
+            .from('packages')
+            .update({ pickup_confirmation_sent: true })
+            .in('id', ids);
         }
       } catch (e) {
         console.error('[BatchPickup] WhatsApp failed:', e);
