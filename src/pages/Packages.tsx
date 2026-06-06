@@ -114,6 +114,8 @@ export default function Packages() {
   const [lockers, setLockers] = useState<Location[]>([]);
   const [allocatePkg, setAllocatePkg] = useState<Package | null>(null);
   const [allocateOpen, setAllocateOpen] = useState(false);
+  const [batchAllocatePkgs, setBatchAllocatePkgs] = useState<Package[]>([]);
+  const [batchAllocateOpen, setBatchAllocateOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [batchOpen, setBatchOpen] = useState(false);
   const [batchPackages, setBatchPackages] = useState<Package[]>([]);
@@ -521,6 +523,83 @@ export default function Packages() {
     fetchCounts();
   };
 
+  const openBatchAllocateForGroup = (pkgs: Package[]) => {
+    setBatchAllocatePkgs(pkgs);
+    setBatchAllocateOpen(true);
+  };
+
+  const handleConfirmBatchAllocation = async (lockerReference: string, sendWhatsApp: boolean) => {
+    if (batchAllocatePkgs.length === 0 || !centralLocationId) return;
+
+    const ref = lockerReference.trim();
+    const matched = lockers.find(l => {
+      const n = l.name.toLowerCase();
+      return n === ref.toLowerCase() || n.endsWith(` ${ref.toLowerCase()}`);
+    });
+    const targetLocker = matched || lockers[0];
+
+    if (!targetLocker) {
+      toast.error('Nenhum armário cadastrado. Configure em Configurações Avançadas.');
+      return;
+    }
+
+    const ids = batchAllocatePkgs.map(p => p.id);
+
+    const { error: updErr } = await supabase
+      .from('packages')
+      .update({ current_location_id: targetLocker.id })
+      .in('id', ids);
+
+    if (updErr) {
+      toast.error('Erro ao alocar encomendas');
+      return;
+    }
+
+    const { data: { user } } = await supabase.auth.getUser();
+
+    await supabase.from('package_events').insert(
+      ids.map(id => ({
+        package_id: id,
+        from_location_id: centralLocationId,
+        to_location_id: targetLocker.id,
+        transferred_by: user?.id,
+        notes: `locker_reference:${ref}`,
+      })) as any
+    );
+
+    for (const id of ids) {
+      insertLog({
+        event_type: 'package_allocated_to_locker',
+        package_id: id,
+        condominium_id: condominium?.id,
+        metadata: { locker_reference: ref, batch_size: ids.length },
+      });
+    }
+
+    const firstPkg = batchAllocatePkgs[0];
+    if (sendWhatsApp && firstPkg.resident?.phone && firstPkg.resident?.whatsapp_enabled !== false) {
+      try {
+        await supabase.functions.invoke('send-locker-notification', {
+          body: {
+            resident_phone: firstPkg.resident.phone,
+            resident_name: firstPkg.resident.full_name,
+            tower_name: 'Bloco',
+            locker_reference: ref,
+          },
+        });
+      } catch (e) {
+        console.error('[BatchLocker] WhatsApp failed:', e);
+      }
+    }
+
+    toast.success(`${ids.length} encomendas alocadas no armário ${ref}`);
+    setBatchAllocateOpen(false);
+    setBatchAllocatePkgs([]);
+    setSelectedIds(new Set());
+    queryClient.invalidateQueries({ queryKey: ['packages'] });
+    fetchCounts();
+  };
+
   const getLocationBadge = (pkg: Package): { label: string; className: string } | null => {
     if (!isMultiCustody) return null;
     const events = (pkg as any).events as Array<any> | undefined;
@@ -743,6 +822,9 @@ export default function Packages() {
 
   const GroupHeader = ({ pkgs }: { pkgs: Package[] }) => {
     const r = pkgs[0].resident;
+    const firstLocId = (pkgs[0] as any).current_location_id;
+    const canAllocate =
+      isSimpleLocker && (firstLocId == null || firstLocId === centralLocationId);
     return (
       <div className="flex items-center justify-between gap-3 px-3 py-2 rounded-lg bg-primary/5 border border-primary/20">
         <div className="flex items-center gap-2 min-w-0">
@@ -759,13 +841,22 @@ export default function Packages() {
           </div>
           <Badge variant="secondary" className="flex-shrink-0">{pkgs.length} encomendas</Badge>
         </div>
-        <Button size="sm" onClick={() => openBatchForGroup(pkgs)}>
-          <CheckCircle2 className="w-4 h-4 mr-1" />
-          Retirar todas
-        </Button>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          {canAllocate && (
+            <Button size="sm" variant="outline" onClick={() => openBatchAllocateForGroup(pkgs)}>
+              <Boxes className="w-4 h-4 mr-1" />
+              Alocar todas
+            </Button>
+          )}
+          <Button size="sm" onClick={() => openBatchForGroup(pkgs)}>
+            <CheckCircle2 className="w-4 h-4 mr-1" />
+            Retirar todas
+          </Button>
+        </div>
       </div>
     );
   };
+
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -909,6 +1000,18 @@ export default function Packages() {
         onConfirm={handleConfirmAllocation}
       />
 
+      <LockerDialog
+        open={batchAllocateOpen}
+        onOpenChange={(o) => {
+          setBatchAllocateOpen(o);
+          if (!o) setBatchAllocatePkgs([]);
+        }}
+        pkg={batchAllocatePkgs[0] || null}
+        packages={batchAllocatePkgs}
+        towerName="Portaria"
+        onConfirm={handleConfirmBatchAllocation}
+      />
+
       <BatchPickupDialog
         open={batchOpen}
         onOpenChange={(o) => {
@@ -919,28 +1022,39 @@ export default function Packages() {
         onConfirm={handleConfirmBatchPickup}
       />
 
-      {selectedIds.size > 0 && !batchOpen && (
-        <div className="fixed bottom-0 left-0 right-0 z-40 bg-background border-t shadow-lg p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
-          <div className="max-w-2xl mx-auto flex items-center justify-between gap-3">
-            <div className="min-w-0">
-              <p className="text-sm font-medium truncate">
-                {selectedIds.size} selecionada{selectedIds.size > 1 ? 's' : ''}
-                {selectionResident && ` — ${selectionResident.full_name}`}
-              </p>
-            </div>
-            <div className="flex items-center gap-2 flex-shrink-0">
-              <Button variant="ghost" size="sm" onClick={() => setSelectedIds(new Set())}>
-                <X className="w-4 h-4 mr-1" />
-                Limpar
-              </Button>
-              <Button size="sm" onClick={openBatchForSelection}>
-                <CheckCircle2 className="w-4 h-4 mr-1" />
-                Retirar selecionadas
-              </Button>
+      {selectedIds.size > 0 && !batchOpen && !batchAllocateOpen && (() => {
+        const firstSelLocId = (selectedPackages[0] as any)?.current_location_id;
+        const canAllocateSelection =
+          isSimpleLocker && (firstSelLocId == null || firstSelLocId === centralLocationId);
+        return (
+          <div className="fixed bottom-0 left-0 right-0 z-40 bg-background border-t shadow-lg p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
+            <div className="max-w-2xl mx-auto flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-sm font-medium truncate">
+                  {selectedIds.size} selecionada{selectedIds.size > 1 ? 's' : ''}
+                  {selectionResident && ` — ${selectionResident.full_name}`}
+                </p>
+              </div>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <Button variant="ghost" size="sm" onClick={() => setSelectedIds(new Set())}>
+                  <X className="w-4 h-4 mr-1" />
+                  Limpar
+                </Button>
+                {canAllocateSelection && (
+                  <Button size="sm" variant="outline" onClick={() => openBatchAllocateForGroup(selectedPackages)}>
+                    <Boxes className="w-4 h-4 mr-1" />
+                    Alocar selecionadas
+                  </Button>
+                )}
+                <Button size="sm" onClick={openBatchForSelection}>
+                  <CheckCircle2 className="w-4 h-4 mr-1" />
+                  Retirar selecionadas
+                </Button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 }
