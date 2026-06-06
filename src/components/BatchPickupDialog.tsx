@@ -72,7 +72,7 @@ export function BatchPickupDialog({ open, onOpenChange, packages, onConfirm }: B
                   <div className="w-12 h-12 flex-shrink-0 rounded overflow-hidden bg-muted">
                     <PackagePhoto photoUrl={pkg.photo_url} className="w-full h-full object-cover" />
                   </div>
-                  <div className="flex-1 min-w-0 text-sm">
+                  <div className="flex-1 min-w-0 text-sm text-center">
                     <p className="truncate font-medium">{pkg.resident?.full_name || 'Sem destinatário'}</p>
                     <p className="text-xs text-muted-foreground truncate">
                       {pkg.carrier || 'Transportadora não identificada'} ·{' '}
