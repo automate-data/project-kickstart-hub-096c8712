@@ -196,7 +196,10 @@ export function LockerDialog({
             <div className="space-y-3">
               <Label>Notificação WhatsApp</Label>
               <div className="bg-muted rounded-lg p-3 text-sm text-muted-foreground">
-                Olá {residentFirstName}! Sua encomenda está disponível no armário{' '}
+                Olá {residentFirstName}!{' '}
+                {isBatch
+                  ? `Suas ${count} encomendas estão disponíveis no armário `
+                  : 'Sua encomenda está disponível no armário '}
                 <span className="font-medium text-foreground">{lockerRef.trim()}</span> da{' '}
                 <span className="font-medium text-foreground">{towerName}</span>. Retire quando preferir.
               </div>
