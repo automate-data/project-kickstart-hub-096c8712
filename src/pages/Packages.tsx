@@ -373,6 +373,72 @@ export default function Packages() {
     setSelectedPackage(null);
   };
 
+  const handleConfirmBatchPickup = async (signatureData: string) => {
+    if (batchPackages.length === 0) return;
+    const pickedUpAt = new Date().toISOString();
+
+    const results = await Promise.allSettled(
+      batchPackages.map(async (pkg) => {
+        const { error } = await supabase
+          .from('packages')
+          .update({
+            status: 'picked_up',
+            picked_up_at: pickedUpAt,
+            picked_up_by: pkg.resident?.full_name || 'Morador',
+            signature_data: signatureData,
+          })
+          .eq('id', pkg.id);
+
+        if (error) throw error;
+
+        insertLog({
+          event_type: 'package_picked_up',
+          package_id: pkg.id,
+          condominium_id: condominium?.id,
+        });
+
+        if (pkg.resident?.phone) {
+          try {
+            const { data: confirmResult, error: confirmError } = await supabase.functions.invoke(
+              'send-pickup-confirmation',
+              {
+                body: {
+                  phone: pkg.resident.phone,
+                  resident_name: pkg.resident.full_name,
+                  picked_up_at: pickedUpAt,
+                  package_id: pkg.id,
+                  condominium_id: condominium?.id,
+                },
+              }
+            );
+            if (!confirmError && !confirmResult?.error) {
+              await supabase
+                .from('packages')
+                .update({ pickup_confirmation_sent: confirmResult?.success || false })
+                .eq('id', pkg.id);
+            }
+          } catch (e) {
+            console.error('[BatchPickup] WhatsApp failed:', e);
+          }
+        }
+        return pkg.id;
+      })
+    );
+
+    const succeeded = results.filter((r) => r.status === 'fulfilled').length;
+    const failed = results.length - succeeded;
+    if (failed > 0) {
+      toast.error(`${succeeded} de ${results.length} retiradas concluídas. ${failed} falharam.`);
+    } else {
+      toast.success(`${succeeded} encomendas retiradas com sucesso.`);
+    }
+
+    queryClient.invalidateQueries({ queryKey: ['packages'] });
+    fetchCounts();
+    setSelectedIds(new Set());
+    setBatchPackages([]);
+  };
+
   const isMultiCustody = condominium?.custody_mode === 'multi_custody' || condominium?.custody_mode === 'simple_locker';
   const isSimpleLocker = condominium?.custody_mode === 'simple_locker';
 
