@@ -523,7 +523,84 @@ export default function Packages() {
     fetchCounts();
   };
 
-  const getLocationBadge = (pkg: Package): { label: string; className: string } | null => {
+  const openBatchAllocateForGroup = (pkgs: Package[]) => {
+    setBatchAllocatePkgs(pkgs);
+    setBatchAllocateOpen(true);
+  };
+
+  const handleConfirmBatchAllocation = async (lockerReference: string, sendWhatsApp: boolean) => {
+    if (batchAllocatePkgs.length === 0 || !centralLocationId) return;
+
+    const ref = lockerReference.trim();
+    const matched = lockers.find(l => {
+      const n = l.name.toLowerCase();
+      return n === ref.toLowerCase() || n.endsWith(` ${ref.toLowerCase()}`);
+    });
+    const targetLocker = matched || lockers[0];
+
+    if (!targetLocker) {
+      toast.error('Nenhum armário cadastrado. Configure em Configurações Avançadas.');
+      return;
+    }
+
+    const ids = batchAllocatePkgs.map(p => p.id);
+
+    const { error: updErr } = await supabase
+      .from('packages')
+      .update({ current_location_id: targetLocker.id })
+      .in('id', ids);
+
+    if (updErr) {
+      toast.error('Erro ao alocar encomendas');
+      return;
+    }
+
+    const { data: { user } } = await supabase.auth.getUser();
+
+    await supabase.from('package_events').insert(
+      ids.map(id => ({
+        package_id: id,
+        from_location_id: centralLocationId,
+        to_location_id: targetLocker.id,
+        transferred_by: user?.id,
+        notes: `locker_reference:${ref}`,
+      })) as any
+    );
+
+    for (const id of ids) {
+      insertLog({
+        event_type: 'package_allocated_to_locker',
+        package_id: id,
+        condominium_id: condominium?.id,
+        metadata: { locker_reference: ref, batch_size: ids.length },
+      });
+    }
+
+    const firstPkg = batchAllocatePkgs[0];
+    if (sendWhatsApp && firstPkg.resident?.phone && firstPkg.resident?.whatsapp_enabled !== false) {
+      try {
+        await supabase.functions.invoke('send-locker-notification', {
+          body: {
+            resident_phone: firstPkg.resident.phone,
+            resident_name: firstPkg.resident.full_name,
+            tower_name: 'Bloco',
+            locker_reference: ref,
+          },
+        });
+      } catch (e) {
+        console.error('[BatchLocker] WhatsApp failed:', e);
+      }
+    }
+
+    toast.success(`${ids.length} encomendas alocadas no armário ${ref}`);
+    setBatchAllocateOpen(false);
+    setBatchAllocatePkgs([]);
+    setSelectedIds(new Set());
+    queryClient.invalidateQueries({ queryKey: ['packages'] });
+    fetchCounts();
+  };
+
+
     if (!isMultiCustody) return null;
     const events = (pkg as any).events as Array<any> | undefined;
     const lastEvent = events
