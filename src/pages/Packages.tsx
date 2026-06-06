@@ -552,9 +552,16 @@ export default function Packages() {
 
     const ids = batchAllocatePkgs.map(p => p.id);
 
+    const pickedUpAt = new Date().toISOString();
     const { error: updErr } = await supabase
       .from('packages')
-      .update({ current_location_id: targetLocker.id })
+      .update({
+        current_location_id: targetLocker.id,
+        status: 'picked_up',
+        picked_up_at: pickedUpAt,
+        picked_up_by: `Armário ${ref}`,
+        pickup_confirmation_sent: true,
+      })
       .in('id', ids);
 
     if (updErr) {
