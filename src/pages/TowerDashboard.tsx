@@ -394,19 +394,9 @@ export default function TowerDashboard() {
                         </div>
                         <div className="grid grid-cols-2 gap-2 pt-2">
                           {pkg.locker_reference ? (
-                            <Button
-                              size="sm"
-                              className="col-span-2 w-full justify-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white"
-                              disabled={lockerPickupLoading === pkg.id}
-                              onClick={() => setLockerPickupTarget(pkg)}
-                            >
-                              {lockerPickupLoading === pkg.id ? (
-                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                              ) : (
-                                <CheckCircle2 className="w-3.5 h-3.5" />
-                              )}
-                              Confirmar Retirada
-                            </Button>
+                            <div className="col-span-2 text-center text-xs text-muted-foreground py-2">
+                              Encomenda alocada. Aguardando retirada pelo morador.
+                            </div>
                           ) : (
                             <>
                               <Button
