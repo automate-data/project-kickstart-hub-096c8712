@@ -746,11 +746,13 @@ export default function Packages() {
       currentLocId != null &&
       currentLocId !== centralLocationId;
     const isPickedUp = pkg.status === 'picked_up';
+    const currentLocType = (pkg as any).current_location?.type as string | undefined;
+    const isInLocker = currentLocType === 'locker';
     const isClickable = isPickedUp || isTransferredAway;
     const locationBadge = pkg.status === 'pending' && !isTransferredAway ? getLocationBadge(pkg) : null;
     const groupKey = getGroupKey(pkg);
     const isSelectable =
-      pkg.status === 'pending' && !isTransferredAway && !!groupKey;
+      pkg.status === 'pending' && !isTransferredAway && !isInLocker && !!groupKey;
     const isSelected = selectedIds.has(pkg.id);
 
     // Last transfer event leaving the central
