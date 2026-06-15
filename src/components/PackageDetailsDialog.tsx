@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
-import { Timer, Calendar, Truck, User, PenTool, ArrowRightLeft } from 'lucide-react';
+import { Timer, Calendar, Truck, User, PenTool, ArrowRightLeft, Lock } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { differenceInMinutes, differenceInHours, differenceInDays } from 'date-fns';
@@ -125,47 +125,74 @@ export function PackageDetailsDialog({ open, onOpenChange, pkg, centralLocationI
           </div>
 
           {/* Signature */}
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <PenTool className="w-4 h-4 text-muted-foreground" />
-              <span className="font-medium text-sm">
-                {isTransferredAway
-                  ? `Assinatura do recebedor${transferEvent?.to_location?.name ? ` — ${transferEvent.to_location.name}` : ''}`
-                  : 'Assinatura de retirada'}
-              </span>
-            </div>
+          {(() => {
+            const isLockerPickup =
+              !isTransferredAway &&
+              pkg.status === 'picked_up' &&
+              typeof pkg.picked_up_by === 'string' &&
+              pkg.picked_up_by.startsWith('Armário ');
 
-            {isTransferredAway ? (
-              <>
-                {transferredByName && (
-                  <p className="text-xs text-muted-foreground">
-                    Assinado por: <span className="font-medium text-foreground">{transferredByName}</span>
-                  </p>
-                )}
-                {transferEvent?.signature_data ? (
+            if (isLockerPickup) {
+              return (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Lock className="w-4 h-4 text-muted-foreground" />
+                    <span className="font-medium text-sm">Retirada via armário</span>
+                  </div>
+                  <div className="border rounded-lg p-3 bg-card">
+                    <p className="text-sm text-muted-foreground">
+                      Pacote alocado no <span className="font-medium text-foreground">{pkg.picked_up_by}</span>.
+                      A confirmação foi enviada ao morador por WhatsApp — não há assinatura para este tipo de retirada.
+                    </p>
+                  </div>
+                </div>
+              );
+            }
+
+            return (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <PenTool className="w-4 h-4 text-muted-foreground" />
+                  <span className="font-medium text-sm">
+                    {isTransferredAway
+                      ? `Assinatura do recebedor${transferEvent?.to_location?.name ? ` — ${transferEvent.to_location.name}` : ''}`
+                      : 'Assinatura de retirada'}
+                  </span>
+                </div>
+
+                {isTransferredAway ? (
+                  <>
+                    {transferredByName && (
+                      <p className="text-xs text-muted-foreground">
+                        Assinado por: <span className="font-medium text-foreground">{transferredByName}</span>
+                      </p>
+                    )}
+                    {transferEvent?.signature_data ? (
+                      <div className="border rounded-lg p-2 bg-card">
+                        <img
+                          src={transferEvent.signature_data}
+                          alt="Assinatura do recebedor"
+                          className="w-full h-auto"
+                        />
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground italic">Nenhuma assinatura registrada</p>
+                    )}
+                  </>
+                ) : pkg.signature_data ? (
                   <div className="border rounded-lg p-2 bg-card">
                     <img
-                      src={transferEvent.signature_data}
-                      alt="Assinatura do recebedor"
+                      src={pkg.signature_data}
+                      alt="Assinatura do morador"
                       className="w-full h-auto"
                     />
                   </div>
                 ) : (
                   <p className="text-sm text-muted-foreground italic">Nenhuma assinatura registrada</p>
                 )}
-              </>
-            ) : pkg.signature_data ? (
-              <div className="border rounded-lg p-2 bg-card">
-                <img
-                  src={pkg.signature_data}
-                  alt="Assinatura do morador"
-                  className="w-full h-auto"
-                />
               </div>
-            ) : (
-              <p className="text-sm text-muted-foreground italic">Nenhuma assinatura registrada</p>
-            )}
-          </div>
+            );
+          })()}
         </div>
       </DialogContent>
     </Dialog>
