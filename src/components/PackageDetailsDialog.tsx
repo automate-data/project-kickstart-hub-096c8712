@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
-import { Timer, Calendar, Truck, User, PenTool, ArrowRightLeft } from 'lucide-react';
+import { Timer, Calendar, Truck, User, PenTool, ArrowRightLeft, Lock } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { differenceInMinutes, differenceInHours, differenceInDays } from 'date-fns';
