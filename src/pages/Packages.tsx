@@ -689,15 +689,28 @@ export default function Packages() {
 
     const firstPkg = batchAllocatePkgs[0];
     if (sendWhatsApp && firstPkg.resident?.phone && firstPkg.resident?.whatsapp_enabled !== false) {
+      const towerName = firstPkg.resident?.block || 'Bloco';
       try {
-        await supabase.functions.invoke('send-locker-notification', {
-          body: {
-            resident_phone: firstPkg.resident.phone,
-            resident_name: firstPkg.resident.full_name,
-            tower_name: 'Bloco',
-            locker_reference: ref,
-          },
-        });
+        if (ids.length > 1) {
+          await supabase.functions.invoke('send-locker-batch-notification', {
+            body: {
+              resident_phone: firstPkg.resident.phone,
+              resident_name: firstPkg.resident.full_name,
+              package_count: ids.length,
+              locker_reference: ref,
+              tower_name: towerName,
+            },
+          });
+        } else {
+          await supabase.functions.invoke('send-locker-notification', {
+            body: {
+              resident_phone: firstPkg.resident.phone,
+              resident_name: firstPkg.resident.full_name,
+              tower_name: towerName,
+              locker_reference: ref,
+            },
+          });
+        }
       } catch (e) {
         console.error('[BatchLocker] WhatsApp failed:', e);
       }
