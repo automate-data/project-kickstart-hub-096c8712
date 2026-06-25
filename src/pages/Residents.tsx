@@ -232,8 +232,8 @@ export default function Residents() {
                         aria-label="Notificações WhatsApp"
                       />
                     )}
-                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEditDialog(resident)}><Pencil className="w-4 h-4" /></Button>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => setDeleteTarget(resident)}><Trash2 className="w-4 h-4" /></Button>
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEditDialog(resident)} aria-label="Editar morador"><Pencil className="w-4 h-4" /></Button>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => setDeleteTarget(resident)} aria-label="Remover morador"><Trash2 className="w-4 h-4" /></Button>
                   </div>
                 </div>
               </CardContent>

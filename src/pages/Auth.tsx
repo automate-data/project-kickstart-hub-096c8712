@@ -103,7 +103,8 @@ export default function Auth() {
 
   if (isForgotPassword) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-4 bg-background">
+      <main className="min-h-screen flex items-center justify-center p-4 bg-background">
+        <h1 className="sr-only">Recuperar senha do Cheguei!!</h1>
         <Card className="w-full max-w-md animate-fade-in">
           <CardHeader className="text-center space-y-4">
             <div className="mx-auto w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center">
@@ -145,12 +146,13 @@ export default function Auth() {
             </div>
           </CardContent>
         </Card>
-      </div>
+      </main>
     );
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-background">
+    <main className="min-h-screen flex items-center justify-center p-4 bg-background">
+      <h1 className="sr-only">Cheguei!! — Sistema de Recebimento de Encomendas</h1>
       <Card className="w-full max-w-md animate-fade-in">
         <CardHeader className="text-center space-y-4">
           <div className="mx-auto w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center">

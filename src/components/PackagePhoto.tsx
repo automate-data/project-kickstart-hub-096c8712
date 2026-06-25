@@ -8,7 +8,7 @@ interface PackagePhotoProps {
   className?: string;
 }
 
-export function PackagePhoto({ photoUrl, alt = 'Encomenda', className = '' }: PackagePhotoProps) {
+export function PackagePhoto({ photoUrl, alt = 'Foto da encomenda recebida', className = '' }: PackagePhotoProps) {
   const { signedUrl, loading, error } = useSignedUrl('package-photos', photoUrl);
 
   if (loading) {

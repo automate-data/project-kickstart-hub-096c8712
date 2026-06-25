@@ -1,0 +1,10 @@
+# Cheguei!!
+
+> Sistema de recebimento e gestão de encomendas para condomínios: registro com foto, notificação por WhatsApp, armários inteligentes e retirada com assinatura.
+
+Cheguei!! ajuda portarias e administradores de condomínio a registrar encomendas com leitura automática do rótulo (OCR), avisar moradores via WhatsApp, alocar pacotes em armários por torre e controlar a retirada com assinatura digital.
+
+## Pages
+
+- [Início](/): Visão geral pública do Cheguei!!.
+- [Entrar](/auth): Acesso para funcionários e administradores do condomínio.
