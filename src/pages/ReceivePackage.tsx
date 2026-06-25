@@ -379,6 +379,7 @@ export default function ReceivePackage() {
 
   return (
     <div className="min-h-[calc(100vh-8rem)] flex flex-col animate-fade-in">
+      <h1 className="sr-only">Receber nova encomenda</h1>
       <input
         ref={fileInputRef}
         type="file"
@@ -406,6 +407,7 @@ export default function ReceivePackage() {
           />
           <button
             onClick={stopCamera}
+            aria-label="Fechar câmera"
             className="absolute top-4 right-4 w-10 h-10 rounded-full bg-black/50 flex items-center justify-center text-white"
           >
             <X className="w-6 h-6" />

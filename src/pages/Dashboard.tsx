@@ -152,6 +152,7 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6 animate-fade-in">
+      <h1 className="sr-only">Painel do Cheguei!!</h1>
       <div className="flex flex-col items-center py-8">
         <Link to="/receive">
           <Button size="lg" className="h-32 w-32 rounded-3xl flex flex-col gap-2 shadow-lg hover:shadow-xl transition-all hover:scale-105">
